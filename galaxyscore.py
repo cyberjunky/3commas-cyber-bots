@@ -7,6 +7,10 @@ from py3cw.request import Py3CW
 
 import config
 
+import logging
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger()
+
 botIds = config.BotIds
 galaxyScoreList = list()
 tickerList = list()
@@ -23,22 +27,22 @@ p3cw = Py3CW(
 )
 
 
-def get_binance_ticker():
-    """Get the valid symbols from Binance."""
+def get_binance_market():
+    """Get all the valid pairs from Binance."""
     tickerList = []
 
     result = requests.get("https://api.binance.com/api/v3/ticker/price")
     if result:
-        print("Fetching ticker prices OK")
+        print("Fetched Binance market data OK")
         ticker = result.json()
         for entry in ticker:
             coin = entry["symbol"]
-#            print(coin)
+            logger.debug("Market data coin: %s" % coin)
             tickerList.append(coin)
 
         return tickerList
     else:
-        print("Fetching ticker prices failed")
+        print("Fetching Binance market data failed with error; %s" % error)
 
 
 def get_galaxyscore():
@@ -48,7 +52,7 @@ def get_galaxyscore():
 
     result = requests.get(url)
     if result:
-        print("Fetching Top 10 GalaxyScore OK")
+        print("Fetched LunarCrush Top 10 GalaxyScore OK")
         top10 = result.json()
         for entry in top10["data"]:
             coin = entry["s"]
@@ -56,17 +60,18 @@ def get_galaxyscore():
 
         return tmpList
     else:
-        print("Fetching Top 10 GalaxyScore failed")
+        print("Fetching LunarCrush Top 10 GalaxyScore failed with error: %s" % error)
         sys.exit()
 
 
 def get_blacklist():
     """Get the pair blacklist from 3Commas."""
     error, data = p3cw.request(entity="bots", action="pairs_black_list", action_id="")
-    if not error:
+    if result:
+        print("Fetched 3Commas pairs blacklist OK")
         return data["pairs"]
     else:
-        print(error)
+        print("Fetching 3Commas pairs blacklist failed with error: %s" % error)
         sys.exit()
 
 
@@ -75,24 +80,24 @@ def update_bots_pairs(bot):
     newpairsList = list()
 
     base = bot["pairs"][0].split("_")[0]
-#    print(base)
+    logger.debug(base)
 
     for coin in galaxyScoreList:
         tick = coin + base
         pair = base + "_" + coin
-#        print(tick)
-#        print(pair)
+        logger.debug("Binance pair: %s" % tick)
+        logger.debug("3Commas pair: %s" % pair)
         if tick in tickerList:
             if pair in blackList:
-                print("%s is on blacklist, skipping." % pair)
+                print("%s pair is on your 3Commas blacklist, skipping." % pair)
             else:
                 newpairsList.append(pair)
 
-#    print(newpairsList)
-#    print(bot["pairs"])
+    logger.debug("New     pairs: %s:" % newpairsList)
+    logger.debug("Current pairs: %s" % bot["pairs"])
 
     if newpairsList == bot["pairs"]:
-        print("Bot is already using same pairs, skipping.")
+        print("Bot '%s' is already using the same pairs, skipping update." % bot['name'])
         return
         
     if newpairsList:
@@ -123,26 +128,26 @@ def update_bots_pairs(bot):
             },
         )
         if error:
-            print(error)
+            logger.error("Error occurred while updating bot '%s' error: %s" % (bot['name'], error))
             sys.exit()
         else:
-            print(data)
+            logger.debug("Bot updated with these settings: %s" % data)
             print("Bot named '%s' with id %s updated to use pairs %s" % (str(bot["name"]), str(bot["id"]), newpairsList))
     else:
-        print("No new pairs with market data!")
+        print("No new pairs with market data found!")
 
 
 while True:
     result = time.strftime("%A %H:%M:%S %d-%m-%Y")
     print("3Commas GalaxyScore bot. Started at %s" % result)
 
-    # Update binance ticker/market
-    tickerList = get_binance_ticker()
-    print("%d symbols loaded from Binance ticker" % len(tickerList))
+    # Update binance markets
+    tickerList = get_binance_market()
+    print("%d symbols loaded from Binance market" % len(tickerList))
 
     # Get Top10 GalaxyScore coins
     galaxyScoreList = get_galaxyscore()
-    print(galaxyScoreList)
+    logger.debug("GalaxyScores candidates found: %s" % galaxyScoreList)
 
     # Update 3Commas black list
     blackList = get_blacklist()
@@ -152,7 +157,7 @@ while True:
     for bot in botIds:
         error, data = p3cw.request(entity="bots", action="show", action_id=str(bot))
         try:
-            print("Updating 3Commas bot(s)")
+            print("Updating the 3Commas bot(s)")
             update_bots_pairs(data)
         except Exception as e:
             print("Error occurred while updating bot: %s " % e)
