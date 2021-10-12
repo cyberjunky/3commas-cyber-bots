@@ -5,7 +5,7 @@
 
 I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
 
-## galaxyscore.py
+## GalaxyScore Bot 'galaxyscore.py'*
 
 ## What does it do?
 
@@ -34,6 +34,7 @@ Then the galaxyscore bot will sleep for the set interval time, after which it wi
 
 -   Create a [3Commas account](https://3commas.io/?c=tc587527) (Includes my referral link, again I'll be super grateful if you use it).
 -   Enable Two-factor Authentication.
+-   Connect your 3Commas account with the Binance exchange using the key values created above.
 -   Create a new API key with Bot Read and Bot Write permissions, enther these key in config.py
 -   Setup a DCA Bot (details will follow)
 
@@ -48,13 +49,14 @@ Then the galaxyscore bot will sleep for the set interval time, after which it wi
 ### Install Python dependencies
 
 Run the following line in the terminal: `pip install -r requirements.txt`.
-Or run `setup.sh` to install everything inside a Python Enviroment.
+
+Or run `setup.sh` script to install everything inside a Python Enviroment, also see below.
 
 ### Create user configuration
 
 Create a config file named `config.py` based off `example.config.py`, then add your API keys and settings.
 
-**The configuration file consists of the following fields:**
+The configuration file contains the following fields:
 -   **timeInterval** - time interval in Seconds.
 -   **BotIds** - a list of bot id's to manage
 -   **ApiKeys** - Your 3Commas API key values.
@@ -63,9 +65,34 @@ Create a config file named `config.py` based off `example.config.py`, then add y
 
 ### Run the bot
 
-`python3 ./galaxyscore.py` or check out the service file.
+#### Manually
+`python3 ./galaxyscore.py`
+
+#### From Python Enviroment
+You can use the install script called setup.sh to create this environment.
+Simply run it as ./setup.sh and you have the options:
+```
+usage:
+	-i,--install    Install 3commas-cyber-bots from scratch
+	-u,--update     Command git pull to update.
+```
+It creates a .env python enviroment to install the requirements in, and you can run the scripts from there without cluttering your machine.
+
+Before running any of the scripts manually enter the virtual environment first
+```
+cd 3commas-cyber-bots
+source .env/bin/activate
+```
+#### Automatically
+
+Example service file 3commas-galaxyscore-bot.service, you need to edit the paths inside to reflect your install..
+```
+sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
+sudo systemd start 3commas-galaxyscore-bot.service
+```
 
 ### TODO
+- Download and check more top coins if there are too few because left if there are blacklisted or non valid ones for Binance to keep the minimum.
 - Create a real config file
 - Add notifications
 - Better error handling
