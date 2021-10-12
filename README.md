@@ -92,6 +92,44 @@ sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
 sudo systemd start 3commas-galaxyscore-bot.service
 ```
 
+### Example output
+```
+3Commas GalaxyScore bot. Started at Tuesday 21:53:34 12-10-2021.
+Fetched Binance market data OK
+1695 symbols loaded from Binance market
+Fetched LunarCrush Top X GalaxyScore OK
+Fetched 3Commas pairs blacklist OK
+51 pairs loaded from 3Commas blacklist
+Updating the 3Commas bot(s)
+BUSD_USDT pair is not valid on Binance's market, skipping.
+BUSD_NKN pair is not valid on Binance's market, skipping.
+BUSD_HERO3 pair is not valid on Binance's market, skipping.
+BUSD_STRIKE pair is not valid on Binance's market, skipping.
+BUSD_FLOKI pair is not valid on Binance's market, skipping.
+BUSD_YOOSHI pair is not valid on Binance's market, skipping.
+BUSD_DAG pair is not valid on Binance's market, skipping.
+BUSD_BCN pair is not valid on Binance's market, skipping.
+BUSD_100X pair is not valid on Binance's market, skipping.
+BUSD_KDA pair is not valid on Binance's market, skipping.
+BUSD_XPR pair is not valid on Binance's market, skipping.
+BUSD_BELT pair is not valid on Binance's market, skipping.
+BUSD_HANU pair is not valid on Binance's market, skipping.
+BUSD_ORION pair is not valid on Binance's market, skipping.
+BUSD_LEOS pair is not valid on Binance's market, skipping.
+BUSD_TRAVA pair is not valid on Binance's market, skipping.
+BUSD_CAKE pair is on your 3Commas blacklist, skipping.
+BUSD_DG pair is not valid on Binance's market, skipping.
+BUSD_XYO pair is not valid on Binance's market, skipping.
+BUSD_SLIM pair is not valid on Binance's market, skipping.
+BUSD_POOCOIN pair is not valid on Binance's market, skipping.
+BUSD_OHM pair is not valid on Binance's market, skipping.
+BUSD_APYS pair is not valid on Binance's market, skipping.
+BUSD_AIRT  pair is not valid on Binance's market, skipping.
+Bot named 'BUSD Bull Long Bot GalaxyScore' with id 123456 updated to use pairs ['BUSD_DOT', 'BUSD_XTZ',
+'BUSD_SOL', 'BUSD_HBAR', 'BUSD_ATOM', 'BUSD_CELR', 'BUSD_ALGO', 'BUSD_POLS', 'BUSD_RAY', 'BUSD_MBOX']
+Next bot(s) update in 3600 Seconds at Tuesday 22:53:40 12-10-2021.
+```
+
 ### TODO
 - Download and check more top coins if there are too few because left if there are blacklisted or non valid ones for Binance to keep the minimum.
 - Create a real config file
