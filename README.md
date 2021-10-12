@@ -5,7 +5,7 @@
 
 I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
 
-## galaxyscore.py
+## GalaxyScore Bot 'galaxyscore.py'*
 
 ## What does it do?
 
@@ -49,7 +49,8 @@ Then the galaxyscore bot will sleep for the set interval time, after which it wi
 ### Install Python dependencies
 
 Run the following line in the terminal: `pip install -r requirements.txt`.
-Or run `setup.sh` to install everything inside a Python Enviroment.
+
+Or run `setup.sh` script to install everything inside a Python Enviroment, also see below.
 
 ### Create user configuration
 
@@ -64,7 +65,31 @@ The configuration file contains the following fields:
 
 ### Run the bot
 
-`python3 ./galaxyscore.py` or check out the service file.
+#### Manually
+`python3 ./galaxyscore.py`
+
+#### From Python Enviroment
+You can use the install script called setup.sh to create this environment.
+Simply run it as ./setup.sh and you have the options:
+```
+usage:
+	-i,--install    Install 3commas-cyber-bots from scratch
+	-u,--update     Command git pull to update.
+```
+It creates a .env python enviroment to install the requirements in, and you can run the scripts from there without cluttering your machine.
+
+Before running any of the scripts manually enter the virtual environment first
+```
+cd 3commas-cyber-bots
+source .env/bin/activate
+```
+#### Automatically
+
+Example service file 3commas-galaxyscore-bot.service, you need to edit the paths inside to reflect your install..
+```
+sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
+sudo systemd start 3commas-galaxyscore-bot.service
+```
 
 ### TODO
 - Download and check more top coins if there are too few because left if there are blacklisted or non valid ones for Binance to keep the minimum.
