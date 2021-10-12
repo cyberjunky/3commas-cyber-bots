@@ -127,7 +127,7 @@ def update_bots_pairs(bot):
             sys.exit()
         else:
             print(data)
-            print("Bot with id %s updated with pairs %s" % (str(bot["id"]), newpairsList))
+            print("Bot named '%s' with id %s updated to use pairs %s" % (str(bot["name"]), str(bot["id"]), newpairsList))
     else:
         print("No new pairs with market data!")
 
