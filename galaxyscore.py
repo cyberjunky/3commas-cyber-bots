@@ -12,6 +12,8 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger()
 
 botIds = config.BotIds
+NumberOfPairs = config.NumberOfPairs
+
 galaxyScoreList = list()
 tickerList = list()
 blackList = list()
@@ -21,7 +23,7 @@ p3cw = Py3CW(
     secret=config.ApiKeys["apiSecret"],
     request_options={
         "request_timeout": 10,
-        "nr_of_retries": 1,
+        "nr_of_retries": 2,
         "retry_status_codes": [502],
     },
 )
@@ -46,21 +48,21 @@ def get_binance_market():
 
 
 def get_galaxyscore():
-    """Get the top 10 GalaxyScore from LunarCrush."""
+    """Get the top x GalaxyScore from LunarCrush."""
     tmpList = list()
-    url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=10&sort=gs&desc=true".format(config.LunarCrushApiKey)
+    url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=50&sort=gs&desc=true".format(config.LunarCrushApiKey)
 
     result = requests.get(url)
     if result:
-        print("Fetched LunarCrush Top 10 GalaxyScore OK")
-        top10 = result.json()
-        for entry in top10["data"]:
+        print("Fetched LunarCrush Top X GalaxyScore OK")
+        topX = result.json()
+        for entry in topX["data"]:
             coin = entry["s"]
             tmpList.append(coin)
 
         return tmpList
     else:
-        print("Fetching LunarCrush Top 10 GalaxyScore failed with error: %s" % error)
+        print("Fetching LunarCrush Top X GalaxyScore failed with error: %s" % error)
         sys.exit()
 
 
@@ -92,12 +94,16 @@ def update_bots_pairs(bot):
                 print("%s pair is on your 3Commas blacklist, skipping." % pair)
             else:
                 newpairsList.append(pair)
+        else:
+            print("%s pair is not valid on Binance's market, skipping." % pair)
+        if len(newpairsList) == NumberOfPairs:
+            break
 
     logger.debug("New     pairs: %s:" % newpairsList)
     logger.debug("Current pairs: %s" % bot["pairs"])
 
     if newpairsList == bot["pairs"]:
-        print("Bot '%s' is already using the same pairs, skipping update." % bot['name'])
+        print("Bot '%s' is already using the best pairs, skipping update." % bot['name'])
         return
         
     if newpairsList:
@@ -128,7 +134,7 @@ def update_bots_pairs(bot):
             },
         )
         if error:
-            logger.error("Error occurred while updating bot '%s' error: %s" % (bot['name'], error))
+            logger.error("Error occurred while updating bot '%s' error: %s" % (str(bot["name"]), error))
             sys.exit()
         else:
             logger.debug("Bot updated with these settings: %s" % data)
@@ -139,7 +145,7 @@ def update_bots_pairs(bot):
 
 while True:
     result = time.strftime("%A %H:%M:%S %d-%m-%Y")
-    print("3Commas GalaxyScore bot. Started at %s" % result)
+    print("3Commas GalaxyScore bot. Started at %s." % result)
 
     # Update binance markets
     tickerList = get_binance_market()
@@ -151,7 +157,7 @@ while True:
 
     # Update 3Commas black list
     blackList = get_blacklist()
-    print("%d symbols loaded from 3Commas blacklist" % len(blackList))
+    print("%d pairs loaded from 3Commas blacklist" % len(blackList))
 
     # Walk through all bots specified
     for bot in botIds:
@@ -160,14 +166,14 @@ while True:
             print("Updating the 3Commas bot(s)")
             update_bots_pairs(data)
         except Exception as e:
-            print("Error occurred while updating bot: %s " % e)
+            logger.error("Error occurred while updating bot with id %s: %s " % (bot,e))
             sys.exit()
 
-    if config.timeInterval > 0:
+    if config.TimeInterval > 0:
         localtime = time.time()
-        nexttime = localtime + int(config.timeInterval)
+        nexttime = localtime + int(config.TimeInterval)
         result = time.strftime("%A %H:%M:%S %d-%m-%Y", time.localtime(nexttime))
-        print("Next bot(s) update in %s seconds at %s." % (config.timeInterval, result))
-        time.sleep(config.timeInterval)
+        print("Next bot(s) update in %s Seconds at %s." % (config.TimeInterval, result))
+        time.sleep(config.TimeInterval)
     else:
         break
