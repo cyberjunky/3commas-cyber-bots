@@ -55,7 +55,7 @@ Or run `setup.sh` to install everything inside a Python Enviroment.
 
 Create a config file named `config.py` based off `example.config.py`, then add your API keys and settings.
 
-The configuration file consists of the following fields:
+The configuration file contains the following fields:
 -   **timeInterval** - time interval in Seconds.
 -   **BotIds** - a list of bot id's to manage
 -   **ApiKeys** - Your 3Commas API key values.
