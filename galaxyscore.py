@@ -124,6 +124,7 @@ def update_bots_pairs(bot):
                     bot["martingale_step_coefficient"]
                 ),
                 "max_safety_orders": int(bot["max_safety_orders"]),
+                "max_active_deals": int(bot["max_active_deals"]),
                 "active_safety_orders_count": int(bot["active_safety_orders_count"]),
                 "safety_order_step_percentage": float(
                     bot["safety_order_step_percentage"]
