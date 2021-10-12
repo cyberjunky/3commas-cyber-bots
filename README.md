@@ -66,6 +66,7 @@ Create a config file named `config.py` based off `example.config.py`, then add y
 `python3 ./galaxyscore.py` or check out the service file.
 
 ### TODO
+- Download top coins if there are too few because left if there are blacklisted or non valid ones for Binance to keep the minimum.
 - Create a real config file
 - Add notifications
 - Better error handling
