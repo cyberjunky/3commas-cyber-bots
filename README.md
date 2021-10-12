@@ -98,6 +98,17 @@ sudo systemd start 3commas-galaxyscore-bot.service
 - Better error handling
 - Implement debug information
 
+### Debugging
+
+For now edit this line in `galaxyscore.py` to enable debug output:
+```
+logging.basicConfig(level=logging.ERROR)
+```
+to this:
+```
+logging.basicConfig(level=logging.DEBUG)
+```
+
 ## Disclaimer
 
 This project is for informational purposes only. You should not construe any
