@@ -61,6 +61,7 @@ The configuration file contains the following fields:
 -   **BotIds** - a list of bot id's to manage
 -   **ApiKeys** - Your 3Commas API key values.
 -   **LunarCrushApiKey** - Your LunarCrush API key value.
+-   **NumberOfPairs** - Number of pairs to update your bots with.
 
 
 ### Run the bot
