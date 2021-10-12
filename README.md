@@ -34,6 +34,7 @@ Then the galaxyscore bot will sleep for the set interval time, after which it wi
 
 -   Create a [3Commas account](https://3commas.io/?c=tc587527) (Includes my referral link, again I'll be super grateful if you use it).
 -   Enable Two-factor Authentication.
+-   Connect your 3Commas account with the Binance exchange using the key values created above.
 -   Create a new API key with Bot Read and Bot Write permissions, enther these key in config.py
 -   Setup a DCA Bot (details will follow)
 
