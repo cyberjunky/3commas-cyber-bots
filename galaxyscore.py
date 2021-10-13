@@ -207,8 +207,10 @@ def update_bots_pairs(self, bot):
         tickerlist = self.binancetickerlist
     elif exchange == "FTX":
         tickerlist = self.ftxtickerlist
+    elif exchange.find('Paper Account'):
+        tickerlist = self.binancetickerlist
     else:
-        self.logger.warn("Bot is using %s exchange which is not implemented yet!" % exchange)
+        self.logger.error("Bot is using the %s exchange which is not implemented yet!" % exchange)
         sys.exit()
 
     for coin in self.galaxyscorelist:
@@ -312,7 +314,6 @@ class Main:
 
             # Get exchange markets
             self.binancetickerlist = get_binance_market(self)
-            self.logger.info("%d symbols loaded from Binance market" % len(self.binancetickerlist))
             self.ftxtickerlist = get_ftx_market(self)
 
             # Get Top10 GalaxyScore coins
