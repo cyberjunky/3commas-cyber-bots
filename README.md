@@ -70,7 +70,21 @@ The configuration file contains the following sections and fields:
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
+Example: (keys are bogus)
+```
+[main]
+debug = False
 
+[galaxyscore]
+timeinterval = 1800
+numberofpairs = 10
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+lc-apikey = z2cwr88jkyclno8ryj0f
+botids = [ 123456 ]
+notifications = True
+notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
 ### Run the bot
 
 #### Manually
