@@ -100,14 +100,14 @@ def load_config(self):
 
     config["main"] = {"debug": False}
     config["galaxyscore"] = {
-        "notifications": False,
-        "notify": "Your notify option",
         "timeinterval": 3600,
         "numberofpairs": 10,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API secret",
         "lc-apikey": "Your LunarCrush API key",
-        "botids": [12345, 67890],
+        "botids": [ 12345, 67890 ],
+        "notifications": False,
+        "notify-urls": [ "notify-url1", "notify-url2" ],
     }
     with open("config.ini", "w") as configfile:
         config.write(configfile)
@@ -164,19 +164,20 @@ def get_galaxyscore(self):
     """Get the top x GalaxyScore from LunarCrush."""
     tmpList = list()
     url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=50&sort=gs&desc=true".format(self.config.get("galaxyscore", "lc-apikey"))
+    try:
+        result = requests.get(url)
+        if result:
+            topX = result.json()
+            for entry in topX["data"]:
+                coin = entry["s"]
+                tmpList.append(coin)
+            self.logger.info("Fetched LunarCrush Top X GalaxyScore OK (%s coins)" % len(tmpList))
 
-    result = requests.get(url)
-    if result:
-        topX = result.json()
-        for entry in topX["data"]:
-            coin = entry["s"]
-            tmpList.append(coin)
-        self.logger.info("Fetched LunarCrush Top X GalaxyScore OK (%s coins)" % len(tmpList))
-
-        return tmpList
-    else:
-        self.logger.error("Fetching LunarCrush Top X GalaxyScore failed with error: %s" % error)
-        sys.exit()
+            return tmpList
+        result.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+            self.logger.error("Fetching LunarCrush Top X GalaxyScore failed with error: %s" % err)
+            sys.exit()
 
 
 def get_blacklist(self):
@@ -335,7 +336,7 @@ class Main:
                 localtime = time.time()
                 nexttime = localtime + int(timeinterval)
                 result = time.strftime("%H:%M:%S", time.localtime(nexttime))
-                self.logger.info("Next update in %s Seconds at %s." % (timeinterval, result))
+                self.logger.info("Next update in %s Seconds at %s" % (timeinterval, result))
                 self.notificationhandler.send_notification("Next update in %s Seconds at %s" % (timeinterval, result))
                 time.sleep(timeinterval)
             else:
