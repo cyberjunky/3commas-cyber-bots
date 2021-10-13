@@ -154,13 +154,9 @@ Create the 'logs' directory inside the bot folder.
 
 ### Debugging
 
-For now edit this line in `galaxyscore.py` to enable debug output:
+Set debug to True in config.ini and check log file for debug information
 ```
-logging.basicConfig(level=logging.ERROR)
-```
-to this:
-```
-logging.basicConfig(level=logging.DEBUG)
+debug = True
 ```
 
 ## Support the Project
