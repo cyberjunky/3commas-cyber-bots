@@ -207,7 +207,7 @@ def update_bots_pairs(self, bot):
         tickerlist = self.binancetickerlist
     elif exchange == "FTX":
         tickerlist = self.ftxtickerlist
-    elif exchange.find('Paper Account'):
+    elif 'Paper Account' in exchange:
         tickerlist = self.binancetickerlist
     else:
         self.logger.error("Bot is using the %s exchange which is not implemented yet!" % exchange)
@@ -294,14 +294,16 @@ class Main:
         self.config = load_config(self)
         if not self.config:
            self.logger = Logger(False)
-           self.logger.info("3Commas GalaxyScore bot helper. Started at %s." % result)
+           self.logger.info("3Commas GalaxyScore bot helper!")
+           self.logger.info("Started at %s." % result)
            self.logger.info("Created example config file 'config.ini', edit it and restart the program.")
            sys.exit(0)
         else:
            # Init logging
            self.debug_enabled = self.config.getboolean("main", "debug")
            self.logger = Logger(self.debug_enabled)
-           self.logger.info("3Commas GalaxyScore bot helper. Started at %s" % result)
+           self.logger.info("3Commas GalaxyScore bot helper!")
+           self.logger.info("Started at %s" % result)
            self.logger.info("Loaded configuration from 'config.ini'")
 
         # Init notification handler
