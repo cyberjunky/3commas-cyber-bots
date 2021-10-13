@@ -131,11 +131,8 @@ Next bot(s) update in 3600 Seconds at Tuesday 22:53:40 12-10-2021.
 ```
 
 ### TODO
-- Download and check more top coins if there are too few because left if there are blacklisted or non valid ones for Binance to keep the minimum.
 - Create a real config file
-- Add notifications
-- Better error handling
-- Implement debug information
+- Add telegram notifications
 
 ### Debugging
 
