@@ -130,11 +130,11 @@ Traceback (most recent call last):
     from py3cw.request import Py3CW
 ModuleNotFoundError: No module named 'py3cw'
 ```
-Install the python requirements
+Install the python requirements like so:
 ``` 
 pip3 install -r requirements.txt
 ```
-Or run `setup.sh` script to install th Python environent with everything in it.
+Or run `setup.sh` script to install the Python environent with everything in it.
 
 2) I get this error:
 ```
