@@ -166,6 +166,21 @@ FileNotFoundError: [Errno 2] No such file or directory: '/home/pi/3commas-cyber-
 
 Create the 'logs' directory inside the bot folder.
 
+4) I use telegram notifications and get the message:
+```
+Detected Telegram user R (userid=123456789)
+2021-10-13 21:20:05,573 INFO - Update your Telegram Apprise URL to read: tgram://2...w/%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes
+```
+Apply the part behind and including the % to your tgram url in the config, but add another % infront of the % to suppress parse errors like this:
+```
+   raise InterpolationSyntaxError(
+configparser.InterpolationSyntaxError: '%' must be followed by '%' or '(', found: '%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes" ]'
+```
+
+So it looks something like this: (strings are bogus)
+```
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/%%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes" ]
+```
 ### Debugging
 
 Set debug to True in config.ini and check log file `logs/galaxyscore.log` for debug information
