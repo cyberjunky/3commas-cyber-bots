@@ -121,6 +121,28 @@ sudo systemd start 3commas-galaxyscore-bot.service
 ### TODO
 - You tell me
 
+### FAQ
+
+1) I get this when I try to start the bot:
+```
+Traceback (most recent call last):
+  File "./galaxyscore.py", line 7, in <module>
+    from py3cw.request import Py3CW
+ModuleNotFoundError: No module named 'py3cw'
+```
+Install the python requirements
+``` 
+pip3 install -r requirements.txt
+```
+Or run `setup.sh` script to install th Python environent with everything in it.
+
+2) I get this error:
+```
+Fetching 3Commas pairs blacklist failed with error: {'error': True, 'msg': 'Other error occurred: api_key_invalid_or_expired Unauthorized. Invalid or expired api key. None.'}
+```
+
+Something is wrong with your 3Commas API keys, check the API key values in your `config.ini` file, you can paste them there without the " " 
+
 ### Debugging
 
 For now edit this line in `galaxyscore.py` to enable debug output:
