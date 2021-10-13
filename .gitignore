@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
-config.py
+config.ini
+apprise.yml
 __pycache__/
 *.py[cod]
 *$py.class
