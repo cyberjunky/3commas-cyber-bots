@@ -143,6 +143,15 @@ Fetching 3Commas pairs blacklist failed with error: {'error': True, 'msg': 'Othe
 
 Something is wrong with your 3Commas API keys, check the API key values in your `config.ini` file, you can paste them there without the " " 
 
+3) I get this error:
+```
+  File "/usr/lib/python3.7/logging/init.py", line 1121, in _open
+    return open(self.baseFilename, self.mode, encoding=self.encoding)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/pi/3commas-cyber-bots/logs/galaxyscore.log'
+```
+
+Create the 'logs' directory inside the bot folder.
+
 ### Debugging
 
 For now edit this line in `galaxyscore.py` to enable debug output:
