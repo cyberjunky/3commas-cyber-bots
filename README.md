@@ -168,7 +168,7 @@ Create the 'logs' directory inside the bot folder.
 
 ### Debugging
 
-Set debug to True in config.ini and check log file for debug information
+Set debug to True in config.ini and check log file `logs/galaxyscore.log` for debug information
 ```
 debug = True
 ```
