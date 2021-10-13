@@ -121,15 +121,42 @@ sudo systemd start 3commas-galaxyscore-bot.service
 ### TODO
 - You tell me
 
+### FAQ
+
+1) I get this when I try to start the bot:
+```
+Traceback (most recent call last):
+  File "./galaxyscore.py", line 7, in <module>
+    from py3cw.request import Py3CW
+ModuleNotFoundError: No module named 'py3cw'
+```
+Install the python requirements like so:
+``` 
+pip3 install -r requirements.txt
+```
+Or run `setup.sh` script to install the Python environent with everything in it.
+
+2) I get this error:
+```
+Fetching 3Commas pairs blacklist failed with error: {'error': True, 'msg': 'Other error occurred: api_key_invalid_or_expired Unauthorized. Invalid or expired api key. None.'}
+```
+
+Something is wrong with your 3Commas API keys, check the API key values in your `config.ini` file, you can paste them there without the " " 
+
+3) I get this error:
+```
+  File "/usr/lib/python3.7/logging/init.py", line 1121, in _open
+    return open(self.baseFilename, self.mode, encoding=self.encoding)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/pi/3commas-cyber-bots/logs/galaxyscore.log'
+```
+
+Create the 'logs' directory inside the bot folder.
+
 ### Debugging
 
-For now edit this line in `galaxyscore.py` to enable debug output:
+Set debug to True in config.ini and check log file for debug information
 ```
-logging.basicConfig(level=logging.ERROR)
-```
-to this:
-```
-logging.basicConfig(level=logging.DEBUG)
+debug = True
 ```
 
 ## Support the Project
