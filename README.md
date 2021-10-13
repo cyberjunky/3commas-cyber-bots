@@ -1,3 +1,5 @@
+[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/cyberjunkynl/)
+
 # 3commas-cyber-bots
 > Some 3Commas helper bots (collection will grow over time)
 
@@ -5,21 +7,20 @@
 
 I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
 
-## GalaxyScore Bot 'galaxyscore.py'*
+## GalaxyScore bot helper 'galaxyscore.py'*
 
 ## What does it do?
 
-It will monitor LunarCrush's GalaxyScore and use the Top 10 to create pairs for your 3Comma's composite DCA bots to use.
+It will monitor LunarCrush's GalaxyScores and use the Top X to create pairs for your 3Comma's composite DCA bots to use.
 
 ## How does it work?
 
 The GalaxyScore Top 10 coins from LunarCrush are downloaded.
-
-The base pair of each of the specified 3Comma's bots is determined, new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data of Binance to see if the pairs are valid. (I can add other Exchanges on request)
+And the base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data of Binance or FTX to see if the pairs are valid. (I can add other Exchanges on request)
 
 If this is the case -and the current pair are different- the bot(s) are updated with the new pairs.
 
-Then the galaxyscore bot will sleep for the set interval time, after which it will repeat these steps.
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 
 ## Binance Setup
@@ -40,7 +41,7 @@ Then the galaxyscore bot will sleep for the set interval time, after which it wi
 
 
 ## LunarCrush Setup
-
+Support the Project
 -   Create a [LunarCrush account](https://lunarcrush.com)
 -   Create a new API key and enther these key in config.py as well.
 
@@ -54,14 +55,20 @@ Or run `setup.sh` script to install everything inside a Python Enviroment, also 
 
 ### Create user configuration
 
-Create a config file named `config.py` based off `example.config.py`, then add your API keys and settings.
+If your run galaxyscore for the first time it will create default config file named `config.ini` edit it with the information below.
 
-The configuration file contains the following fields:
--   **timeInterval** - time interval in Seconds.
--   **BotIds** - a list of bot id's to manage
--   **ApiKeys** - Your 3Commas API key values.
--   **LunarCrushApiKey** - Your LunarCrush API key value.
--   **NumberOfPairs** - Number of pairs to update your bots with.
+The configuration file contains the following sections and fields:
+-   **[main]**
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **[galaxyscore]**
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **lc-apikey** - Your LunarCrush API key value.
+-   **botids** - a list of bot id's to manage separated with commas
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
 
 ### Run the bot
@@ -94,45 +101,25 @@ sudo systemd start 3commas-galaxyscore-bot.service
 
 ### Example output
 ```
-3Commas GalaxyScore bot. Started at Tuesday 21:53:34 12-10-2021.
-Fetched Binance market data OK
-1695 symbols loaded from Binance market
-Fetched LunarCrush Top X GalaxyScore OK
-Fetched 3Commas pairs blacklist OK
-51 pairs loaded from 3Commas blacklist
-Updating the 3Commas bot(s)
-BUSD_USDT pair is not valid on Binance's market, skipping.
-BUSD_NKN pair is not valid on Binance's market, skipping.
-BUSD_HERO3 pair is not valid on Binance's market, skipping.
-BUSD_STRIKE pair is not valid on Binance's market, skipping.
-BUSD_FLOKI pair is not valid on Binance's market, skipping.
-BUSD_YOOSHI pair is not valid on Binance's market, skipping.
-BUSD_DAG pair is not valid on Binance's market, skipping.
-BUSD_BCN pair is not valid on Binance's market, skipping.
-BUSD_100X pair is not valid on Binance's market, skipping.
-BUSD_KDA pair is not valid on Binance's market, skipping.
-BUSD_XPR pair is not valid on Binance's market, skipping.
-BUSD_BELT pair is not valid on Binance's market, skipping.
-BUSD_HANU pair is not valid on Binance's market, skipping.
-BUSD_ORION pair is not valid on Binance's market, skipping.
-BUSD_LEOS pair is not valid on Binance's market, skipping.
-BUSD_TRAVA pair is not valid on Binance's market, skipping.
-BUSD_CAKE pair is on your 3Commas blacklist, skipping.
-BUSD_DG pair is not valid on Binance's market, skipping.
-BUSD_XYO pair is not valid on Binance's market, skipping.
-BUSD_SLIM pair is not valid on Binance's market, skipping.
-BUSD_POOCOIN pair is not valid on Binance's market, skipping.
-BUSD_OHM pair is not valid on Binance's market, skipping.
-BUSD_APYS pair is not valid on Binance's market, skipping.
-BUSD_AIRT  pair is not valid on Binance's market, skipping.
-Bot named 'BUSD Bull Long Bot GalaxyScore' with id 123456 updated to use pairs ['BUSD_DOT', 'BUSD_XTZ',
-'BUSD_SOL', 'BUSD_HBAR', 'BUSD_ATOM', 'BUSD_CELR', 'BUSD_ALGO', 'BUSD_POLS', 'BUSD_RAY', 'BUSD_MBOX']
-Next bot(s) update in 3600 Seconds at Tuesday 22:53:40 12-10-2021.
+2021-10-13 18:08:52,369 INFO - 3Commas GalaxyScore bot helper. Started at Wednesday 18:08:52 13-10-2021
+2021-10-13 18:08:52,370 INFO - Loaded configuration from 'config.ini'
+2021-10-13 18:08:52,370 INFO - Notifications are disabled
+2021-10-13 18:08:53,551 INFO - Fetched Binance market data OK (1695 pairs)
+2021-10-13 18:08:53,551 INFO - 1695 symbols loaded from Binance market
+2021-10-13 18:08:53,637 INFO - Fetched FTX market data OK (473 pairs)
+2021-10-13 18:08:55,177 INFO - Fetched LunarCrush Top X GalaxyScore OK (50 coins)
+2021-10-13 18:08:55,278 INFO - Fetched 3Commas pairs blacklist OK (52 pairs)
+2021-10-13 18:08:55,566 INFO - Finding the best pairs for Binance exchange
+2021-10-13 18:08:55,568 INFO - Updating your 3Commas bot(s)
+2021-10-13 18:08:55,713 INFO - Bot 'BUSD Bull Long Bot TTP - 751 - GalaxyScore' updated with these pairs:
+2021-10-13 18:08:55,713 INFO - ['BUSD_VET', 'BUSD_LTC', 'BUSD_RVN', 'BUSD_QNT', 'BUSD_XLM', 'BUSD_DOGE', 
+'BUSD_OMG', 'BUSD_SFP', 'BUSD_RAY', 'BUSD_DGB']
+2021-10-13 18:08:55,713 INFO - Next update in 1800 Seconds at 18:38:55
+
 ```
 
 ### TODO
-- Create a real config file
-- Add telegram notifications
+- You tell me
 
 ### Debugging
 
@@ -144,6 +131,9 @@ to this:
 ```
 logging.basicConfig(level=logging.DEBUG)
 ```
+
+## Support the Project
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/cyberjunkynl/)
 
 ## Disclaimer
 
