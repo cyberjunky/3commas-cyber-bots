@@ -144,7 +144,8 @@ source .env/bin/activate
 
 #### Start Automatically
 
-Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and -env- variants if you use the enviroment described above) can be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install..
+Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and `3commas-galaxyscore-env-bot.service`, `3commas-altrank-env-bot.service` if you use the .env enviroment described above) are provided,. They can all be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install. And install the service you need as describe below.
+
 ```
 sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
 sudo systemctl start 3commas-galaxyscore-bot.service
