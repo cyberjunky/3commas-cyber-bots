@@ -127,12 +127,45 @@ source .env/bin/activate
 ```
 #### Automatically
 
-Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` you need to edit the paths inside to reflect your install..
+Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and -env- variants if you use the enviroment described above) can be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install..
 ```
 sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
-sudo systemd start 3commas-galaxyscore-bot.service
+sudo systemctl start 3commas-galaxyscore-bot.service
 sudo cp 3commas-altrank-bot.service /etc/systemd/system/
-sudo systemd start 3commas-altrank-bot.service
+sudo systemctl start 3commas-altrank-bot.service
+```
+Example on how to enable starting the bot at boot:
+```
+sudo systemctl enable 3commas-altrank-bot.service
+```
+How to check status:
+```
+systemctl status 3commas-galaxyscore-bot.service 
+● 3commas-galaxyscore-bot.service - 3Commas GalaxyScore Daemon
+     Loaded: loaded (/etc/systemd/system/3commas-galaxyscore-bot.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2021-10-14 20:09:43 CEST; 39s ago
+   Main PID: 53347 (python3)
+      Tasks: 2 (limit: 18361)
+     Memory: 29.3M
+     CGroup: /system.slice/3commas-galaxyscore-bot.service
+             └─53347 /usr/bin/python3 /home/ron/development/3commas-cyber-bots/galaxyscore.py
+
+okt 14 20:09:43 laptop-ubuntu python3[53347]: 2021-10-14 20:09:43,713 - galaxyscore - INFO - Using PAPER TRADING account mode
+okt 14 20:09:43 laptop-ubuntu python3[53347]: 2021-10-14 20:09:43,713 - galaxyscore - INFO - Notifications are enabled
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,559 - galaxyscore - INFO - Fetched LunarCrush Top X gs OK (50 coins)
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,637 - galaxyscore - INFO - Fetched 3Commas pairs blacklist OK (52 pairs)
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,721 - galaxyscore - INFO - Finding the best pairs for Binance exchange
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,761 - galaxyscore - INFO - Fetched 3Commas market data for binance OK (1262 pairs)
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,761 - galaxyscore - INFO - Updating your 3Commas bot(s)
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,886 - galaxyscore - INFO - Bot 'BUSD Bull Long TTP - 766 - GalaxyScore' with id '6395939' updated with these pairs:
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxyscore - INFO - ['BUSD_HBAR', 'BUSD_PERP', 'BUSD_RLC', 'BUSD_COTI', 'BUSD_AXS', 'BUSD_QNT', 'BUSD_ETH', 'BUSD_QUICK', 'BUSD_OCEAN', 'BUSD_CRV']
+okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxyscore - INFO - Next update in 3600 Seconds at 21:11:44
+
+```
+
+How to check logs:
+```
+journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
 ### Example output
