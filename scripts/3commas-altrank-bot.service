@@ -1,0 +1,13 @@
+[Unit]
+Description=3Commas AltRank Daemon
+After=network.target
+
+[Service]
+# Set WorkingDirectory and ExecStart to your file paths accordingly
+# NOTE: %h will be resolved to /home/<username>
+WorkingDirectory=/home/ron/development/3commas-cyber-bots
+ExecStart=/home/ron/development/3commas-cyber-bots/.env/bin/python /home/ron/development/3commas-cyber-bots/altrank.py
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
