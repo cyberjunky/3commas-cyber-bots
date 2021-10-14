@@ -5,6 +5,7 @@ import json
 import logging
 import queue
 import sys
+import os
 import threading
 import time
 from pathlib import Path
@@ -69,6 +70,9 @@ class Logger:
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+        # Create directory if not exists
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
         # Logging to file
         file_handle = logging.FileHandler(f"logs/{botname}.log")
         file_handle.setLevel(logging.DEBUG)

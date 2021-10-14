@@ -170,7 +170,7 @@ function install() {
         echo
     fi
     echo
-    echo "Run the 'galaxyscore.py' script file to start the bot manually."
+    echo "Run the 'galaxyscore.py' or 'altrank.py' script file to start the bot manually."
     echo "Or install the services file for automated starts."
 }
 
