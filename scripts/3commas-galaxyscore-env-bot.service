@@ -1,11 +1,11 @@
 [Unit]
-Description=3Commas AltRank Daemon
+Description=3Commas GalaxyScore Daemon
 After=network.target
 
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
 WorkingDirectory=/home/ron/development/3commas-cyber-bots
-ExecStart=/usr/bin/python3 /home/ron/development/3commas-cyber-bots/altrank.py
+ExecStart=/home/ron/development/3commas-cyber-bots/.env/bin/python /home/ron/development/3commas-cyber-bots/galaxyscore.py
 User=ron
 Restart=on-failure
 

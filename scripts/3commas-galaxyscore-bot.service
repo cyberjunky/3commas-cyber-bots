@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
-# NOTE: %h will be resolved to /home/<username>
 WorkingDirectory=/home/ron/development/3commas-cyber-bots
-ExecStart=/home/ron/development/3commas-cyber-bots/.env/bin/python /home/ron/development/3commas-cyber-bots/galaxyscore.py
+ExecStart=/usr/bin/python3 /home/ron/development/3commas-cyber-bots/galaxyscore.py
+User=ron
 Restart=on-failure
 
 [Install]
