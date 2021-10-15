@@ -105,12 +105,28 @@ notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeH
 
 ### Run the bot(s)
 
-#### Manually
+#### Run Manually
 `python3 ./galaxyscore.py`
 and/or
 `python3 ./altrank.py`
 
-#### From Python Enviroment
+### Example output for `altrank`
+```
+2021-10-14 19:05:11,922 - altrank - INFO - 3Commas altrank bot helper!
+2021-10-14 19:05:11,922 - altrank - INFO - Started at Thursday 19:05:11 14-10-2021
+2021-10-14 19:05:11,922 - altrank - INFO - Loaded configuration from 'altrank.ini'
+2021-10-14 19:05:11,922 - altrank - INFO - Using PAPER TRADING account mode
+2021-10-14 19:05:11,922 - altrank - INFO - Notifications are enabled
+2021-10-14 19:05:12,372 - altrank - INFO - Fetched LunarCrush Top X ar OK (50 coins)
+2021-10-14 19:05:12,425 - altrank - INFO - Fetched 3Commas pairs blacklist OK (52 pairs)
+2021-10-14 19:05:12,478 - altrank - INFO - Finding the best pairs for Binance exchange
+2021-10-14 19:05:12,509 - altrank - INFO - Fetched 3Commas market data for binance OK (1262 pairs)
+2021-10-14 19:05:12,510 - altrank - INFO - Bot 'BUSD Bull Long AltRank' with id '1234567' is already using the best pairs
+2021-10-14 19:05:12,510 - altrank - INFO - Next update in 3600 Seconds at 20:05:12
+
+```
+
+#### Run from Python Enviroment
 You can use the install script called setup.sh to create this environment.
 Simply run it as ./setup.sh and you have the options:
 ```
@@ -125,9 +141,11 @@ Before running any of the scripts manually enter the virtual environment first
 cd 3commas-cyber-bots
 source .env/bin/activate
 ```
-#### Automatically
 
-Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and -env- variants if you use the enviroment described above) can be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install..
+#### Start Automatically
+
+Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and `3commas-galaxyscore-env-bot.service`, `3commas-altrank-env-bot.service` if you use the .env enviroment described above) are provided,. They can all be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install. And install the service you need as describe below.
+
 ```
 sudo cp 3commas-galaxyscore-bot.service /etc/systemd/system/
 sudo systemctl start 3commas-galaxyscore-bot.service
@@ -137,6 +155,10 @@ sudo systemctl start 3commas-altrank-bot.service
 Example on how to enable starting the bot at boot:
 ```
 sudo systemctl enable 3commas-altrank-bot.service
+```
+Example on how to disable starting the bot at boot:
+```
+sudo systemctl disable 3commas-altrank-bot.service
 ```
 How to check status:
 ```
@@ -168,20 +190,9 @@ How to check logs:
 journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
-### Example output
+How to edit an already installed service file:
 ```
-2021-10-14 19:05:11,922 - altrank - INFO - 3Commas altrank bot helper!
-2021-10-14 19:05:11,922 - altrank - INFO - Started at Thursday 19:05:11 14-10-2021
-2021-10-14 19:05:11,922 - altrank - INFO - Loaded configuration from 'altrank.ini'
-2021-10-14 19:05:11,922 - altrank - INFO - Using PAPER TRADING account mode
-2021-10-14 19:05:11,922 - altrank - INFO - Notifications are enabled
-2021-10-14 19:05:12,372 - altrank - INFO - Fetched LunarCrush Top X ar OK (50 coins)
-2021-10-14 19:05:12,425 - altrank - INFO - Fetched 3Commas pairs blacklist OK (52 pairs)
-2021-10-14 19:05:12,478 - altrank - INFO - Finding the best pairs for Binance exchange
-2021-10-14 19:05:12,509 - altrank - INFO - Fetched 3Commas market data for binance OK (1262 pairs)
-2021-10-14 19:05:12,510 - altrank - INFO - Bot 'BUSD Bull Long AltRank' with id '1234567' is already using the best pairs
-2021-10-14 19:05:12,510 - altrank - INFO - Next update in 3600 Seconds at 20:05:12
-
+sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
 ### TODO
