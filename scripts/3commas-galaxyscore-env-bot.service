@@ -1,11 +1,11 @@
 [Unit]
 Description=3Commas GalaxyScore Daemon
-After=network.target
+After=multi-user.target
 
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
-WorkingDirectory=/home/ron/development/3commas-cyber-bots
-ExecStart=/home/ron/development/3commas-cyber-bots/.env/bin/python /home/ron/development/3commas-cyber-bots/galaxyscore.py
+WorkingDirectory=/home/ron/3commas-cyber-bots
+ExecStart=/home/ron/3commas-cyber-bots/.env/bin/python /home/ron/3commas-cyber-bots/galaxyscore.py
 User=ron
 Restart=on-failure
 
