@@ -190,6 +190,11 @@ How to check logs:
 journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
+How to edit an already installed service file:
+```
+sudo systemctl edit --full 3commas-galaxyscore-bot.service 
+```
+
 ### TODO
 - You tell me
 
