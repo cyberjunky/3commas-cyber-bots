@@ -38,8 +38,7 @@ Same as galaxyscore bot helper except with altrank data.
 -   Create a new API key.
 -   Get a stable cryptocurrency to trade with.
 
-NOTE: when you connect your FTX account to 3Comma's you get free use to trade on FTX, no need to have a 3Commas subscription.
-If you use Binance and trade BUSD the fees are lower together with BNB.
+NOTE: Only needed if you want to trade on Binance, not needed for the functionality of the bot(s).
 
 ## FTX account Setup
 
@@ -48,6 +47,8 @@ If you use Binance and trade BUSD the fees are lower together with BNB.
 -   Create a new API key.
 -   Get a stable cryptocurrency to trade with.
 
+NOTE1: Only needed if you want to trade on FTX, not needed for the functionality of the bot(s).
+NOTE2: When you connect your FTX account to 3Comma's you get free use to trade on FTX, no need to have a 3Commas subscription.
 
 ## 3Commas account Setup
 
@@ -57,11 +58,15 @@ If you use Binance and trade BUSD the fees are lower together with BNB.
 -   Create a new API key with Bot Read and Bot Write permissions, enther these key in config.py
 -   Setup a DCA Bot (details will follow)
 
+NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
 
 ## LunarCrush account Setup
 Support the Project
 -   Create a [LunarCrush account](https://lunarcrush.com)
 -   Create a new API key and enther these key in config.py as well.
+
+NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
+
 
 ## Bot Setup
 
