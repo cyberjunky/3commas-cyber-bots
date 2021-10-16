@@ -249,6 +249,25 @@ So it looks something like this: (strings are bogus)
 ```
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/%%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes" ]
 ```
+
+5) I get this error running pip3 install step
+```
+       #include <ffi.h>
+                ^~~~~~~
+      compilation terminated.
+      error: command 'x86_64-linux-gnu-gcc' failed with exit status 
+```
+
+Install libffi-dev with `sudo apt install libffi-dev` and try again.
+
+6) I get error can't find Rust compiler
+
+Update pip3 like so:
+```
+pip3 install --upgrade pip
+```
+And try again.
+
 ### Debugging
 
 Set debug to True in config.ini and check log file `logs/galaxyscore.log` or `logs/altrank.log` for debug information
