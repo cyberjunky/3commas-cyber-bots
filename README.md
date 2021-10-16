@@ -85,7 +85,7 @@ The configuration file contains the following sections and fields:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the max active deals for each bot as pair number. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
