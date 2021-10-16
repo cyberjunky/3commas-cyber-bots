@@ -133,7 +133,6 @@ def load_config(self):
         "timeinterval": 3600,
         "debug": False,
         "botids": [12345, 67890],
-        "numberofpairs": 10,
         "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API secret",
@@ -264,14 +263,17 @@ def get_lunarcrush_data(self):
 
 
 def find_pairs(self, bot):
-    """Determine new pairs and update the bot."""
+    """Find new pairs and update the bot."""
     newpairslist = list()
     badpairslist = list()
     blackpairslist = list()
 
+    # Store some bot settings
     base = bot["pairs"][0].split("_")[0]
     exchange = bot["account_name"]
     minvolume = bot["min_volume_btc_24h"]
+    maxactivedeals = bot["max_active_deals"]
+
     self.logger.debug("Base coin for this bot: %s" % base)
     self.logger.debug("Exchange for this bot: %s" % exchange)
     self.logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
@@ -314,7 +316,7 @@ def find_pairs(self, bot):
             badpairslist.append(pair)
 
         # Did we get enough pairs already?
-        if len(newpairslist) == int(self.config.get("settings", "numberofpairs")):
+        if len(newpairslist) == int(maxactivedeals):
             break
 
     self.logger.debug(

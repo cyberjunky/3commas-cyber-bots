@@ -264,14 +264,17 @@ def get_lunarcrush_data(self):
 
 
 def find_pairs(self, bot):
-    """Determine new pairs and update the bot."""
+    """Find new pairs and update the bot."""
     newpairslist = list()
     badpairslist = list()
     blackpairslist = list()
 
+    # Store some bot settings
     base = bot["pairs"][0].split("_")[0]
     exchange = bot["account_name"]
     minvolume = bot["min_volume_btc_24h"]
+    maxactivedeals = bot["max_active_deals"]
+
     self.logger.debug("Base coin for this bot: %s" % base)
     self.logger.debug("Exchange for this bot: %s" % exchange)
     self.logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
@@ -314,8 +317,13 @@ def find_pairs(self, bot):
             badpairslist.append(pair)
 
         # Did we get enough pairs already?
-        if len(newpairslist) == int(self.config.get("settings", "numberofpairs")):
-            break
+        fixednumpairs = int(self.config.get("settings", "numberofpairs"))
+        if fixednumpairs:
+            if len(newpairslist) == fixednumpairs:
+                break
+        else:
+            if len(newpairslist) == int(maxactivedeals):
+                break
 
     self.logger.debug(
         "These pairs are on your 3Commas blacklist and were skipped: %s"
