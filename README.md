@@ -157,12 +157,14 @@ sudo systemctl start 3commas-galaxyscore-bot.service
 sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
 sudo systemctl start 3commas-altrank-bot.service
 ```
-Example on how to enable starting the bot at boot:
+Example on how to enable starting the bot helper(s) at boot:
 ```
+sudo systemctl enable 3commas-galaxyscore-bot.service
 sudo systemctl enable 3commas-altrank-bot.service
 ```
-Example on how to disable starting the bot at boot:
+Example on how to disable starting the bot helper(s) at boot:
 ```
+sudo systemctl disable 3commas-galaxyscore-bot.service
 sudo systemctl disable 3commas-altrank-bot.service
 ```
 How to check status:
@@ -192,7 +194,7 @@ okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxysc
 
 How to check logs:
 ```
-journalctl -u 3commas-galaxyscore-bot.service 
+sudo journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
 How to edit an already installed service file:
