@@ -3,9 +3,9 @@
 import configparser
 import json
 import logging
+import os
 import queue
 import sys
-import os
 import threading
 import time
 from pathlib import Path
@@ -17,6 +17,7 @@ from py3cw.request import Py3CW
 
 class NotificationHandler:
     """Notification class."""
+
     def __init__(self, botname, enabled=False, notify_urls=[]):
         self.botname = botname
         if enabled and notify_urls:
@@ -53,6 +54,7 @@ class NotificationHandler:
 
 class Logger:
     """Logger class."""
+
     my_logger = None
 
     def __init__(self, botname, notificationhandler, debug_enabled, notify_enabled):
@@ -71,8 +73,8 @@ class Logger:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         # Create directory if not exists
-        if not os.path.exists('logs'):
-            os.makedirs('logs')
+        if not os.path.exists("logs"):
+            os.makedirs("logs")
         # Logging to file
         file_handle = logging.FileHandler(f"logs/{botname}.log")
         file_handle.setLevel(logging.DEBUG)
@@ -96,23 +98,29 @@ class Logger:
         elif level == "debug":
             self.my_logger.debug(message)
 
-    def info(self, message):
+    def info(self, message, notify=False):
         """Info level."""
         self.log(message, "info")
-
-    def warning(self, message):
-        """Warning level."""
-        self.log(message, "warning")
-
-    def error(self, message):
-        """Error level."""
-        self.log(message, "error")
-        if self.notify_enabled:
+        if self.notify_enabled and notify:
             self.notificationhandler.send_notification(message)
 
-    def debug(self, message):
+    def warning(self, message, notify=False):
+        """Warning level."""
+        self.log(message, "warning")
+        if self.notify_enabled and notify:
+            self.notificationhandler.send_notification(message)
+
+    def error(self, message, notify=False):
+        """Error level."""
+        self.log(message, "error")
+        if self.notify_enabled and notify:
+            self.notificationhandler.send_notification(message)
+
+    def debug(self, message, notify=False):
         """Debug level."""
         self.log(message, "debug")
+        if self.notify_enabled and notify:
+            self.notificationhandler.send_notification(message)
 
 
 def load_config(self):
@@ -156,7 +164,10 @@ def get_threecommas_market(self, market_code):
 
     tickerlist = []
     error, data = self.api.request(
-        entity="accounts", action="market_pairs", payload={"market_code": market_code}, additional_headers={"Forced-Mode": self.accountmode}
+        entity="accounts",
+        action="market_pairs",
+        payload={"market_code": market_code},
+        additional_headers={"Forced-Mode": self.accountmode},
     )
     if data:
         tickerlist = data
@@ -165,14 +176,36 @@ def get_threecommas_market(self, market_code):
             % (market_code, len(tickerlist))
         )
     else:
-        self.logger.error("fetching 3Commas market data failed with error: %s" % error)
+        self.logger.error("Fetching 3Commas market data failed with error: %s" % error["msg"])
 
     return tickerlist
+
+
+def get_threecommas_btcusd(self):
+    """Get current USDT_BTC value to calculate BTC volume24h in USDT."""
+
+    price = 60000
+    error, data = self.api.request(
+        entity="accounts",
+        action="currency_rates",
+        payload={"market_code": "binance", "pair": "USDT_BTC"},
+        additional_headers={"Forced-Mode": self.accountmode},
+    )
+    if data:
+        self.logger.info("Fetched 3Commas BTC price in USDT %s OK" % data["last"])
+        price = data["last"]
+    else:
+        self.logger.error(
+            "Fetching 3Commas BTC price in USDT failed with error: %s" % error['msg']
+        )
+
+    return price
 
 
 def get_threecommas_blacklist(self):
     """Get the pair blacklist from 3Commas."""
 
+    blacklist = list()
     error, data = self.api.request(
         entity="bots", action="pairs_black_list", action_id=""
     )
@@ -180,19 +213,24 @@ def get_threecommas_blacklist(self):
         self.logger.info(
             "Fetched 3Commas pairs blacklist OK (%s pairs)" % len(data["pairs"])
         )
-        return data["pairs"]
+        blacklist = data["pairs"]
+    else:
+        self.logger.error("Fetching 3Commas pairs blacklist failed with error: %s" % error["msg"])
 
-    self.logger.error(
-        "Fetching 3Commas pairs blacklist failed with error: %s" % error
-    )
-
-    return None
+    return blacklist
 
 
-def get_lunarcrush_data(self, ranktype):
+def get_lunarcrush_data(self):
     """Get the top x GalaxyScore or AltRank from LunarCrush."""
 
-    scorelist = list()
+    scoredict = {}
+
+    # Select correct Top X type
+    if self.botname == "altrank":
+        ranktype = "ar"
+    else:
+        ranktype = "gs"
+
     url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=50&sort={1}&desc=true&type=fast".format(
         self.config.get("settings", "lc-apikey"), ranktype
     )
@@ -202,19 +240,30 @@ def get_lunarcrush_data(self, ranktype):
             data = result.json()
             for entry in data["data"]:
                 coin = entry["s"]
-                scorelist.append(coin)
+                if ranktype == "ar":
+                    score = float(entry["acr"])
+                else:
+                    score = float(entry["gs"])
+                volume = float(entry["v"]) / float(self.usdtbtc)
+                scoredict[coin] = volume
+                self.logger.debug(
+                    "Coin: %s score: %s volume USD: %s volume BTC: %s value USDTBTC: %s"
+                    % (coin, score, entry["v"], str(volume), str(self.usdtbtc))
+                )
             self.logger.info(
-                "Fetched LunarCrush Top X %s OK (%s coins)" % (ranktype, len(scorelist))
+                "Fetched LunarCrush Top X %s OK (%s coins)" % (ranktype, len(scoredict))
             )
 
         result.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        self.logger.error("Fetching LunarCrush Top X %s failed with error: %s" % (ranktype, err))
+        self.logger.error(
+            "Fetching LunarCrush Top X %s failed with error: %s" % (ranktype, err)
+        )
 
-    return scorelist
+    return scoredict
 
 
-def determine_new_pairs(self, bot):
+def find_pairs(self, bot):
     """Determine new pairs and update the bot."""
     newpairslist = list()
     badpairslist = list()
@@ -222,11 +271,17 @@ def determine_new_pairs(self, bot):
 
     base = bot["pairs"][0].split("_")[0]
     exchange = bot["account_name"]
+    minvolume = bot["min_volume_btc_24h"]
     self.logger.debug("Base coin for this bot: %s" % base)
     self.logger.debug("Exchange for this bot: %s" % exchange)
+    self.logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
     self.logger.info("Finding the best pairs for %s exchange" % exchange)
 
-    if exchange == "Binance" or "Paper Account" in exchange or self.accountmode == "paper":
+    if (
+        exchange == "Binance"
+        or "Paper Account" in exchange
+        or self.accountmode == "paper"
+    ):
         tickerlist = get_threecommas_market(self, "binance")
     elif exchange == "FTX":
         tickerlist = get_threecommas_market(self, "ftx")
@@ -236,9 +291,20 @@ def determine_new_pairs(self, bot):
         )
         sys.exit()
 
-    for coin in self.lunacrushlist:
+    for coin in self.lunacrush.keys():
         pair = base + "_" + coin
 
+        # Check if coin has minimum 24h volume
+        if float(self.lunacrush[coin]) < float(minvolume):
+            self.logger.debug(
+                "%s has to low volume %s" % (coin, str(self.lunacrush[coin]))
+            )
+        else:
+            self.logger.debug(
+                "%s has enough volume %s" % (coin, str(self.lunacrush[coin]))
+            )
+
+        # Check if pair is on 3Commas blacklist
         if pair in tickerlist:
             if pair in self.blacklist:
                 blackpairslist.append(pair)
@@ -247,34 +313,30 @@ def determine_new_pairs(self, bot):
         else:
             badpairslist.append(pair)
 
+        # Did we get enough pairs already?
         if len(newpairslist) == int(self.config.get("settings", "numberofpairs")):
             break
 
-    if blackpairslist:
-        self.logger.debug(
-            "These pairs are on your 3Commas blacklist and were skipped: %s"
-            % blackpairslist
-        )
-    if badpairslist:
-        self.logger.debug(
-            "There pairs are not valid on the %s market according to 3Commas and were skipped: %s"
-            % (exchange, badpairslist)
-        )
+    self.logger.debug(
+        "These pairs are on your 3Commas blacklist and were skipped: %s"
+        % blackpairslist
+    )
+    self.logger.debug(
+        "There pairs are not valid on the %s market according to 3Commas and were skipped: %s"
+        % (exchange, badpairslist)
+    )
 
-    self.logger.debug("Suggested pairs: %s" % newpairslist)
-    self.logger.debug("Current   pairs: %s" % bot["pairs"])
+    self.logger.debug("New     pairs: %s" % newpairslist)
+    self.logger.debug("Current pairs: %s" % bot["pairs"])
 
+    # Do we already use these pairs?
     if newpairslist == bot["pairs"]:
         self.logger.info(
             "Bot '%s' with id '%s' is already using the best pairs"
-            % (bot["name"], bot["id"])
+            % (bot["name"], bot["id"]), True
         )
-        self.notificationhandler.send_notification(
-            "Bot '%s' with id '%s' is already using the best pairs"
-            % (bot["name"], bot["id"])
-        )
-        return
 
+    # We have new pairs for our bot update it
     if newpairslist:
         self.logger.info("Updating your 3Commas bot(s)")
         update_bot(self, bot, newpairslist)
@@ -300,15 +362,11 @@ def update_bot(self, bot, newpairs):
             "martingale_volume_coefficient": float(
                 bot["martingale_volume_coefficient"]
             ),
-            "martingale_step_coefficient": float(
-                bot["martingale_step_coefficient"]
-            ),
+            "martingale_step_coefficient": float(bot["martingale_step_coefficient"]),
             "max_safety_orders": int(bot["max_safety_orders"]),
             "max_active_deals": int(bot["max_active_deals"]),
             "active_safety_orders_count": int(bot["active_safety_orders_count"]),
-            "safety_order_step_percentage": float(
-                bot["safety_order_step_percentage"]
-            ),
+            "safety_order_step_percentage": float(bot["safety_order_step_percentage"]),
             "take_profit_type": bot["take_profit_type"],
             "strategy_list": bot["strategy_list"],
             "bot_id": int(bot["id"]),
@@ -316,15 +374,15 @@ def update_bot(self, bot, newpairs):
     )
     if data:
         self.logger.debug("Bot updated: %s" % data)
-        self.logger.info("Bot '%s' with id '%s' updated with these pairs:" % (bot["name"], bot['id']))
-        self.logger.info(newpairs)
-        self.notificationhandler.send_notification(
-            "Bot '%s' with id '%s' updated with these pairs: %s" % (bot["name"], bot["id"], newpairs)
+        self.logger.info(
+            "Bot '%s' with id '%s' updated with these pairs:\n%s"
+            % (bot["name"], bot["id"], newpairs),
+            True,
         )
     else:
         self.logger.error(
-            "Error occurred while updating bot '%s' error: %s"
-            % (str(bot["name"]), error)
+            "Error occurred while updating bot '%s' error: %s" % (bot["name"], error["msg"]),
+            True,
         )
 
 
@@ -333,8 +391,12 @@ class Main:
 
     def __init__(self):
         self.botname = Path(__file__).stem
-
         result = time.strftime("%A %H:%M:%S %d-%m-%Y")
+
+        self.blacklist = list()
+        self.lunacrush = {}
+        self.usdtbtc = 0.0
+
         # Create or load configuration file
         self.config = load_config(self)
         if not self.config:
@@ -377,32 +439,31 @@ class Main:
             self.logger.info("Notifications are disabled")
 
         self.api = init_threecommas_api(self)
-        botids = json.loads(self.config.get("settings", "botids"))
+        self.botids = json.loads(self.config.get("settings", "botids"))
 
+    def start(self):
+        """Run main loop at interval."""
         while True:
 
-            if self.botname == "altrank":
-                # Get Top X AltRank coins
-                self.lunacrushlist = get_lunarcrush_data(self, 'ar')
-            else:
-                # Get Top X GalaxyScore coins
-                self.lunacrushlist = get_lunarcrush_data(self, 'gs')
-
-            # Update 3Commas blacklist
+            # Update 3Commas data
             self.blacklist = get_threecommas_blacklist(self)
 
+            # Get price of BTC
+            self.usdtbtc = get_threecommas_btcusd(self)
+            self.logger.debug("Current price of BTC is %s USDT" % self.usdtbtc)
+
+            # Update LunaCrush data
+            self.lunacrush = get_lunarcrush_data(self)
+
             # Walk through all bots specified
-            for bot in botids:
+            for bot in self.botids:
                 error, data = self.api.request(
                     entity="bots", action="show", action_id=str(bot)
                 )
-                try:
-                    determine_new_pairs(self, data)
-                except Exception as err:
-                    self.logger.error(
-                        "Error occurred while updating bot with id %s: %s %s" % (bot, err, error)
-                    )
-                    sys.exit()
+                if data:
+                    find_pairs(self, data)
+                else:
+                    self.logger.error("Error occurred updating bots: %s" % error["msg"])
 
             timeinterval = int(self.config.get("settings", "timeinterval"))
 
@@ -411,15 +472,13 @@ class Main:
                 nexttime = localtime + int(timeinterval)
                 result = time.strftime("%H:%M:%S", time.localtime(nexttime))
                 self.logger.info(
-                    "Next update in %s Seconds at %s" % (timeinterval, result)
-                )
-                self.notificationhandler.send_notification(
-                    "Next update in %s Seconds at %s" % (timeinterval, result)
+                    "Next update in %s Seconds at %s" % (timeinterval, result), True
                 )
                 time.sleep(timeinterval)
             else:
                 break
 
 
-# Start application
-Main()
+# Start application loop
+loop = Main()
+loop.start()
