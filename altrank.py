@@ -133,6 +133,7 @@ def load_config(self):
         "timeinterval": 3600,
         "debug": False,
         "botids": [12345, 67890],
+        "numberofpairs": 10,
         "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API secret",
@@ -316,8 +317,13 @@ def find_pairs(self, bot):
             badpairslist.append(pair)
 
         # Did we get enough pairs already?
-        if len(newpairslist) == int(maxactivedeals):
-            break
+        fixednumpairs = int(self.config.get("settings", "numberofpairs"))
+        if fixednumpairs:
+            if len(newpairslist) == fixednumpairs:
+                break
+        else:
+            if len(newpairslist) == int(maxactivedeals):
+                break
 
     self.logger.debug(
         "These pairs are on your 3Commas blacklist and were skipped: %s"
@@ -446,6 +452,9 @@ class Main:
     def start(self):
         """Run main loop at interval."""
         while True:
+            # Reload config file to catch changes
+            self.config = load_config(self)
+            self.logger.info(f"Reloaded configuration from '{self.botname}.ini'")
 
             # Update 3Commas data
             self.blacklist = get_threecommas_blacklist(self)

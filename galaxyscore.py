@@ -452,6 +452,9 @@ class Main:
     def start(self):
         """Run main loop at interval."""
         while True:
+            # Reload config file to catch changes
+            self.config = load_config(self)
+            self.logger.info(f"Reloaded configuration from '{self.botname}.ini'")
 
             # Update 3Commas data
             self.blacklist = get_threecommas_blacklist(self)
