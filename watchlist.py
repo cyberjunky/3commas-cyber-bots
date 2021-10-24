@@ -134,19 +134,6 @@ def load_config():
 
     if program == "watchlist":
         cfg["settings"] = {
-            "timeinterval": 3600,
-            "debug": False,
-            "botids": [12345, 67890],
-            "numberofpairs": 10,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "lc-apikey": "Your LunarCrush API Key",
-            "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
-        }
-    else:
-        cfg["settings"] = {
             "debug": False,
             "usdt_botid": 12345,
             "btc_botid": 67890,
@@ -160,9 +147,22 @@ def load_config():
             "notifications": False,
             "notify-urls": ["notify-url1", "notify-url2"],
         }
+    else:
+        cfg["settings"] = {
+            "timeinterval": 3600,
+            "debug": False,
+            "botids": [12345, 67890],
+            "numberofpairs": 10,
+            "accountmode": "paper",
+            "3c-apikey": "Your 3Commas API Key",
+            "3c-apisecret": "Your 3Commas API Secret",
+            "lc-apikey": "Your LunarCrush API Key",
+            "notifications": False,
+            "notify-urls": ["notify-url1", "notify-url2"],
+        }
 
-    with open("{program}.ini", "w") as cfgfile:
-        cfgfile.write(f"{program}.ini")
+    with open(f"{program}.ini", "w") as cfgfile:
+        cfg.write(cfgfile)
 
     return None
 
