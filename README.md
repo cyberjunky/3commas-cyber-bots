@@ -155,8 +155,8 @@ notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeH
 `watchlist` has a slightly different layout:
 
 -   **debug** - set to true to enable debug logging to file. (default is False)
--   **usdt_botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
--   **btc_botid** -  the bot id of the BTC multipair bot to use.
+-   **usdt-botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
+-   **btc-botid** -  the bot id of the BTC multipair bot to use.
 -   **numberofpairs** - number of pairs to update your bots with. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
@@ -173,8 +173,8 @@ Example: (keys are bogus)
 ```
 [settings]
 debug = True
-usdt_botid = 123456
-btc_botid = 789012
+usdt-botid = 123456
+btc-botid = 789012
 accountmode = paper
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
