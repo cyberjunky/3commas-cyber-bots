@@ -1,11 +1,11 @@
 [Unit]
-Description=3Commas AltRank Daemon
+Description=3Commas Watchlist Daemon
 After=multi-user.target
 
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
 WorkingDirectory=/home/ron/3commas-cyber-bots
-ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/altrank.py
+ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/watchlist.py
 User=ron
 Restart=on-failure
 

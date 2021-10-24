@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""3Commas helper bot."""
+"""Cyberjunky's 3Commas bot helpers."""
 import configparser
 import json
 import logging
@@ -13,14 +13,15 @@ from pathlib import Path
 import apprise
 import requests
 from py3cw.request import Py3CW
+from telethon import TelegramClient, events
 
 
 class NotificationHandler:
     """Notification class."""
 
-    def __init__(self, botname, enabled=False, notify_urls=[]):
-        self.botname = botname
+    def __init__(self, progname, enabled=False, notify_urls=None):
         if enabled and notify_urls:
+            self.progname = progname
             self.apobj = apprise.Apprise()
             urls = json.loads(notify_urls)
             for url in urls:
@@ -48,7 +49,7 @@ class NotificationHandler:
     def send_notification(self, message, attachments=None):
         """Send a notification if enabled."""
         if self.enabled:
-            msg = f"[3Commas {self.botname} bot helper]\n" + message
+            msg = f"[3Commas bots helper {self.progname}]\n" + message
             self.queue.put((msg, attachments or []))
 
 
@@ -57,9 +58,9 @@ class Logger:
 
     my_logger = None
 
-    def __init__(self, botname, notificationhandler, debug_enabled, notify_enabled):
+    def __init__(self, progname, notificationhandler, debug_enabled, notify_enabled):
         """Logger init."""
-        self.my_logger = logging.getLogger(botname)
+        self.my_logger = logging.getLogger(program)
         self.notify_enabled = notify_enabled
         self.notificationhandler = notificationhandler
         if debug_enabled:
@@ -72,16 +73,17 @@ class Logger:
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+
         # Create directory if not exists
         if not os.path.exists("logs"):
             os.makedirs("logs")
-        # Logging to file
-        file_handle = logging.FileHandler(f"logs/{botname}.log")
+        # Log to file
+        file_handle = logging.FileHandler(f"logs/{progname}.log")
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
 
-        # Logging to console
+        # Log to console
         console_handle = logging.StreamHandler()
         console_handle.setLevel(logging.INFO)
         console_handle.setFormatter(formatter)
@@ -104,13 +106,13 @@ class Logger:
         if self.notify_enabled and notify:
             self.notificationhandler.send_notification(message)
 
-    def warning(self, message, notify=False):
+    def warning(self, message, notify=True):
         """Warning level."""
         self.log(message, "warning")
         if self.notify_enabled and notify:
             self.notificationhandler.send_notification(message)
 
-    def error(self, message, notify=False):
+    def error(self, message, notify=True):
         """Error level."""
         self.log(message, "error")
         if self.notify_enabled and notify:
@@ -123,34 +125,51 @@ class Logger:
             self.notificationhandler.send_notification(message)
 
 
-def load_config(self):
+def load_config():
     """Create default or load existing config file."""
-    config = configparser.ConfigParser()
-    if config.read(f"{self.botname}.ini"):
-        return config
+    cfg = configparser.ConfigParser()
+    if cfg.read(f"{program}.ini"):
+        return cfg
 
-    config["settings"] = {
-        "timeinterval": 3600,
-        "debug": False,
-        "botids": [12345, 67890],
-        "numberofpairs": 10,
-        "accountmode": "paper",
-        "3c-apikey": "Your 3Commas API Key",
-        "3c-apisecret": "Your 3Commas API secret",
-        "lc-apikey": "Your LunarCrush API key",
-        "notifications": False,
-        "notify-urls": ["notify-url1", "notify-url2"],
-    }
-    with open(f"{self.botname}.ini", "w") as configfile:
-        config.write(configfile)
+    if program == "watchlist":
+        cfg["settings"] = {
+            "timeinterval": 3600,
+            "debug": False,
+            "botids": [12345, 67890],
+            "numberofpairs": 10,
+            "accountmode": "paper",
+            "3c-apikey": "Your 3Commas API Key",
+            "3c-apisecret": "Your 3Commas API Secret",
+            "lc-apikey": "Your LunarCrush API Key",
+            "notifications": False,
+            "notify-urls": ["notify-url1", "notify-url2"],
+        }
+    else:
+        cfg["settings"] = {
+            "debug": False,
+            "usdt_botid": 12345,
+            "btc_botid": 67890,
+            "accountmode": "paper",
+            "3c-apikey": "Your 3Commas API Key",
+            "3c-apisecret": "Your 3Commas API Secret",
+            "tgram-phone-number": "Your Telegram Phone number",
+            "tgram-channel": "Telegram Channel to watch",
+            "tgram-api-id": "Your Telegram API ID",
+            "tgram-api-hash": "Your Telegram API Hash",
+            "notifications": False,
+            "notify-urls": ["notify-url1", "notify-url2"],
+        }
+
+    with open("{program}.ini", "w") as cfgfile:
+        cfgfile.write(f"{program}.ini")
     return None
 
 
-def init_threecommas_api(self):
+def init_threecommas_api(cfg):
     """Init the 3commas API."""
     return Py3CW(
-        key=self.config.get("settings", "3c-apikey"),
-        secret=self.config.get("settings", "3c-apisecret"),
+        key=cfg.get("settings", "3c-apikey"),
+        secret=cfg.get("settings", "3c-apisecret"),
         request_options={
             "request_timeout": 10,
             "nr_of_retries": 3,
@@ -159,80 +178,172 @@ def init_threecommas_api(self):
     )
 
 
-def get_threecommas_market(self, market_code):
+def get_threecommas_blacklist():
+    """Get the pair blacklist from 3Commas."""
+
+    newblacklist = list()
+    error, data = api.request(
+        entity="bots",
+        action="pairs_black_list",
+        additional_headers={"Forced-Mode": MODE},
+    )
+    if data:
+        logger.info(
+            "Fetched 3Commas pairs blacklist OK (%s pairs)" % len(data["pairs"])
+        )
+        newblacklist = data["pairs"]
+    else:
+        logger.error(
+            "Fetching 3Commas pairs blacklist failed with error: %s" % error["msg"]
+        )
+
+    return newblacklist
+
+
+def get_threecommas_btcusd():
+    """Get current USDT_BTC value to calculate BTC volume24h in USDT."""
+
+    price = 60000
+    error, data = api.request(
+        entity="accounts",
+        action="currency_rates",
+        payload={"market_code": "binance", "pair": "USDT_BTC"},
+        additional_headers={"Forced-Mode": MODE},
+    )
+    if data:
+        logger.info("Fetched 3Commas BTC price in USDT %s OK" % data["last"])
+        price = data["last"]
+    else:
+        logger.error(
+            "Fetching 3Commas BTC price in USDT failed with error: %s" % error["msg"]
+        )
+
+    logger.debug("Current price of BTC is %s USDT" % price)
+    return price
+
+
+def get_threecommas_market(market_code):
     """Get all the valid pairs for market_code from 3Commas account."""
 
     tickerlist = []
-    error, data = self.api.request(
+    error, data = api.request(
         entity="accounts",
         action="market_pairs",
         payload={"market_code": market_code},
-        additional_headers={"Forced-Mode": self.accountmode},
+        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         tickerlist = data
-        self.logger.info(
+        logger.info(
             "Fetched 3Commas market data for %s OK (%s pairs)"
             % (market_code, len(tickerlist))
         )
     else:
-        self.logger.error("Fetching 3Commas market data failed with error: %s" % error["msg"])
+        logger.error(
+            "Fetching 3Commas market data failed with error: %s" % error["msg"]
+        )
 
     return tickerlist
 
 
-def get_threecommas_btcusd(self):
-    """Get current USDT_BTC value to calculate BTC volume24h in USDT."""
+def check_pair(thebot, triggerexchange, base, coin):
+    """Check pair and trigger the bot."""
 
-    price = 60000
-    error, data = self.api.request(
-        entity="accounts",
-        action="currency_rates",
-        payload={"market_code": "binance", "pair": "USDT_BTC"},
-        additional_headers={"Forced-Mode": self.accountmode},
+    # Refetch data to catch changes
+    # Update 3Commas data
+    blacklist = get_threecommas_blacklist()
+
+    logger.debug("Trigger base coin: %s" % base)
+
+    # Store some bot settings
+    base = thebot["pairs"][0].split("_")[0]
+    exchange = thebot["account_name"]
+    minvolume = thebot["min_volume_btc_24h"]
+
+    logger.debug("Base coin for this bot: %s" % base)
+    logger.debug("Exchange for this bot: %s" % exchange)
+    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
+
+    # Check if bot is connected to same exchange
+    if exchange.upper() != triggerexchange.upper():
+        logger.info(
+            "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
+            % (triggerexchange.upper(), exchange.upper()),
+            True,
+        )
+        return
+
+    # Get market of 3Commas because it's slightly different then exchanges
+    if exchange == "Binance" or "Paper Account" in exchange:
+        tickerlist = get_threecommas_market("binance")
+    elif exchange == "FTX":
+        tickerlist = get_threecommas_market("ftx")
+    else:
+        logger.error(
+            "Bot is using the '%s' exchange which is not implemented yet!" % exchange
+        )
+        return
+
+    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
+    pair = base + "_" + coin
+    logger.debug("New pair constructed: %s" % pair)
+
+    # Check if pair is on 3Commas blacklist
+    if pair in blacklist:
+        logger.debug(
+            "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
+        )
+        return
+
+    # Check if pair is on 3Commas market ticker
+    if pair not in tickerlist:
+        logger.debug(
+            "This pair is not valid on the %s market according to 3Commas and was skipped: %s"
+            % (exchange, pair), True
+        )
+        return
+
+    # We have valid pair for our bot and we can trigger a new deal
+    logger.info("Triggering your 3Commas bot")
+    trigger_bot(thebot, pair)
+
+
+def trigger_bot(thebot, pair):
+    """Trigger bot to start deal asap for pair."""
+    error, data = api.request(
+        entity="bots",
+        action="start_new_deal",
+        action_id=str(thebot["id"]),
+        payload={"pair": pair},
+        additional_headers={"Forced-Mode": MODE},
     )
     if data:
-        self.logger.info("Fetched 3Commas BTC price in USDT %s OK" % data["last"])
-        price = data["last"]
+        logger.debug("Bot triggered: %s" % data)
+        logger.info(
+            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
+            % (thebot["name"], thebot["id"], pair),
+            True,
+        )
     else:
-        self.logger.error(
-            "Fetching 3Commas BTC price in USDT failed with error: %s" % error['msg']
+        logger.error(
+            "Error occurred while triggering start_new_deal bot '%s' error: %s"
+            % (thebot["name"], error["msg"]),
         )
 
-    return price
 
-
-def get_threecommas_blacklist(self):
-    """Get the pair blacklist from 3Commas."""
-
-    blacklist = list()
-    error, data = self.api.request(
-        entity="bots", action="pairs_black_list", action_id=""
-    )
-    if data:
-        self.logger.info(
-            "Fetched 3Commas pairs blacklist OK (%s pairs)" % len(data["pairs"])
-        )
-        blacklist = data["pairs"]
-    else:
-        self.logger.error("Fetching 3Commas pairs blacklist failed with error: %s" % error["msg"])
-
-    return blacklist
-
-
-def get_lunarcrush_data(self):
+def get_lunarcrush_data(usdtbtc_value):
     """Get the top x GalaxyScore or AltRank from LunarCrush."""
 
     scoredict = {}
 
     # Select correct Top X type
-    if self.botname == "altrank":
+    if program == "altrank":
         ranktype = "ar"
     else:
         ranktype = "gs"
 
     url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=50&sort={1}&desc=true&type=fast".format(
-        self.config.get("settings", "lc-apikey"), ranktype
+        config.get("settings", "lc-apikey"), ranktype
     )
     try:
         result = requests.get(url)
@@ -244,72 +355,73 @@ def get_lunarcrush_data(self):
                     score = float(entry["acr"])
                 else:
                     score = float(entry["gs"])
-                volume = float(entry["v"]) / float(self.usdtbtc)
+                volume = float(entry["v"]) / float(usdtbtc_value)
                 scoredict[coin] = volume
-                self.logger.debug(
+                logger.debug(
                     "Coin: %s score: %s volume USD: %s volume BTC: %s value USDTBTC: %s"
-                    % (coin, score, entry["v"], str(volume), str(self.usdtbtc))
+                    % (coin, score, entry["v"], str(volume), str(usdtbtc_value))
                 )
-            self.logger.info(
+            logger.info(
                 "Fetched LunarCrush Top X %s OK (%s coins)" % (ranktype, len(scoredict))
             )
 
         result.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        self.logger.error(
+        logger.error(
             "Fetching LunarCrush Top X %s failed with error: %s" % (ranktype, err)
         )
 
     return scoredict
 
 
-def find_pairs(self, bot):
+def find_pairs(thebot):
     """Find new pairs and update the bot."""
     newpairslist = list()
     badpairslist = list()
     blackpairslist = list()
 
+    # Update 3Commas data
+    blacklist = get_threecommas_blacklist()
+
+    # Get price of BTC
+    usdtbtc = get_threecommas_btcusd()
+
+    # Update LunaCrush data
+    lunacrush = get_lunarcrush_data(usdtbtc)
+
     # Store some bot settings
-    base = bot["pairs"][0].split("_")[0]
-    exchange = bot["account_name"]
-    minvolume = bot["min_volume_btc_24h"]
-    maxactivedeals = bot["max_active_deals"]
+    base = thebot["pairs"][0].split("_")[0]
+    exchange = thebot["account_name"]
+    minvolume = thebot["min_volume_btc_24h"]
+    maxactivedeals = thebot["max_active_deals"]
 
-    self.logger.debug("Base coin for this bot: %s" % base)
-    self.logger.debug("Exchange for this bot: %s" % exchange)
-    self.logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
-    self.logger.info("Finding the best pairs for %s exchange" % exchange)
+    logger.debug("Base coin for this bot: %s" % base)
+    logger.debug("Exchange for this bot: %s" % exchange)
+    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
+    logger.info("Finding the best pairs for %s exchange" % exchange)
 
-    if (
-        exchange == "Binance"
-        or "Paper Account" in exchange
-        or self.accountmode == "paper"
-    ):
-        tickerlist = get_threecommas_market(self, "binance")
+    if exchange == "Binance" or "Paper Account" in exchange or MODE == "paper":
+        tickerlist = get_threecommas_market("binance")
     elif exchange == "FTX":
-        tickerlist = get_threecommas_market(self, "ftx")
+        tickerlist = get_threecommas_market("ftx")
     else:
-        self.logger.error(
+        logger.error(
             "Bot is using the %s exchange which is not implemented yet!" % exchange
         )
         sys.exit()
 
-    for coin in self.lunacrush.keys():
+    for coin in lunacrush:
         pair = base + "_" + coin
 
         # Check if coin has minimum 24h volume
-        if float(self.lunacrush[coin]) < float(minvolume):
-            self.logger.debug(
-                "%s has to low volume %s" % (coin, str(self.lunacrush[coin]))
-            )
+        if float(lunacrush[coin]) < float(minvolume):
+            logger.debug("%s has to low volume %s" % (coin, str(lunacrush[coin])))
         else:
-            self.logger.debug(
-                "%s has enough volume %s" % (coin, str(self.lunacrush[coin]))
-            )
+            logger.debug("%s has enough volume %s" % (coin, str(lunacrush[coin])))
 
         # Check if pair is on 3Commas blacklist
         if pair in tickerlist:
-            if pair in self.blacklist:
+            if pair in blacklist:
                 blackpairslist.append(pair)
             else:
                 newpairslist.append(pair)
@@ -317,7 +429,7 @@ def find_pairs(self, bot):
             badpairslist.append(pair)
 
         # Did we get enough pairs already?
-        fixednumpairs = int(self.config.get("settings", "numberofpairs"))
+        fixednumpairs = int(config.get("settings", "numberofpairs"))
         if fixednumpairs:
             if len(newpairslist) == fixednumpairs:
                 break
@@ -325,168 +437,224 @@ def find_pairs(self, bot):
             if len(newpairslist) == int(maxactivedeals):
                 break
 
-    self.logger.debug(
+    logger.debug(
         "These pairs are on your 3Commas blacklist and were skipped: %s"
         % blackpairslist
     )
-    self.logger.debug(
+    logger.debug(
         "There pairs are not valid on the %s market according to 3Commas and were skipped: %s"
         % (exchange, badpairslist)
     )
 
-    self.logger.debug("New     pairs: %s" % newpairslist)
-    self.logger.debug("Current pairs: %s" % bot["pairs"])
+    logger.debug("New     pairs: %s" % newpairslist)
+    logger.debug("Current pairs: %s" % thebot["pairs"])
 
     # Do we already use these pairs?
-    if newpairslist == bot["pairs"]:
-        self.logger.info(
-            "Bot '%s' with id '%s' is already using the best pairs"
-            % (bot["name"], bot["id"]), True
-        )
-
-    # We have new pairs for our bot update it
-    if newpairslist:
-        self.logger.info("Updating your 3Commas bot(s)")
-        update_bot(self, bot, newpairslist)
+    if not newpairslist == thebot["pairs"]:
+        # We have new pairs for our bot update it
+        if newpairslist:
+            logger.info("Updating your 3Commas bot(s)")
+            update_bot(thebot, newpairslist)
+        else:
+            logger.info(
+                "None of the by LunarCrush suggested pairs found on %s exchange!"
+                % exchange
+            )
     else:
-        self.logger.info(
-            "None of the by LunarCrush suggested pairs found on %s exchange!" % exchange
+        logger.info(
+            "Bot '%s' with id '%s' is already using the best pairs"
+            % (thebot["name"], thebot["id"]),
+            True,
         )
+        return
 
 
-def update_bot(self, bot, newpairs):
+def update_bot(thebot, newpairs):
     """Update bot with new pairs."""
-    error, data = self.api.request(
+    error, data = api.request(
         entity="bots",
         action="update",
-        action_id=str(bot["id"]),
-        additional_headers={"Forced-Mode": self.accountmode},
+        action_id=str(thebot["id"]),
+        additional_headers={"Forced-Mode": MODE},
         payload={
-            "name": str(bot["name"]),
+            "name": str(thebot["name"]),
             "pairs": newpairs,
-            "base_order_volume": float(bot["base_order_volume"]),
-            "take_profit": float(bot["take_profit"]),
-            "safety_order_volume": float(bot["safety_order_volume"]),
+            "base_order_volume": float(thebot["base_order_volume"]),
+            "take_profit": float(thebot["take_profit"]),
+            "safety_order_volume": float(thebot["safety_order_volume"]),
             "martingale_volume_coefficient": float(
-                bot["martingale_volume_coefficient"]
+                thebot["martingale_volume_coefficient"]
             ),
-            "martingale_step_coefficient": float(bot["martingale_step_coefficient"]),
-            "max_safety_orders": int(bot["max_safety_orders"]),
-            "max_active_deals": int(bot["max_active_deals"]),
-            "active_safety_orders_count": int(bot["active_safety_orders_count"]),
-            "safety_order_step_percentage": float(bot["safety_order_step_percentage"]),
-            "take_profit_type": bot["take_profit_type"],
-            "strategy_list": bot["strategy_list"],
-            "bot_id": int(bot["id"]),
+            "martingale_step_coefficient": float(thebot["martingale_step_coefficient"]),
+            "max_safety_orders": int(thebot["max_safety_orders"]),
+            "max_active_deals": int(thebot["max_active_deals"]),
+            "active_safety_orders_count": int(thebot["active_safety_orders_count"]),
+            "safety_order_step_percentage": float(
+                thebot["safety_order_step_percentage"]
+            ),
+            "take_profit_type": thebot["take_profit_type"],
+            "strategy_list": thebot["strategy_list"],
+            "bot_id": int(thebot["id"]),
         },
     )
     if data:
-        self.logger.debug("Bot updated: %s" % data)
-        self.logger.info(
+        logger.debug("Bot updated: %s" % data)
+        logger.info(
             "Bot '%s' with id '%s' updated with these pairs:\n%s"
-            % (bot["name"], bot["id"], newpairs),
+            % (thebot["name"], thebot["id"], newpairs),
             True,
         )
     else:
-        self.logger.error(
-            "Error occurred while updating bot '%s' error: %s" % (bot["name"], error["msg"]),
+        logger.error(
+            "Error occurred while updating bot '%s' error: %s"
+            % (thebot["name"], error["msg"]),
             True,
         )
 
 
-class Main:
-    """Main class, start of application."""
+# Start application
+program = Path(__file__).stem
 
-    def __init__(self):
-        self.botname = Path(__file__).stem
-        result = time.strftime("%A %H:%M:%S %d-%m-%Y")
+# Create or load configuration file
+config = load_config()
+if not config:
+    logger = Logger(program, None, False, False)
+    logger.info(f"3Commas bot helper {program}!")
+    logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
+    logger.info(
+        f"Created example config file '{program}.ini', edit it and restart the program."
+    )
+    sys.exit(0)
+else:
+    # Init notification handler
+    notification = NotificationHandler(
+        program,
+        config.getboolean("settings", "notifications"),
+        config.get("settings", "notify-urls"),
+    )
 
-        self.blacklist = list()
-        self.lunacrush = {}
-        self.usdtbtc = 0.0
+    # Init logging
+    logger = Logger(
+        program,
+        notification,
+        config.getboolean("settings", "debug"),
+        config.getboolean("settings", "notifications"),
+    )
+    logger.info(f"3Commas bot helper {program}")
+    logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
+    logger.info(f"Loaded configuration from '{program}.ini'")
 
-        # Create or load configuration file
-        self.config = load_config(self)
-        if not self.config:
-            self.logger = Logger(self.botname, None, False, False)
-            self.logger.info(f"3Commas {self.botname} bot helper!")
-            self.logger.info("Started at %s." % result)
-            self.logger.info(
-                f"Created example config file '{self.botname}.ini', edit it and restart the program."
-            )
-            sys.exit(0)
-        else:
-            # Init notification handler
-            self.notificationhandler = NotificationHandler(
-                self.botname,
-                self.config.getboolean("settings", "notifications"),
-                self.config.get("settings", "notify-urls"),
-            )
+if config.get("settings", "accountmode") == "real":
+    logger.info("Using REAL TRADING account")
+    MODE = "real"
+else:
+    logger.info("Using PAPER TRADING account")
+    MODE = "paper"
 
-            # Init logging
-            self.logger = Logger(
-                self.botname,
-                self.notificationhandler,
-                self.config.getboolean("settings", "debug"),
-                self.config.getboolean("settings", "notifications"),
-            )
-            self.logger.info(f"3Commas {self.botname} bot helper!")
-            self.logger.info("Started at %s" % result)
-            self.logger.info(f"Loaded configuration from '{self.botname}.ini'")
+if notification.enabled:
+    logger.info("Notifications are enabled")
+else:
+    logger.info("Notifications are disabled")
 
-        if self.config.get("settings", "accountmode") == "real":
-            self.logger.info("Using REAL TRADING account mode")
-            self.accountmode = "real"
-        else:
-            self.logger.info("Using PAPER TRADING account mode")
-            self.accountmode = "paper"
+# Initialize 3Commas API
+api = init_threecommas_api(config)
 
-        if self.notificationhandler.enabled:
-            self.logger.info("Notifications are enabled")
-        else:
-            self.logger.info("Notifications are disabled")
+if program == "watchlist":
+    # Watchlist telegram trigger
 
-        self.api = init_threecommas_api(self)
-        self.botids = json.loads(self.config.get("settings", "botids"))
+    # Start telegram client
+    client = TelegramClient(
+        "watchlist",
+        config.get("settings", "tgram-api-id"),
+        config.get("settings", "tgram-api-hash"),
+    ).start(config.get("settings", "tgram-phone-number"))
 
-    def start(self):
-        """Run main loop at interval."""
-        while True:
+    @client.on(events.NewMessage(chats=config.get("settings", "tgram-channel")))
+    async def callback(event):
+        """Parse Telegram message."""
+        logger.info(
+            "Received telegram message: '%s'" % event.message.text.replace("\n", " - ")
+        )
 
-            # Update 3Commas data
-            self.blacklist = get_threecommas_blacklist(self)
+        trigger = event.raw_text.splitlines()
+        if trigger[0] == "BINANCE" or trigger[0] == "FTX" or trigger[0] == "KUCOIN":
+            exchange = trigger[0].replace("\n", "")
+            pair = trigger[1].replace("#", "").replace("\n", "")
+            base = pair.split("_")[0].replace("#", "").replace("\n", "")
+            coin = pair.split("_")[1].replace("\n", "")
 
-            # Get price of BTC
-            self.usdtbtc = get_threecommas_btcusd(self)
-            self.logger.debug("Current price of BTC is %s USDT" % self.usdtbtc)
+            logger.debug("Exhange: %s" % exchange)
+            logger.debug("Pair: %s" % pair)
+            logger.debug("Base: %s" % base)
+            logger.debug("Coin: %s" % coin)
 
-            # Update LunaCrush data
-            self.lunacrush = get_lunarcrush_data(self)
-
-            # Walk through all bots specified
-            for bot in self.botids:
-                error, data = self.api.request(
-                    entity="bots", action="show", action_id=str(bot)
-                )
-                if data:
-                    find_pairs(self, data)
-                else:
-                    self.logger.error("Error occurred updating bots: %s" % error["msg"])
-
-            timeinterval = int(self.config.get("settings", "timeinterval"))
-
-            if timeinterval > 0:
-                localtime = time.time()
-                nexttime = localtime + int(timeinterval)
-                result = time.strftime("%H:%M:%S", time.localtime(nexttime))
-                self.logger.info(
-                    "Next update in %s Seconds at %s" % (timeinterval, result), True
-                )
-                time.sleep(timeinterval)
+            if base == "USDT":
+                botid = config.get("settings", "usdt_botid")
+                if not botid:
+                    logger.info("No botid defined for '%s' in config, disabled." % base)
+                    return
+            elif base == "BTC":
+                botid = config.get("settings", "btc_botid")
+                if not botid:
+                    logger.info("No botid defined for '%s' in config, disabled." % base)
+                    return
             else:
-                break
+                logger.error("Error the base of pair '%s' is not supported yet!" % pair)
+                return
 
+            error, data = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(botid),
+            )
+            if data:
+                await client.loop.run_in_executor(
+                    None, check_pair, data, exchange, base, coin
+                )
+            else:
+                logger.error("Error occurred triggering bot: %s" % error["msg"])
+        else:
+            logger.info("Not a crypto trigger message, or exchange not yet supported.")
 
-# Start application loop
-loop = Main()
-loop.start()
+    # Start telegram client
+    client.start()
+    logger.info(
+        "Listening to telegram chat '%s' for triggers"
+        % config.get("settings", "tgram-channel"),
+        True,
+    )
+    client.run_until_disconnected()
+
+else:
+    # Lunacrush GalayScore or Altrank pairs
+    while True:
+
+        # Reload config files and refetch data to catch changes
+        config = load_config()
+        logger.info(f"Loaded configuration from '{program}.ini'")
+        botids = json.loads(config.get("settings", "botids"))
+
+        # Walk through all bots specified
+        for bot in botids:
+            boterror, botdata = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(bot),
+                additional_headers={"Forced-Mode": MODE},
+            )
+            if botdata:
+                find_pairs(botdata)
+            else:
+                logger.error("Error occurred updating bots: %s" % boterror["msg"])
+
+        # pylint: disable=C0103
+        timeint = int(config.get("settings", "timeinterval"))
+
+        if timeint > 0:
+            localtime = time.time()
+            nexttime = localtime + int(timeint)
+            timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
+            logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
+            time.sleep(timeint)
+        else:
+            break

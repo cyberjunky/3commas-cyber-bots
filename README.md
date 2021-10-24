@@ -1,7 +1,7 @@
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/cyberjunkynl/)
 
 # 3commas-cyber-bots
-Some 3Commas bot helpers I wrote (collection will grow over time)
+A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Why you build these bot helpers?
 
@@ -30,6 +30,19 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 ## How does it work?
 
 Same as galaxyscore bot helper except with altrank data.
+
+
+## Watchlist bot helper named `watchlist.py`
+
+## What does it do?
+
+It will monitor a specific Telegram chat channel and sent a 'start new deal' trigger to the linked bot for that pair.
+
+## How does it work?
+
+Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to (for example BUSD_xxx) is bot uses different base.
+The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
+
 
 ## Binance account Setup
 
@@ -68,7 +81,15 @@ Support the Project
 NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
 
-## Bot Setup
+## Bot helper setup
+
+### Download
+
+Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
+
+```
+$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+```
 
 ### Install Python dependencies
 
@@ -78,9 +99,15 @@ Or run `setup.sh` script to install everything inside a Python Enviroment, also 
 
 ### Create user configuration
 
-If your run `galaxyscore` or `altrank` for the first time it will create default config file named `galaxyscore.ini` or `altrank.ini` edit it with the information below.
+Run manually
 
-The configuration file contains the following sections and fields:
+```
+python3 ./altrank.py
+```
+
+If your run `galaxyscore`,`altrank` or `watchlist` bot helper for the first time it will create default config file named `galaxyscore.ini`. `altrank.ini` or `watchlist.ini`. Edit it with the information below.
+
+The configuration files for `galaxyscore` and `altrank` contain the following sections and fields:
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
@@ -108,12 +135,53 @@ notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
+`watchlist` has a slightly different layout:
+
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **usdt_botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
+-   **btc_botid** -  the bot id of the BTC multipair bot to use.
+-   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - Your telegram API id.
+-   **tgram-api-hash** - Your telegram API hash.
+-   **tgram-channel** - Name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+
+Example: (keys are bogus)
+```
+[settings]
+debug = True
+usdt_botid = 123456
+btc_botid = 789012
+accountmode = paper
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notifications = True
+notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+About Telegram App ID and hash above, you need to create an 'application' which you can use to connect to telegram from this code.
+Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and follow the steps to create them.
+
+
 ### Run the bot(s)
 
 #### Run Manually
 `python3 ./galaxyscore.py`
 and/or
 `python3 ./altrank.py`
+and/or
+`python3 ./watchlist.py`
 
 ### Example output for `altrank`
 ```
