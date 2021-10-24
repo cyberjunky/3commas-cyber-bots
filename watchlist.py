@@ -127,6 +127,7 @@ class Logger:
 
 def load_config():
     """Create default or load existing config file."""
+
     cfg = configparser.ConfigParser()
     if cfg.read(f"{program}.ini"):
         return cfg
@@ -162,6 +163,7 @@ def load_config():
 
     with open("{program}.ini", "w") as cfgfile:
         cfgfile.write(f"{program}.ini")
+
     return None
 
 
@@ -430,6 +432,7 @@ def find_pairs(thebot):
 
         # Did we get enough pairs already?
         fixednumpairs = int(config.get("settings", "numberofpairs"))
+
         if fixednumpairs:
             if len(newpairslist) == fixednumpairs:
                 break
@@ -607,6 +610,7 @@ if program == "watchlist":
                 action="show",
                 action_id=str(botid),
             )
+
             if data:
                 await client.loop.run_in_executor(
                     None, check_pair, data, exchange, base, coin

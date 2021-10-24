@@ -1,5 +1,22 @@
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/cyberjunkynl/)
 
+## Disclaimer
+
+This project is for informational purposes only. You should not construe any
+such information or other material as legal, tax, investment, financial, or
+other advice. Nothing contained here constitutes a solicitation, recommendation,
+endorsement, or offer by me or any third party service provider to buy or sell
+any securities or other financial instruments in this or in any other
+jurisdiction in which such solicitation or offer would be unlawful under the
+securities laws of such jurisdiction.
+
+If you plan to use real money, USE AT YOUR OWN RISK.
+
+Under no circumstances will I be held responsible or liable in any way for any
+claims, damages, losses, expenses, costs, or liabilities whatsoever, including,
+without limitation, any direct or indirect damages for loss of profits.
+
+
 # 3commas-cyber-bots
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
@@ -112,7 +129,7 @@ The configuration files for `galaxyscore` and `altrank` contain the following se
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the max active deals for each bot as pair number. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
@@ -225,12 +242,14 @@ sudo systemctl start 3commas-galaxyscore-bot.service
 sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
 sudo systemctl start 3commas-altrank-bot.service
 ```
-Example on how to enable starting the bot at boot:
+Example on how to enable starting the bot helper(s) at boot:
 ```
+sudo systemctl enable 3commas-galaxyscore-bot.service
 sudo systemctl enable 3commas-altrank-bot.service
 ```
-Example on how to disable starting the bot at boot:
+Example on how to disable starting the bot helper(s) at boot:
 ```
+sudo systemctl disable 3commas-galaxyscore-bot.service
 sudo systemctl disable 3commas-altrank-bot.service
 ```
 How to check status:
@@ -260,7 +279,7 @@ okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxysc
 
 How to check logs:
 ```
-journalctl -u 3commas-galaxyscore-bot.service 
+sudo journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
 How to edit an already installed service file:
@@ -317,6 +336,25 @@ So it looks something like this: (strings are bogus)
 ```
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/%%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes" ]
 ```
+
+5) I get this error running pip3 install step
+```
+       #include <ffi.h>
+                ^~~~~~~
+      compilation terminated.
+      error: command 'x86_64-linux-gnu-gcc' failed with exit status 
+```
+
+Install libffi-dev with `sudo apt install libffi-dev` and try again.
+
+6) I get error can't find Rust compiler
+
+Update pip3 like so:
+```
+pip3 install --upgrade pip
+```
+And try again.
+
 ### Debugging
 
 Set debug to True in config.ini and check log file `logs/galaxyscore.log` or `logs/altrank.log` for debug information
