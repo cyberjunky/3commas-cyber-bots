@@ -135,8 +135,8 @@ def load_config():
     if program == "watchlist":
         cfg["settings"] = {
             "debug": False,
-            "usdt_botid": 12345,
-            "btc_botid": 67890,
+            "usdt-botid": 12345,
+            "btc-botid": 67890,
             "accountmode": "paper",
             "3c-apikey": "Your 3Commas API Key",
             "3c-apisecret": "Your 3Commas API Secret",
@@ -592,12 +592,12 @@ if program == "watchlist":
             logger.debug("Coin: %s" % coin)
 
             if base == "USDT":
-                botid = config.get("settings", "usdt_botid")
+                botid = config.get("settings", "usdt-botid")
                 if not botid:
                     logger.info("No botid defined for '%s' in config, disabled." % base)
                     return
             elif base == "BTC":
-                botid = config.get("settings", "btc_botid")
+                botid = config.get("settings", "btc-botid")
                 if not botid:
                     logger.info("No botid defined for '%s' in config, disabled." % base)
                     return
