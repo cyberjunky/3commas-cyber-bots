@@ -25,6 +25,7 @@ A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
 
 ## GalaxyScore bot helper named `galaxyscore.py`
+Type = trading pair
 
 ## What does it do?
 
@@ -39,6 +40,7 @@ If this is the case -and the current pair are different than the current ons- th
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 ## AltRank bot helper named `altrank.py`
+Type = trading pair
 
 ## What does it do?
 
@@ -50,6 +52,7 @@ Same as galaxyscore bot helper except with altrank data.
 
 
 ## Watchlist bot helper named `watchlist.py`
+Type = deal trigger
 
 ## What does it do?
 
@@ -57,7 +60,7 @@ It will monitor a specific Telegram chat channel and sent a 'start new deal' tri
 
 ## How does it work?
 
-Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to (for example BUSD_xxx) is bot uses different base.
+Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to (for example BUSD_xxx) if bot uses different base.
 The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
 
 
