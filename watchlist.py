@@ -266,14 +266,21 @@ def check_pair(thebot, triggerexchange, base, coin):
     logger.debug("Exchange for this bot: %s" % exchange)
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
-    # Check if bot is connected to same exchange
-    if exchange.upper() != triggerexchange.upper():
+    if "Paper Account" in exchange or MODE == "paper":
         logger.info(
-            "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
-            % (triggerexchange.upper(), exchange.upper()),
+            "Trigger is for '%s' exchange. But we are trading in Paper so skipping exchange check."
+            % triggerexchange,
             True,
         )
-        return
+    else:
+        # Check if bot is connected to same exchange
+        if exchange.upper() != triggerexchange.upper():
+            logger.info(
+                "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
+                % (triggerexchange.upper(), exchange.upper()),
+                True,
+            )
+            return
 
     # Get market of 3Commas because it's slightly different then exchanges
     if exchange == "Binance" or "Paper Account" in exchange:
@@ -301,7 +308,8 @@ def check_pair(thebot, triggerexchange, base, coin):
     if pair not in tickerlist:
         logger.debug(
             "This pair is not valid on the %s market according to 3Commas and was skipped: %s"
-            % (exchange, pair), True
+            % (exchange, pair),
+            True,
         )
         return
 
@@ -576,7 +584,8 @@ if program == "watchlist":
     async def callback(event):
         """Parse Telegram message."""
         logger.info(
-            "Received telegram message: '%s'" % event.message.text.replace("\n", " - ")
+            "Received telegram message: '%s'" % event.message.text.replace("\n", " - "),
+            True,
         )
 
         trigger = event.raw_text.splitlines()
