@@ -266,7 +266,7 @@ def check_pair(thebot, triggerexchange, base, coin):
     logger.debug("Exchange for this bot: %s" % exchange)
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
-    if "Paper Account" in exchange or MODE == "paper":
+    if MODE == "paper":
         logger.info(
             "Trigger is for '%s' exchange. But we are trading in Paper so skipping exchange check."
             % triggerexchange,
@@ -283,7 +283,7 @@ def check_pair(thebot, triggerexchange, base, coin):
             return
 
     # Get market of 3Commas because it's slightly different then exchanges
-    if exchange == "Binance" or "Paper Account" in exchange:
+    if MODE == "paper" or exchange == "Binance":
         tickerlist = get_threecommas_market("binance")
     elif exchange == "FTX":
         tickerlist = get_threecommas_market("ftx")
