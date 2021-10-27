@@ -132,7 +132,7 @@ def load_config():
     if cfg.read(f"{program}.ini"):
         return cfg
 
-    if program == "watchlist":
+    if "watchlist" in program:
         cfg["settings"] = {
             "debug": False,
             "usdt-botid": 12345,
@@ -570,12 +570,12 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-if program == "watchlist":
+if "watchlist" in program:
     # Watchlist telegram trigger
 
     # Start telegram client
     client = TelegramClient(
-        "watchlist",
+        program,
         config.get("settings", "tgram-api-id"),
         config.get("settings", "tgram-api-hash"),
     ).start(config.get("settings", "tgram-phone-number"))
