@@ -283,7 +283,7 @@ def check_pair(thebot, triggerexchange, base, coin):
             return
 
     # Get market of 3Commas because it's slightly different then exchanges
-    if exchange == "Binance" or "Paper Account" in exchange:
+    if "Binance" in exchange or "Paper Account" in exchange:
         tickerlist = get_threecommas_market("binance")
     elif exchange == "FTX":
         tickerlist = get_threecommas_market("ftx")
@@ -410,7 +410,7 @@ def find_pairs(thebot):
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
     logger.info("Finding the best pairs for %s exchange" % exchange)
 
-    if exchange == "Binance" or "Paper Account" in exchange or MODE == "paper":
+    if "Binance" in exchange or "Paper Account" in exchange or MODE == "paper":
         tickerlist = get_threecommas_market("binance")
     elif exchange == "FTX":
         tickerlist = get_threecommas_market("ftx")
