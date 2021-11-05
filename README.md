@@ -170,6 +170,8 @@ notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
+The 3Commas API need to have 'BotsRead, BotsWrite' permissions.
+
 About Telegram App ID and hash above, you need to create an 'application' which you can use to connect to telegram from this code.
 Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and follow the steps to create them.
 
