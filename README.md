@@ -84,26 +84,25 @@ NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank 
 
 ## Bot helper setup
 
-### Download
+### Download and install
 
 Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
 
 ```
+$ sudo apt install git
 $ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+$ cd 3commas-cyber-bots
+$ pip3 install -r requirements.txt
 ```
 
-### Install Python dependencies
-
-Run the following line in the terminal: `pip install -r requirements.txt`.
-
-Or run `setup.sh` script to install everything inside a Python Enviroment, also see below.
+Or as last step run `setup.sh` script to install everything inside a Python Enviroment, also see below. (for advanced users)
 
 ### Create user configuration
 
-Run manually
+Start the bot(s) you want to use e.g. for altrank, a config file with name of bot is created (ending in .ini)
 
 ```
-python3 ./altrank.py
+$ python3 ./altrank.py
 ```
 
 If your run `galaxyscore`,`altrank` or `watchlist` bot helper for the first time it will create default config file named `galaxyscore.ini`. `altrank.ini` or `watchlist.ini`. Edit it with the information below.
