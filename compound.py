@@ -262,9 +262,8 @@ def compound_bot(thebot):
 
         if profitsum:
             # bot values to calculate with
-            base_order_size = int(float(thebot["base_order_volume"]))
-            safety_order_size = int(float(thebot["safety_order_volume"]))
-            # ratio = (safety_order_size + base_order_size) 
+            base_order_size = float(thebot["base_order_volume"])
+            safety_order_size = float(thebot["safety_order_volume"])
             max_active_deals = thebot["max_active_deals"]
             max_safety_orders = thebot["max_safety_orders"]
 
@@ -325,8 +324,6 @@ def compound_bot(thebot):
 
             logger.info("New BO: %s" % newbaseordervolume)
             logger.info("New SO %s" % newsafetyordervolume)
-
-
 
             logger.info("Base order size increased from %s to %s" % (base_order_size, newbaseordervolume))
             logger.info("Safety order size increased from %s to %s" % (safety_order_size, newsafetyordervolume))
