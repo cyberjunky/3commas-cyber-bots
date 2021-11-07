@@ -276,26 +276,22 @@ def compound_bot(thebot):
             bot_name = thebot["name"]
             bot_safety_order_step_percentage = thebot["safety_order_step_percentage"]
 
-            # current ratios
-            curbopercentage = 100 * float(base_order_size) / (float(base_order_size) + float(safety_order_size))
-            cursopercentage = 100 * float(safety_order_size) / (float(safety_order_size) + float(base_order_size))
+            # bo/so ratio calculations
+            bopercentage = 100 * float(base_order_size) / (float(base_order_size) + float(safety_order_size))
+            sopercentage = 100 * float(safety_order_size) / (float(safety_order_size) + float(base_order_size))
+            logger.info("Current BO percentage: %s" % bopercentage)
+            logger.info("Current SO percentage: %s" % sopercentage)
 
             # check if data is already in database, else calc and store it
             percentage = get_bot_ratio(botid)
             if percentage:
                 (id, bopercentage, sopercentage) = percentage
-                logger.info("Original BO percentage from db: %s" % bopercentage)
-                logger.info("Original SO percentage from db: %s" % sopercentage)
+                logger.info("Using BO percentage from db: %s" % bopercentage)
+                logger.info("Using SO percentage from db: %s" % sopercentage)
             else:
-                # bo/so ratio calculations
-                bopercentage = curbopercentage
-                sopercentage = cursopercentage
                 # store in db for later use
                 db.execute(f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})")
                 db.commit()
-
-            logger.info("Current BO percentage: %s" % curbopercentage)
-            logger.info("Current SO percentage: %s" % cursopercentage)
         
             # minimal needed profit calculations
             soprofitneeded = float(max_safety_orders) * 0.01 * max_active_deals
