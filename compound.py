@@ -5,17 +5,15 @@ import json
 import logging
 import os
 import queue
+import sqlite3
 import sys
 import threading
 import time
 from pathlib import Path
-import math
 
 import apprise
-import requests
 from py3cw.request import Py3CW
-from telethon import TelegramClient, events
-import sqlite3
+
 
 class NotificationHandler:
     """Notification class."""
@@ -179,6 +177,7 @@ def load_config():
 
     return None
 
+
 def init_threecommas_api(cfg):
     """Init the 3commas API."""
     return Py3CW(
@@ -191,45 +190,44 @@ def init_threecommas_api(cfg):
         },
     )
 
+
 def get_threecommas_deals(botid):
     """Get all deals from 3Commas from a bot."""
 
-    deals = None
     error, data = api.request(
         entity="deals",
         action="",
         payload={
-                "scope": "finished",
-                "bot_id": str(botid),
+            "scope": "finished",
+            "bot_id": str(botid),
         },
         additional_headers={"Forced-Mode": MODE},
     )
     if error:
-        logger.error(
-            "Fetching 3Commas deals failed with error: %s" % error
-        )
+        logger.error("Fetching 3Commas deals failed with error: %s" % error)
     else:
-        logger.debug(
-            "Fetched 3Commas deals '%s' OK" % data
-        )
+        logger.debug("Fetched 3Commas deals '%s' OK" % data)
 
     return data
+
 
 def check_deal(id):
     """Check if deal was already logged."""
     data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {id}").fetchone()
-    if data == None:
+    if data is None:
         return False
 
     return True
 
+
 def get_bot_ratio(id):
     """Get bot bo/so percentages if already logged."""
     data = cursor.execute(f"SELECT * FROM bots WHERE botid = {id}").fetchone()
-    if data == None:
+    if data is None:
         return None
 
     return data
+
 
 def compound_bot(thebot):
     """Find profit from deals and calculate new SO and BO values."""
@@ -240,15 +238,15 @@ def compound_bot(thebot):
         profitsum = 0.0
         for deal in deals:
             id = deal["id"]
-            
+
             # Register deal in database
             exist = check_deal(id)
             if exist:
                 logger.debug("Deal with id '%s' already processed, skipping." % id)
             else:
                 # Deal not processed yet
-                profit = float(deal['final_profit'])
-                dealscount = dealscount +1
+                profit = float(deal["final_profit"])
+                dealscount = dealscount + 1
                 profitsum = profitsum + profit
 
                 db.execute(f"INSERT INTO deals (dealid) VALUES ({id})")
@@ -258,7 +256,7 @@ def compound_bot(thebot):
         # profitsum = 1.0
 
         logger.info("Finished deals: %s total profit: %s" % (dealscount, profitsum))
-        db.commit()  
+        db.commit()
 
         if profitsum:
             # bot values to calculate with
@@ -272,11 +270,21 @@ def compound_bot(thebot):
             logger.info("Current SO in bot: %s" % safety_order_size)
             logger.info("Max BO's in bot: %s" % max_active_deals)
             logger.info("Max SO's per deal in bot: %s" % max_safety_orders)
-            logger.info("Total SO's in bot: %s" % (max_active_deals * max_safety_orders))
+            logger.info(
+                "Total SO's in bot: %s" % (max_active_deals * max_safety_orders)
+            )
 
             # bo/so ratio calculations
-            bopercentage = 100 * float(base_order_size) / (float(base_order_size) + float(safety_order_size))
-            sopercentage = 100 * float(safety_order_size) / (float(safety_order_size) + float(base_order_size))
+            bopercentage = (
+                100
+                * float(base_order_size)
+                / (float(base_order_size) + float(safety_order_size))
+            )
+            sopercentage = (
+                100
+                * float(safety_order_size)
+                / (float(safety_order_size) + float(base_order_size))
+            )
             logger.info("Current BO percentage: %s" % bopercentage)
             logger.info("Current SO percentage: %s" % sopercentage)
 
@@ -288,39 +296,32 @@ def compound_bot(thebot):
                 logger.info("Using SO percentage from db: %s" % sopercentage)
             else:
                 # store in db for later use
-                db.execute(f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})")
+                db.execute(
+                    f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})"
+                )
                 db.commit()
-        
-            # minimal needed profit calculations
-            soprofitneeded = float(max_safety_orders) * 0.01 * max_active_deals
-            logger.info("Minimal SO profit needed: %s" % soprofitneeded)
 
-            boprofitneeded =  float(soprofitneeded) / sopercentage * bopercentage / 100
-            logger.info("Minimal BO profit needed: %s" % boprofitneeded)
-
-            minprofitneeded = float(boprofitneeded) + float(soprofitneeded)
-            logger.info("Minimal profit needed to also update SO: %s" % minprofitneeded)
-
-            if profitsum < minprofitneeded:
-                # only update the BO's
-                boprofitsplit = profitsum / max_active_deals
-                soprofitsplit = 0
-            else:
-                # also update the SO's
-                boprofitsplit = (profitsum * bopercentage) / 100 / max_active_deals
-                soprofitsplit1 = (profitsum * sopercentage) / 100
-                soprofitsplit2 = (soprofitsplit1 /max_active_deals)
-                soprofitsplit = (soprofitsplit2/ max_safety_orders)
+            # calculate compound values
+            boprofitsplit = (profitsum * bopercentage) / 100 / max_active_deals
+            soprofitsplit1 = (profitsum * sopercentage) / 100
+            soprofitsplit2 = soprofitsplit1 / max_active_deals
+            soprofitsplit = soprofitsplit2 / max_safety_orders
 
             logger.info("BO compound: %s" % boprofitsplit)
             logger.info("SO compound: %s" % soprofitsplit)
 
-            # compound the profits to base volume and safety volume   
+            # compound the profits to base volume and safety volume
             newbaseordervolume = base_order_size + boprofitsplit
             newsafetyordervolume = safety_order_size + soprofitsplit
 
-            logger.info("Base order size increased from %s to %s" % (base_order_size, newbaseordervolume))
-            logger.info("Safety order size increased from %s to %s" % (safety_order_size, newsafetyordervolume))
+            logger.info(
+                "Base order size increased from %s to %s"
+                % (base_order_size, newbaseordervolume)
+            )
+            logger.info(
+                "Safety order size increased from %s to %s"
+                % (safety_order_size, newsafetyordervolume)
+            )
 
             # update bot settings
             error, update_bot = api.request(
@@ -330,24 +331,33 @@ def compound_bot(thebot):
                 payload={
                     "bot_id": thebot["id"],
                     "name": thebot["name"],
-                    "pairs":  thebot["pairs"],
-                    "base_order_volume": newbaseordervolume, # new base order volume
-                    "safety_order_volume": newsafetyordervolume, # new safety order volume
+                    "pairs": thebot["pairs"],
+                    "base_order_volume": newbaseordervolume,  # new base order volume
+                    "safety_order_volume": newsafetyordervolume,  # new safety order volume
                     "take_profit": thebot["take_profit"],
-                    "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
-                    "martingale_step_coefficient": thebot["martingale_step_coefficient"],
+                    "martingale_volume_coefficient": thebot[
+                        "martingale_volume_coefficient"
+                    ],
+                    "martingale_step_coefficient": thebot[
+                        "martingale_step_coefficient"
+                    ],
                     "max_active_deals": max_active_deals,
                     "max_safety_orders": max_safety_orders,
-                    "safety_order_step_percentage": thebot["safety_order_step_percentage"],
+                    "safety_order_step_percentage": thebot[
+                        "safety_order_step_percentage"
+                    ],
                     "take_profit_type": thebot["take_profit_type"],
                     "strategy_list": thebot["strategy_list"],
                     "active_safety_orders_count": thebot["active_safety_orders_count"],
-                    }
-                )
+                },
+            )
             if error == {}:
                 logger.info("Bot update completed!")
             else:
-                logger.error("Error occurred updating bot with new so/bo values: %s" % error["msg"])
+                logger.error(
+                    "Error occurred updating bot with new so/bo values: %s"
+                    % error["msg"]
+                )
         else:
             logger.info("No profit made, no BO/SO value update needed!")
 
@@ -355,9 +365,9 @@ def compound_bot(thebot):
 def init_compound_db():
     """Create or open database to store bot and deals data."""
     try:
-        dbname=f"{program}.sqlite3"
-        dbpath=f"file:{dbname}?mode=rw"
-        db = sqlite3.connect(dbpath, uri=True) 
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{dbname}?mode=rw"
+        db = sqlite3.connect(dbpath, uri=True)
 
         logger.info(f"Database '{dbname}' opened successfully")
     except sqlite3.OperationalError:
@@ -366,7 +376,9 @@ def init_compound_db():
         logger.info(f"Database '{dbname}' created successfully")
 
         cursor.execute("CREATE TABLE deals (dealid int Primary Key)")
-        cursor.execute("CREATE TABLE bots (botid int Primary Key, bopercentage real, sopercentage real)")
+        cursor.execute(
+            "CREATE TABLE bots (botid int Primary Key, bopercentage real, sopercentage real)"
+        )
         logger.info("Database tables created successfully")
 
     return db
