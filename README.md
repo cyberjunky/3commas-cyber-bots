@@ -45,6 +45,22 @@ Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, 
 The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
 
 
+## Compound bot helper named `compound.py`
+Type = compounder
+
+## What does it do?
+
+It will compound profits made by a bot to the BO and SO of the same bot.
+
+## How does it work?
+
+Every interval the bots specfied in the config are read, their deals are checked for profits.
+If profit has been made, the value will be added to the BO and SO values of the bot.
+Deals are marked as processed and original BO/SO ratio of the bot is stored to be used for next iterations.
+
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+
 ## Binance account Setup
 
 -   Create a [Binance account](https://accounts.binance.com/en/register?ref=156153717) (Includes my referral, I'll be super grateful if you use it).
@@ -148,6 +164,37 @@ notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeH
 -   **tgram-api-id** - Your telegram API id.
 -   **tgram-api-hash** - Your telegram API hash.
 -   **tgram-channel** - Name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+
+Example: (keys are bogus)
+```
+[settings]
+debug = True
+usdt-botid = 123456
+btc-botid = 789012
+accountmode = paper
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notifications = True
+notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+This is the layout of the config file of the `compound.py` helper:
+
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **profittocompound** - ratio of profit to compound (1.0 = 100%, currently not implemented yet)
+-   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
