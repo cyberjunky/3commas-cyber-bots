@@ -186,7 +186,7 @@ notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-This is the layout of the config file of the `compound.py` helper:
+This is the layout of the config file used by the `compound.py` helper:
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
