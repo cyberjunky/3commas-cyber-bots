@@ -171,7 +171,7 @@ notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeH
 Example: (keys are bogus)
 ```
 [settings]
-debug = True
+debug = False
 usdt-botid = 123456
 btc-botid = 789012
 accountmode = paper
@@ -181,7 +181,6 @@ tgram-phone-number = +316512345678
 tgram-api-id = 1234566
 tgram-api-hash = o6la4h1158ylt4mzhnpio6la
 tgram-channel = mytriggerchannel
-notifications = True
 notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
@@ -202,17 +201,13 @@ This is the layout of the config file used by the `compound.py` helper:
 Example: (keys are bogus)
 ```
 [settings]
-debug = True
-usdt-botid = 123456
-btc-botid = 789012
+timeinterval = 3600
+debug = False
+botids = [ 123456 ]
+profittocompound = 1.0
 accountmode = paper
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
-tgram-phone-number = +316512345678
-tgram-api-id = 1234566
-tgram-api-hash = o6la4h1158ylt4mzhnpio6la
-tgram-channel = mytriggerchannel
-notifications = True
 notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
