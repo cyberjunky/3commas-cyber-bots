@@ -45,6 +45,22 @@ Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, 
 The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
 
 
+## Compound bot helper named `compound.py`
+Type = compounder
+
+## What does it do?
+
+It will compound profits made by a bot to the BO and SO of the same bot.
+
+## How does it work?
+
+Every interval the bots specfied in the config are read, their deals are checked for profits.
+If profit has been made, the value will be added to the BO and SO values of the bot.
+Deals are marked as processed and original BO/SO ratio of the bot is stored to be used for next iterations.
+
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+
 ## Binance account Setup
 
 -   Create a [Binance account](https://accounts.binance.com/en/register?ref=156153717) (Includes my referral, I'll be super grateful if you use it).
@@ -84,23 +100,22 @@ NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank 
 
 ## Bot helper setup
 
-### Download
+### Download and install
 
 Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
 
 ```
-$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+sudo apt install git
+git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+cd 3commas-cyber-bots
+pip3 install -r requirements.txt
 ```
 
-### Install Python dependencies
-
-Run the following line in the terminal: `pip install -r requirements.txt`.
-
-Or run `setup.sh` script to install everything inside a Python Enviroment, also see below.
+Or as last step run `setup.sh` script to install everything inside a Python Enviroment, also see below. (for advanced users)
 
 ### Create user configuration
 
-Run manually
+Start the bot(s) you want to use e.g. for altrank, a config file with name of bot is created (ending in .ini)
 
 ```
 python3 ./altrank.py
@@ -156,7 +171,7 @@ notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeH
 Example: (keys are bogus)
 ```
 [settings]
-debug = True
+debug = False
 usdt-botid = 123456
 btc-botid = 789012
 accountmode = paper
@@ -167,9 +182,37 @@ tgram-api-id = 1234566
 tgram-api-hash = o6la4h1158ylt4mzhnpio6la
 tgram-channel = mytriggerchannel
 notifications = True
+notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+This is the layout of the config file used by the `compound.py` helper:
+
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **profittocompound** - ratio of profit to compound (1.0 = 100%, currently not implemented yet)
+-   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timeinterval = 3600
+debug = False
+botids = [ 123456 ]
+profittocompound = 1.0
+accountmode = paper
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 notifications = True
 notify-urls = [ "gnome://", "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
+
+The 3Commas API need to have 'BotsRead, BotsWrite' permissions.
 
 About Telegram App ID and hash above, you need to create an 'application' which you can use to connect to telegram from this code.
 Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and follow the steps to create them.

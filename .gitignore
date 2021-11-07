@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+*.sqlite3
 *.session
 logs/
 *.ini
