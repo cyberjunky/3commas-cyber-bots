@@ -299,7 +299,7 @@ def compound_bot(thebot):
             boprofitneeded =  float(soprofitneeded) * bopercentage / 100
             logger.info("Minimal BO profit needed: %s" % boprofitneeded)
 
-            minprofitneeded = float(boprofitneeded) + float(boprofitneeded)
+            minprofitneeded = float(soprofitneeded) + float(boprofitneeded)
             logger.info("Minimal profit needed to also update SO: %s" % minprofitneeded)
 
 
