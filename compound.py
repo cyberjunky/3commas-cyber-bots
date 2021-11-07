@@ -253,9 +253,9 @@ def compound_bot(thebot):
 
                 db.execute(f"INSERT INTO deals (dealid) VALUES ({id})")
 
-        # profit values to debug only
-        dealscount = 1
-        profitsum = 1.0
+        # # profit values to debug only
+        # dealscount = 1
+        # profitsum = 1.0
 
         logger.info("Finished deals: %s total profit: %s" % (dealscount, profitsum))
         db.commit()  
@@ -266,14 +266,13 @@ def compound_bot(thebot):
             safety_order_size = float(thebot["safety_order_volume"])
             max_active_deals = thebot["max_active_deals"]
             max_safety_orders = thebot["max_safety_orders"]
-
-            # bot values needed for updating bot only
             botid = thebot["id"]
-            bot_martingale_volume_coefficient = thebot["martingale_volume_coefficient"]
-            bot_safety_order_step_percentage = thebot["safety_order_step_percentage"]
-            bot_pairs = thebot["pairs"]
-            bot_name = thebot["name"]
-            bot_safety_order_step_percentage = thebot["safety_order_step_percentage"]
+
+            logger.info("Current BO in bot: %s" % base_order_size)
+            logger.info("Current SO in bot: %s" % safety_order_size)
+            logger.info("Max BO's in bot: %s" % max_active_deals)
+            logger.info("Max SO's per deal in bot: %s" % max_safety_orders)
+            logger.info("Total SO's in bot: %s" % (max_active_deals * max_safety_orders))
 
             # bo/so ratio calculations
             bopercentage = 100 * float(base_order_size) / (float(base_order_size) + float(safety_order_size))
@@ -281,10 +280,10 @@ def compound_bot(thebot):
             logger.info("Current BO percentage: %s" % bopercentage)
             logger.info("Current SO percentage: %s" % sopercentage)
 
-            # check if data is already in database, else calc and store it
-            percentage = get_bot_ratio(botid)
-            if percentage:
-                (id, bopercentage, sopercentage) = percentage
+            # check if data is already in database if so use that, else store calculcated from above
+            percentages = get_bot_ratio(botid)
+            if percentages:
+                (id, bopercentage, sopercentage) = percentages
                 logger.info("Using BO percentage from db: %s" % bopercentage)
                 logger.info("Using SO percentage from db: %s" % sopercentage)
             else:
@@ -296,68 +295,59 @@ def compound_bot(thebot):
             soprofitneeded = float(max_safety_orders) * 0.01 * max_active_deals
             logger.info("Minimal SO profit needed: %s" % soprofitneeded)
 
-            boprofitneeded =  float(soprofitneeded) * bopercentage / 100
+            boprofitneeded =  float(soprofitneeded) / sopercentage * bopercentage / 100
             logger.info("Minimal BO profit needed: %s" % boprofitneeded)
 
-            minprofitneeded = float(soprofitneeded) + float(boprofitneeded)
+            minprofitneeded = float(boprofitneeded) + float(soprofitneeded)
             logger.info("Minimal profit needed to also update SO: %s" % minprofitneeded)
 
-
             if profitsum < minprofitneeded:
-                # Only update the BO's
+                # only update the BO's
                 boprofitsplit = profitsum / max_active_deals
                 soprofitsplit = 0
             else:
-                # Also update the SO's
+                # also update the SO's
                 boprofitsplit = (profitsum * bopercentage) / 100 / max_active_deals
                 soprofitsplit1 = (profitsum * sopercentage) / 100
                 soprofitsplit2 = (soprofitsplit1 /max_active_deals)
-                soprofitsplit = ( soprofitsplit2/ max_safety_orders)
+                soprofitsplit = (soprofitsplit2/ max_safety_orders)
 
             logger.info("BO compound: %s" % boprofitsplit)
             logger.info("SO compound: %s" % soprofitsplit)
-
 
             # compound the profits to base volume and safety volume   
             newbaseordervolume = base_order_size + boprofitsplit
             newsafetyordervolume = safety_order_size + soprofitsplit
 
-            logger.info("New BO: %s" % newbaseordervolume)
-            logger.info("New SO %s" % newsafetyordervolume)
-
             logger.info("Base order size increased from %s to %s" % (base_order_size, newbaseordervolume))
             logger.info("Safety order size increased from %s to %s" % (safety_order_size, newsafetyordervolume))
 
-            logger.info("NO BOTS UPDATED YET ALPHA CODE!")
-
-            # TODO Round values
-            # Update bot settings
-            #     # error, update_bot = api.request(
-            #     #     entity="bots",
-            #     #     action="update",
-            #     #     action_id=str(thebot["id"]),
-            #     #     payload={
-            #     #         # "account_id": account_id,
-            #     #         "bot_id": thebot["id"],
-            #     #         "name": thebot["name"],
-            #     #         "pairs": bot_pairs,
-            #     #         "base_order_volume": adj_base_order_size - 1, # this is auto calculated value that we"re changing
-            #     #         "safety_order_volume": adj_safety_order_size - 1, # this is auto calculated value that we"re changing
-            #     #         "take_profit": bot_take_profit,
-            #     #         "martingale_volume_coefficient": bot_martingale_volume_coefficient,
-            #     #         "martingale_step_coefficient": bot_martingale_step_coefficient,
-            #     #         "max_safety_orders": bot_max_safety_orders_count,
-            #     #         "active_safety_orders_count": bot_active_safety_orders_count,
-            #     #         "safety_order_step_percentage": bot_safety_order_step_percentage,
-            #     #         "take_profit_type": bot_take_profit_type,
-            #     #         "strategy_list": bot_strategy_list,
-            #     #         "max_active_deals": str(bot_max_active_deals),
-            #     #         }
-            #     #     )
-            #     # if error == {}:
-            #     #     logger.info("Bot update completed!")
-            #     # else:
-            #     #     logger.info("Bot update NOT completed!")
+            # update bot settings
+            error, update_bot = api.request(
+                entity="bots",
+                action="update",
+                action_id=str(thebot["id"]),
+                payload={
+                    "bot_id": thebot["id"],
+                    "name": thebot["name"],
+                    "pairs":  thebot["pairs"],
+                    "base_order_volume": newbaseordervolume, # new base order volume
+                    "safety_order_volume": newsafetyordervolume, # new safety order volume
+                    "take_profit": thebot["take_profit"],
+                    "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
+                    "martingale_step_coefficient": thebot["martingale_step_coefficient"],
+                    "max_active_deals": max_active_deals,
+                    "max_safety_orders": max_safety_orders,
+                    "safety_order_step_percentage": thebot["safety_order_step_percentage"],
+                    "take_profit_type": thebot["take_profit_type"],
+                    "strategy_list": thebot["strategy_list"],
+                    "active_safety_orders_count": thebot["active_safety_orders_count"],
+                    }
+                )
+            if error == {}:
+                logger.info("Bot update completed!")
+            else:
+                logger.error("Error occurred updating bot with new so/bo values: %s" % error["msg"])
         else:
             logger.info("No profit made, no BO/SO value update needed!")
 
