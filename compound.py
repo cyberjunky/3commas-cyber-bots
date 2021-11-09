@@ -203,6 +203,7 @@ def get_bot_ratio(id):
 def compound_bot(thebot):
     """Find profit from deals and calculate new SO and BO values."""
     deals = get_threecommas_deals(thebot["id"])
+    bot_name = thebot["name"]
 
     if deals:
         dealscount = 0
@@ -236,7 +237,6 @@ def compound_bot(thebot):
             max_active_deals = thebot["max_active_deals"]
             max_safety_orders = thebot["max_safety_orders"]
             botid = thebot["id"]
-            bot_name = thebot["name"]
 
             logger.info("Current BO in bot: %s" % base_order_size)
             logger.info("Current SO in bot: %s" % safety_order_size)
@@ -335,9 +335,9 @@ def compound_bot(thebot):
                     % error["msg"]
                 )
         else:
-            logger.info("No profit made, so no BO/SO value updates needed!", True)
+            logger.info(f"{bot_name}\nNo profit made, so no BO/SO value updates needed!", True)
     else:
-        logger.info("No deals found for this bot!", True)
+        logger.info(f"{bot_name}\nNo deals found for this bot!", True)
 
 def init_compound_db():
     """Create or open database to store bot and deals data."""
