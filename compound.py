@@ -131,46 +131,17 @@ def load_config():
     if cfg.read(f"{program}.ini"):
         return cfg
 
-    if "watchlist" in program:
-        cfg["settings"] = {
-            "debug": False,
-            "usdt-botid": 12345,
-            "btc-botid": 67890,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "tgram-phone-number": "Your Telegram Phone number",
-            "tgram-channel": "Telegram Channel to watch",
-            "tgram-api-id": "Your Telegram API ID",
-            "tgram-api-hash": "Your Telegram API Hash",
-            "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
-        }
-    elif "compound" in program:
-        cfg["settings"] = {
-            "timeinterval": 3600,
-            "debug": False,
-            "botids": [12345, 67890],
-            "profittocompound": 1.0,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
-        }
-    else:
-        cfg["settings"] = {
-            "timeinterval": 3600,
-            "debug": False,
-            "botids": [12345, 67890],
-            "numberofpairs": 10,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "lc-apikey": "Your LunarCrush API Key",
-            "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
-        }
+    cfg["settings"] = {
+        "timeinterval": 3600,
+        "debug": False,
+        "botids": [12345, 67890],
+        "profittocompound": 1.0,
+        "accountmode": "paper",
+        "3c-apikey": "Your 3Commas API Key",
+        "3c-apisecret": "Your 3Commas API Secret",
+        "notifications": False,
+        "notify-urls": ["notify-url1", "notify-url2"],
+    }
 
     with open(f"{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
@@ -265,6 +236,7 @@ def compound_bot(thebot):
             max_active_deals = thebot["max_active_deals"]
             max_safety_orders = thebot["max_safety_orders"]
             botid = thebot["id"]
+            bot_name = thebot["name"]
 
             logger.info("Current BO in bot: %s" % base_order_size)
             logger.info("Current SO in bot: %s" % safety_order_size)
@@ -354,7 +326,7 @@ def compound_bot(thebot):
             if error == {}:
                 logger.info("Bot update completed!")
                 logger.info(
-                    f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s)\nBO: ${round(base_order_size, 4)} to ${round(newbaseordervolume, 4)}\nSO: ${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
+                    f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to ${round(newbaseordervolume, 4)}\nand SO from ${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
                     True,
                 )
             else:
@@ -364,7 +336,8 @@ def compound_bot(thebot):
                 )
         else:
             logger.info("No profit made, so no BO/SO value updates needed!", True)
-
+    else:
+        logger.info("No deals found for this bot!", True)
 
 def init_compound_db():
     """Create or open database to store bot and deals data."""
@@ -455,6 +428,8 @@ if "compound" in program:
                 additional_headers={"Forced-Mode": MODE},
             )
             if botdata:
+                print(botdata["id"])
+                print(botdata["name"])
                 compound_bot(botdata)
             else:
                 logger.error("Error occurred compounding bots: %s" % boterror["msg"])
