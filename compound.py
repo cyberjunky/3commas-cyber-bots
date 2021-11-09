@@ -428,8 +428,6 @@ if "compound" in program:
                 additional_headers={"Forced-Mode": MODE},
             )
             if botdata:
-                print(botdata["id"])
-                print(botdata["name"])
                 compound_bot(botdata)
             else:
                 logger.error("Error occurred compounding bots: %s" % boterror["msg"])
