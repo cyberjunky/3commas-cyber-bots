@@ -20,6 +20,8 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+![GalaxyScore](images/galaxyscore.png)
+
 ## AltRank bot helper named `altrank.py`
 Type = trading pair
 
@@ -31,6 +33,7 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 
 Same as galaxyscore bot helper except with AltRank data.
 
+![AltRank](images/altrank.png)
 
 ## Watchlist bot helper named `watchlist.py`
 Type = start deal trigger
@@ -46,6 +49,7 @@ The exchange must match the exchange of the bot(s), 3Commas blacklist and market
 
 The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
 
+![Watchlist](images/watchlist.png)
 
 ## Compound bot helper named `compound.py`
 Type = compounder
@@ -62,6 +66,7 @@ Deals are marked as processed and original BO/SO ratio of the bot is stored to b
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+![Compound](images/compound.png)
 
 ## Binance account Setup
 
@@ -97,23 +102,24 @@ Support the Project
 -   Create a [LunarCrush account](https://lunarcrush.com)
 -   Create a new API key and enther these key in config.py as well.
 
-NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
+NOTE1: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
+*NOTE2: It seems LunarCrush doesn't check for APIKey validity in their requests anymore (noticed this since around 5-Nov-2021) not sure if this is temporary.
+So you can leave lc-apikey settings the way it is for now.*
 
 ## Bot helper setup
 
 ### Download and install
 
+You need to have Python 3.8 or higher installed.
 Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
 
 ```
-sudo apt install git
-git clone https://github.com/cyberjunky/3commas-cyber-bots.git
-cd 3commas-cyber-bots
-pip3 install -r requirements.txt
+$ sudo apt install git
+$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+$ cd 3commas-cyber-bots
+$ pip3 install -r requirements.txt
 ```
-
-Or as last step run `setup.sh` script to install everything inside a Python Enviroment, also see below. (for advanced users)
 
 ### Create user configuration
 
@@ -228,6 +234,8 @@ and/or
 `python3 ./altrank.py`
 and/or
 `python3 ./watchlist.py`
+and/or
+`python3 ./compound.py`
 
 ### Example output for `altrank`
 ```
@@ -243,22 +251,6 @@ and/or
 2021-10-14 19:05:12,510 - altrank - INFO - Bot 'BUSD Bull Long AltRank' with id '1234567' is already using the best pairs
 2021-10-14 19:05:12,510 - altrank - INFO - Next update in 3600 Seconds at 20:05:12
 
-```
-
-#### Run from Python Enviroment
-You can use the install script called setup.sh to create this environment.
-Simply run it as ./setup.sh and you have the options:
-```
-usage:
-	-i,--install    Install 3commas-cyber-bots from scratch
-	-u,--update     Command git pull to update.
-```
-It creates a .env python enviroment to install the requirements in, and you can run the scripts from there without cluttering your machine.
-
-Before running any of the scripts manually enter the virtual environment first
-```
-cd 3commas-cyber-bots
-source .env/bin/activate
 ```
 
 #### Start Automatically
