@@ -16,9 +16,9 @@ It will monitor LunarCrush's GalaxyScores and use the Top X to create pairs for 
 
 The GalaxyScore Top 10 coins from LunarCrush are downloaded, the base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending ion your exchange) to see if the pairs are valid.
 
-If this is the case -and the current pair are different than the current ons- the bot(s) are updated.
+If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
 
-Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 ## AltRank bot helper named `altrank.py`
 Type = trading pair
@@ -29,11 +29,11 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 
 ## How does it work?
 
-Same as galaxyscore bot helper except with altrank data.
+Same as galaxyscore bot helper except with AltRank data.
 
 
 ## Watchlist bot helper named `watchlist.py`
-Type = deal trigger
+Type = start deal trigger
 
 ## What does it do?
 
@@ -41,8 +41,10 @@ It will monitor a specific Telegram chat channel and sent a 'start new deal' tri
 
 ## How does it work?
 
-Parse incoming messages, check format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to (for example BUSD_xxx) if bot uses different base.
+Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to -for example- BUSD_xxx if bot uses a different base coin.
 The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
+
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
 
 
 ## Compound bot helper named `compound.py`
