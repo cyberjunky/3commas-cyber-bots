@@ -126,7 +126,7 @@ $ pip3 install -r requirements.txt
 Start the bot(s) you want to use e.g. for altrank, a config file with name of bot is created (ending in .ini)
 
 ```
-python3 ./altrank.py
+$ python3 ./altrank.py
 ```
 
 If your run `galaxyscore`,`altrank` or `watchlist` bot helper for the first time it will create default config file named `galaxyscore.ini`. `altrank.ini` or `watchlist.ini`. Edit it with the information below.
@@ -229,13 +229,13 @@ Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and f
 ### Run the bot(s)
 
 #### Run Manually
-`python3 ./galaxyscore.py`
+`$ python3 ./galaxyscore.py`
 and/or
-`python3 ./altrank.py`
+`$ python3 ./altrank.py`
 and/or
-`python3 ./watchlist.py`
+`$ python3 ./watchlist.py`
 and/or
-`python3 ./compound.py`
+`$ python3 ./compound.py`
 
 ### Example output for `altrank`
 ```
@@ -258,24 +258,24 @@ and/or
 Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and `3commas-galaxyscore-env-bot.service`, `3commas-altrank-env-bot.service` if you use the .env enviroment described above) are provided,. They can all be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install. And install the service you need as describe below.
 
 ```
-sudo cp scripts/3commas-galaxyscore-bot.service /etc/systemd/system/
-sudo systemctl start 3commas-galaxyscore-bot.service
-sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
-sudo systemctl start 3commas-altrank-bot.service
+$ sudo cp scripts/3commas-galaxyscore-bot.service /etc/systemd/system/
+$ sudo systemctl start 3commas-galaxyscore-bot.service
+$ sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
+$ sudo systemctl start 3commas-altrank-bot.service
 ```
 Example on how to enable starting the bot helper(s) at boot:
 ```
-sudo systemctl enable 3commas-galaxyscore-bot.service
-sudo systemctl enable 3commas-altrank-bot.service
+$ sudo systemctl enable 3commas-galaxyscore-bot.service
+$ sudo systemctl enable 3commas-altrank-bot.service
 ```
 Example on how to disable starting the bot helper(s) at boot:
 ```
-sudo systemctl disable 3commas-galaxyscore-bot.service
-sudo systemctl disable 3commas-altrank-bot.service
+$ sudo systemctl disable 3commas-galaxyscore-bot.service
+$ sudo systemctl disable 3commas-altrank-bot.service
 ```
 How to check status:
 ```
-systemctl status 3commas-galaxyscore-bot.service 
+$ systemctl status 3commas-galaxyscore-bot.service 
 ● 3commas-galaxyscore-bot.service - 3Commas GalaxyScore Daemon
      Loaded: loaded (/etc/systemd/system/3commas-galaxyscore-bot.service; enabled; vendor preset: enabled)
      Active: active (running) since Thu 2021-10-14 20:09:43 CEST; 39s ago
@@ -300,16 +300,16 @@ okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxysc
 
 How to check logs:
 ```
-sudo journalctl -u 3commas-galaxyscore-bot.service 
+$ sudo journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
 How to edit an already installed service file:
 ```
-sudo systemctl edit --full 3commas-galaxyscore-bot.service 
+$ sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
 ### TODO
-- You tell me
+- You tell me, I'm open for ideas and requests!
 
 ### FAQ
 
@@ -322,7 +322,7 @@ ModuleNotFoundError: No module named 'py3cw'
 ```
 Install the python requirements like so:
 ``` 
-pip3 install -r requirements.txt
+$ pip3 install -r requirements.txt
 ```
 Or run `setup.sh` script to install the Python environent with everything in it.
 
@@ -372,7 +372,7 @@ Install libffi-dev with `sudo apt install libffi-dev` and try again.
 
 Update pip3 like so:
 ```
-pip3 install --upgrade pip
+$ pip3 install --upgrade pip
 ```
 And try again.
 
