@@ -1,4 +1,4 @@
-# 3commas-cyber-bots
+# 3commas-cyber-bots <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Why you build these bot helpers?
@@ -384,8 +384,8 @@ debug = True
 ```
 
 ## Donate
-<a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40"></a>  
 If you enjoyed this project — or just feeling generous — consider a small donation. :v:
+<a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
 ## Disclaimer
 
