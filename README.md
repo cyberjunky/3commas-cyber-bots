@@ -230,9 +230,60 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 The 3Commas API need to have 'BotsRead, BotsWrite' permissions.
 
-About Telegram App ID and hash above, you need to create an 'application' which you can use to connect to telegram from this code.
-Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and follow the steps to create them.
+### Telegram ID, Hash and Secrets explained
+There are two sets of Telegram related settings.
 
+#### Watchlist
+One is used by `watchlist.py` to connect to the telegram API.
+
+To get the Telegram App ID and hash you have to create an application ,
+
+These are the steps as outlined in below link:
+
+-   Login to your Telegram account [here](https://my.telegram.org/) with the phone number of the developer account to use.
+-   Visit the [API development tools](https://my.telegram.org/apps)
+-   A Create new application window will appear. Fill in your application details. There is no need to enter any URL, and only the first two fields (App title and Short name) can currently be changed later.
+-   Click on Create application at the end. Remember that your API hash is secret and Telegram won’t let you revoke it. Don’t post it anywhere!
+
+Fill these in here inside watchlist.ini:
+```
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+```
+
+#### Notifications
+The other set of values are used by to sent notifications to Telegram channel of your choice.
+I use Apprise for this, all possible platform to send notifications to are described here [Apprise website](https://github.com/caronc/apprise)
+
+The Telegram part is described [here](https://github.com/caronc/apprise/wiki/Notify_telegram#account-setup)
+
+-   First you need to create a bot to get a bot_token
+-   Open telegram and search for 'BotFather' start a conversation
+-   Type: /newbot
+-   Answer the questions it asks after doing this (which get the name of it, etc).
+-   When you've completed step 2, you will be provided a bot_token that looks something like this: 123456789:alphanumeric_characters.
+-   Type /start now in the same dialog box to enable and instantiate your brand new bot.
+
+Fill in the notify-url like this:
+```
+notify-urls = [ "tgram://2097657222:AAFSebMCJF6rQ6l46n21280K8y59Mg6w13112w/"]
+
+```
+Now you also need a chat_id, don't worry Apprise can get this for you.
+-   First sent a random message to your bot via the Telegram app.
+-   Then start one of the bot helpers with above like notify-url setting.
+and look at the logs, it should contain something like:
+```
+2021-11-11 19:39:02,930 - apprise - INFO - Detected Telegram user R (userid=936303714)
+2021-11-11 19:39:02,930 - apprise - INFO - Update your Telegram Apprise URL to read: tgram://2...w/%40936302121/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes
+```
+-   Now copy and paste the whole part behind and including the % and paste it behind the notify-url you had configured, to avoid syntax errors you need to put an extra % in between so ...w/%%409... etc...
+
+If you didn't send a message to your bot first this is what the logs show:
+```
+2021-11-11 19:35:14,682 - apprise - WARNING - Failed to detect a Telegram user; try sending your bot a message first.
+2021-11-11 19:35:14,682 - apprise - WARNING - There were not Telegram chat_ids to notify.
+```
 
 ### Run the bot(s)
 
