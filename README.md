@@ -274,7 +274,7 @@ Now you also need a chat_id, don't worry Apprise can get this for you.
 -   Then start one of the bot helpers with above like notify-url setting.
 and look at the logs, it should contain something like:
 ```
-2021-11-11 19:39:02,930 - apprise - INFO - Detected Telegram user R (userid=936303714)
+2021-11-11 19:39:02,930 - apprise - INFO - Detected Telegram user R (userid=936303417)
 2021-11-11 19:39:02,930 - apprise - INFO - Update your Telegram Apprise URL to read: tgram://2...w/%40936302121/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes
 ```
 -   Now copy and paste the whole part behind and including the % and paste it behind the notify-url you had configured, to avoid syntax errors you need to put an extra % in between so ...w/%%409... etc...
