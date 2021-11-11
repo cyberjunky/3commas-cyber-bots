@@ -413,7 +413,7 @@ def get_lunarcrush_data(usdtbtc_value):
     else:
         ranktype = "gs"
 
-    url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=50&sort={1}&desc=true&type=fast".format(
+    url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=75&sort={1}&desc=true&type=fast".format(
         config.get("settings", "lc-apikey"), ranktype
     )
     try:
