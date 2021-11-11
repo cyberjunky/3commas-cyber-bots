@@ -137,6 +137,7 @@ The configuration files for `galaxyscore` and `altrank` contain the following se
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
 -   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the max active deals for each bot as pair number. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
@@ -151,6 +152,7 @@ Example: (keys are bogus)
 [settings]
 timeinterval = 1800
 debug = False
+logrotate = 14
 botids = [ 123456 ]
 numberofpairs = 10
 accountmode = real
@@ -164,6 +166,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 `watchlist` has a slightly different layout:
 
 -   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
 -   **usdt-botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
 -   **btc-botid** -  the bot id of the BTC multipair bot to use.
 -   **numberofpairs** - number of pairs to update your bots with. (default is 10)
@@ -182,6 +185,7 @@ Example: (keys are bogus)
 ```
 [settings]
 debug = False
+logrotate = 14
 usdt-botid = 123456
 btc-botid = 789012
 accountmode = paper
@@ -199,6 +203,7 @@ This is the layout of the config file used by the `compound.py` helper:
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
 -   **profittocompound** - ratio of profit to compound (1.0 = 100%, currently not implemented yet)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
@@ -213,6 +218,7 @@ Example: (keys are bogus)
 [settings]
 timeinterval = 3600
 debug = False
+logrotate = 14
 botids = [ 123456 ]
 profittocompound = 1.0
 accountmode = paper
