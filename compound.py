@@ -323,18 +323,18 @@ def compound_bot(thebot):
                 },
             )
             if error == {}:
-                logger.info("Bot update completed!")
+                logger.info("Bot BO/SO update completed!")
                 logger.info(
                     f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to ${round(newbaseordervolume, 4)}\nand SO from ${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
                     True,
                 )
             else:
                 logger.error(
-                    "Error occurred updating bot with new so/bo values: %s"
+                    "Error occurred updating bot with new BO/SO values: %s"
                     % error["msg"]
                 )
         else:
-            logger.info(f"{bot_name}\nNo (new) profit made, so no BO/SO value updates needed!", True)
+            logger.info(f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!", True)
     else:
         logger.info(f"{bot_name}\nNo (new) deals found for this bot!", True)
 

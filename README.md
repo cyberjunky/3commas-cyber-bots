@@ -1,4 +1,4 @@
-# 3commas-cyber-bots
+# 3commas-cyber-bots <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Why you build these bot helpers?
@@ -20,6 +20,8 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+![GalaxyScore](images/galaxyscore.png)
+
 ## AltRank bot helper named `altrank.py`
 Type = trading pair
 
@@ -31,6 +33,7 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 
 Same as galaxyscore bot helper except with AltRank data.
 
+![AltRank](images/altrank.png)
 
 ## Watchlist bot helper named `watchlist.py`
 Type = start deal trigger
@@ -46,6 +49,7 @@ The exchange must match the exchange of the bot(s), 3Commas blacklist and market
 
 The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
 
+![Watchlist](images/watchlist.png)
 
 ## Compound bot helper named `compound.py`
 Type = compounder
@@ -62,6 +66,9 @@ Deals are marked as processed and original BO/SO ratio of the bot is stored to b
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+NOTE: You cannot mix paper and real account bots in botids, they have to match accountmode set (for safety)
+
+![Compound](images/compound.png)
 
 ## Binance account Setup
 
@@ -97,30 +104,31 @@ Support the Project
 -   Create a [LunarCrush account](https://lunarcrush.com)
 -   Create a new API key and enther these key in config.py as well.
 
-NOTE: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
+NOTE1: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
+*NOTE2: It seems LunarCrush doesn't check for APIKey validity in their requests anymore (noticed this since around 5-Nov-2021) not sure if this is temporary.
+So you can leave lc-apikey settings the way it is for now.*
 
 ## Bot helper setup
 
 ### Download and install
 
+You need to have Python 3.8 or higher installed.
 Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
 
 ```
-sudo apt install git
-git clone https://github.com/cyberjunky/3commas-cyber-bots.git
-cd 3commas-cyber-bots
-pip3 install -r requirements.txt
+$ sudo apt install git
+$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+$ cd 3commas-cyber-bots
+$ pip3 install -r requirements.txt
 ```
-
-Or as last step run `setup.sh` script to install everything inside a Python Enviroment, also see below. (for advanced users)
 
 ### Create user configuration
 
 Start the bot(s) you want to use e.g. for altrank, a config file with name of bot is created (ending in .ini)
 
 ```
-python3 ./altrank.py
+$ python3 ./altrank.py
 ```
 
 If your run `galaxyscore`,`altrank` or `watchlist` bot helper for the first time it will create default config file named `galaxyscore.ini`. `altrank.ini` or `watchlist.ini`. Edit it with the information below.
@@ -223,11 +231,13 @@ Visit https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in and f
 ### Run the bot(s)
 
 #### Run Manually
-`python3 ./galaxyscore.py`
+`$ python3 ./galaxyscore.py`
 and/or
-`python3 ./altrank.py`
+`$ python3 ./altrank.py`
 and/or
-`python3 ./watchlist.py`
+`$ python3 ./watchlist.py`
+and/or
+`$ python3 ./compound.py`
 
 ### Example output for `altrank`
 ```
@@ -245,45 +255,29 @@ and/or
 
 ```
 
-#### Run from Python Enviroment
-You can use the install script called setup.sh to create this environment.
-Simply run it as ./setup.sh and you have the options:
-```
-usage:
-	-i,--install    Install 3commas-cyber-bots from scratch
-	-u,--update     Command git pull to update.
-```
-It creates a .env python enviroment to install the requirements in, and you can run the scripts from there without cluttering your machine.
-
-Before running any of the scripts manually enter the virtual environment first
-```
-cd 3commas-cyber-bots
-source .env/bin/activate
-```
-
 #### Start Automatically
 
 Example service files `3commas-galaxyscore-bot.service`, `3commas-altrank-bot.service` (and `3commas-galaxyscore-env-bot.service`, `3commas-altrank-env-bot.service` if you use the .env enviroment described above) are provided,. They can all be found in the `scripts` directory, you need to edit the paths and your user inside them to reflect your install. And install the service you need as describe below.
 
 ```
-sudo cp scripts/3commas-galaxyscore-bot.service /etc/systemd/system/
-sudo systemctl start 3commas-galaxyscore-bot.service
-sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
-sudo systemctl start 3commas-altrank-bot.service
+$ sudo cp scripts/3commas-galaxyscore-bot.service /etc/systemd/system/
+$ sudo systemctl start 3commas-galaxyscore-bot.service
+$ sudo cp scripts/3commas-altrank-bot.service /etc/systemd/system/
+$ sudo systemctl start 3commas-altrank-bot.service
 ```
 Example on how to enable starting the bot helper(s) at boot:
 ```
-sudo systemctl enable 3commas-galaxyscore-bot.service
-sudo systemctl enable 3commas-altrank-bot.service
+$ sudo systemctl enable 3commas-galaxyscore-bot.service
+$ sudo systemctl enable 3commas-altrank-bot.service
 ```
 Example on how to disable starting the bot helper(s) at boot:
 ```
-sudo systemctl disable 3commas-galaxyscore-bot.service
-sudo systemctl disable 3commas-altrank-bot.service
+$ sudo systemctl disable 3commas-galaxyscore-bot.service
+$ sudo systemctl disable 3commas-altrank-bot.service
 ```
 How to check status:
 ```
-systemctl status 3commas-galaxyscore-bot.service 
+$ systemctl status 3commas-galaxyscore-bot.service 
 ● 3commas-galaxyscore-bot.service - 3Commas GalaxyScore Daemon
      Loaded: loaded (/etc/systemd/system/3commas-galaxyscore-bot.service; enabled; vendor preset: enabled)
      Active: active (running) since Thu 2021-10-14 20:09:43 CEST; 39s ago
@@ -308,16 +302,16 @@ okt 14 20:09:44 laptop-ubuntu python3[53347]: 2021-10-14 20:09:44,887 - galaxysc
 
 How to check logs:
 ```
-sudo journalctl -u 3commas-galaxyscore-bot.service 
+$ sudo journalctl -u 3commas-galaxyscore-bot.service 
 ```
 
 How to edit an already installed service file:
 ```
-sudo systemctl edit --full 3commas-galaxyscore-bot.service 
+$ sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
 ### TODO
-- You tell me
+- You tell me, I'm open for ideas and requests!
 
 ### FAQ
 
@@ -330,7 +324,7 @@ ModuleNotFoundError: No module named 'py3cw'
 ```
 Install the python requirements like so:
 ``` 
-pip3 install -r requirements.txt
+$ pip3 install -r requirements.txt
 ```
 Or run `setup.sh` script to install the Python environent with everything in it.
 
@@ -380,7 +374,7 @@ Install libffi-dev with `sudo apt install libffi-dev` and try again.
 
 Update pip3 like so:
 ```
-pip3 install --upgrade pip
+$ pip3 install --upgrade pip
 ```
 And try again.
 
@@ -392,8 +386,8 @@ debug = True
 ```
 
 ## Donate
-<a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40"></a>  
 If you enjoyed this project — or just feeling generous — consider a small donation. :v:
+<a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
 ## Disclaimer
 
