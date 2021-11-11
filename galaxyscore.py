@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
+import argparse
 import configparser
 import json
 import logging
@@ -8,6 +9,7 @@ import queue
 import sys
 import threading
 import time
+from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -19,9 +21,8 @@ from telethon import TelegramClient, events
 class NotificationHandler:
     """Notification class."""
 
-    def __init__(self, progname, enabled=False, notify_urls=None):
+    def __init__(self, enabled=False, notify_urls=None):
         if enabled and notify_urls:
-            self.progname = progname
             self.apobj = apprise.Apprise()
             urls = json.loads(notify_urls)
             for url in urls:
@@ -49,8 +50,64 @@ class NotificationHandler:
     def send_notification(self, message, attachments=None):
         """Send a notification if enabled."""
         if self.enabled:
-            msg = f"[3Commas bots helper {self.progname}]\n" + message
+            msg = f"[3Commas bots helper {program}]\n" + message
             self.queue.put((msg, attachments or []))
+
+
+class TimedRotatingFileHandler(_TimedRotatingFileHandler):
+    """Override original code to fix bug with not deleting old logfiles."""
+
+    def __init__(self, filename="", when="midnight", interval=1, backupCount=7):
+        super().__init__(
+            filename=filename,
+            when=when,
+            interval=int(interval),
+            backupCount=int(backupCount),
+        )
+
+    def getFilesToDelete(self):
+        """Find all logfiles present."""
+        dirname, basename = os.path.split(self.baseFilename)
+        filenames = os.listdir(dirname)
+        result = []
+        prefix = basename + "."
+        plen = len(prefix)
+        for filename in filenames:
+            if filename[:plen] == prefix:
+                suffix = filename[plen:]
+                if self.extMatch.match(suffix):
+                    result.append(os.path.join(dirname, filename))
+        result.sort()
+        if len(result) < self.backupCount:
+            result = []
+        else:
+            result = result[: len(result) - self.backupCount]
+        return result
+
+    def doRollover(self):
+        """Delete old logfiles but keep latest backupCount amount."""
+        super().doRollover()
+        self.close()
+        timetuple = time.localtime(time.time())
+        dfn = self.baseFilename + "." + time.strftime(self.suffix, timetuple)
+
+        if os.path.exists(dfn):
+            os.remove(dfn)
+
+        os.rename(self.baseFilename, dfn)
+
+        if self.backupCount > 0:
+            for oldlog in self.getFilesToDelete():
+                os.remove(oldlog)
+
+        self.stream = open(self.baseFilename, "w")
+
+        currenttime = int(time.time())
+        newrolloverat = self.computeRollover(currenttime)
+        while newrolloverat <= currenttime:
+            newrolloverat = newrolloverat + self.interval
+
+        self.rolloverAt = newrolloverat
 
 
 class Logger:
@@ -58,9 +115,9 @@ class Logger:
 
     my_logger = None
 
-    def __init__(self, progname, notificationhandler, debug_enabled, notify_enabled):
+    def __init__(self, notificationhandler, debug_enabled, notify_enabled):
         """Logger init."""
-        self.my_logger = logging.getLogger(program)
+        self.my_logger = logging.getLogger()
         self.notify_enabled = notify_enabled
         self.notificationhandler = notificationhandler
         if debug_enabled:
@@ -75,10 +132,12 @@ class Logger:
         )
 
         # Create directory if not exists
-        if not os.path.exists("logs"):
-            os.makedirs("logs")
-        # Log to file
-        file_handle = logging.FileHandler(f"logs/{progname}.log")
+        if not os.path.exists(f"{datadir}/logs"):
+            os.makedirs(f"{datadir}/logs")
+
+        # Log to file and rotate if needed
+        logrotate = int(config.get("settings", "logrotate", fallback=7))
+        file_handle = TimedRotatingFileHandler(filename=f"{datadir}/logs/{program}.log", backupCount=logrotate)
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
@@ -129,14 +188,15 @@ def load_config():
     """Create default or load existing config file."""
 
     cfg = configparser.ConfigParser()
-    if cfg.read(f"{program}.ini"):
+    if cfg.read(f"{datadir}/{program}.ini"):
         return cfg
 
     if "watchlist" in program:
         cfg["settings"] = {
             "debug": False,
-            "usdt-botid": 12345,
-            "btc-botid": 67890,
+            "logrotate": 7,
+            "usdt-botid": 0,
+            "btc-botid": 0,
             "accountmode": "paper",
             "3c-apikey": "Your 3Commas API Key",
             "3c-apisecret": "Your 3Commas API Secret",
@@ -145,12 +205,13 @@ def load_config():
             "tgram-api-id": "Your Telegram API ID",
             "tgram-api-hash": "Your Telegram API Hash",
             "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
+            "notify-urls": ["notify-url1"],
         }
     else:
         cfg["settings"] = {
             "timeinterval": 3600,
             "debug": False,
+            "logrotate": 7,
             "botids": [12345, 67890],
             "numberofpairs": 10,
             "accountmode": "paper",
@@ -158,10 +219,10 @@ def load_config():
             "3c-apisecret": "Your 3Commas API Secret",
             "lc-apikey": "Your LunarCrush API Key",
             "notifications": False,
-            "notify-urls": ["notify-url1", "notify-url2"],
+            "notify-urls": ["notify-url1"],
         }
 
-    with open(f"{program}.ini", "w") as cfgfile:
+    with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
@@ -526,10 +587,20 @@ def update_bot(thebot, newpairs):
 # Start application
 program = Path(__file__).stem
 
+# Parse and interpret options.
+parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
+parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
+
+args = parser.parse_args()
+if args.datadir:
+    datadir = args.datadir
+else:
+    datadir = os.getcwd()
+
 # Create or load configuration file
 config = load_config()
 if not config:
-    logger = Logger(program, None, False, False)
+    logger = Logger(None, False, False)
     logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
@@ -539,21 +610,19 @@ if not config:
 else:
     # Init notification handler
     notification = NotificationHandler(
-        program,
         config.getboolean("settings", "notifications"),
         config.get("settings", "notify-urls"),
     )
 
     # Init logging
     logger = Logger(
-        program,
         notification,
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
     logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
-    logger.info(f"Loaded configuration from '{program}.ini'")
+    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 if config.get("settings", "accountmode") == "real":
     logger.info("Using REAL TRADING account")
@@ -602,13 +671,13 @@ if "watchlist" in program:
 
             if base == "USDT":
                 botid = config.get("settings", "usdt-botid")
-                if not botid:
-                    logger.info("No botid defined for '%s' in config, disabled." % base)
+                if botid == 0:
+                    logger.debug("No valid botid defined for '%s' in config, disabled." % base)
                     return
             elif base == "BTC":
                 botid = config.get("settings", "btc-botid")
-                if not botid:
-                    logger.info("No botid defined for '%s' in config, disabled." % base)
+                if botid == 0:
+                    logger.debug("No valid botid defined for '%s' in config, disabled." % base)
                     return
             else:
                 logger.error("Error the base of pair '%s' is not supported yet!" % pair)
@@ -644,11 +713,14 @@ else:
 
         # Reload config files and refetch data to catch changes
         config = load_config()
-        logger.info(f"Loaded configuration from '{program}.ini'")
+        logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
         botids = json.loads(config.get("settings", "botids"))
 
         # Walk through all bots specified
         for bot in botids:
+            if bot == 0:
+                continue
+
             boterror, botdata = api.request(
                 entity="bots",
                 action="show",
