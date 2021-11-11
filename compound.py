@@ -136,7 +136,6 @@ def load_config():
         "debug": False,
         "botids": [12345, 67890],
         "profittocompound": 1.0,
-        "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
@@ -171,8 +170,8 @@ def get_threecommas_deals(botid):
         payload={
             "scope": "finished",
             "bot_id": str(botid),
+            "limit": 100,
         },
-        additional_headers={"Forced-Mode": MODE},
     )
     if error:
         logger.error("Fetching 3Commas deals failed with error: %s" % error)
@@ -335,9 +334,9 @@ def compound_bot(thebot):
                     % error["msg"]
                 )
         else:
-            logger.info(f"{bot_name}\nNo profit made, so no BO/SO value updates needed!", True)
+            logger.info(f"{bot_name}\nNo (new) profit made, so no BO/SO value updates needed!", True)
     else:
-        logger.info(f"{bot_name}\nNo deals found for this bot!", True)
+        logger.info(f"{bot_name}\nNo (new) deals found for this bot!", True)
 
 def init_compound_db():
     """Create or open database to store bot and deals data."""
@@ -393,12 +392,6 @@ else:
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{program}.ini'")
 
-if config.get("settings", "accountmode") == "real":
-    logger.info("Using REAL TRADING account")
-    MODE = "real"
-else:
-    logger.info("Using PAPER TRADING account")
-    MODE = "paper"
 
 if notification.enabled:
     logger.info("Notifications are enabled")
@@ -425,7 +418,6 @@ if "compound" in program:
                 entity="bots",
                 action="show",
                 action_id=str(bot),
-                additional_headers={"Forced-Mode": MODE},
             )
             if botdata:
                 compound_bot(botdata)
