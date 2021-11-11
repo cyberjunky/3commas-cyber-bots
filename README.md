@@ -66,6 +66,8 @@ Deals are marked as processed and original BO/SO ratio of the bot is stored to b
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+NOTE: You cannot mix paper and real account bots in botids, they have to match accountmode set (for safety)
+
 ![Compound](images/compound.png)
 
 ## Binance account Setup
