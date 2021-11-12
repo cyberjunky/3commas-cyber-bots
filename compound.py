@@ -133,8 +133,11 @@ class Logger:
         # Create directory if not exists
         if not os.path.exists("logs"):
             os.makedirs("logs")
-        # Log to file
-        file_handle = logging.FileHandler(f"{datadir}/logs/{program}.log")
+        # Log to file and rotate if needed
+        logrotate = int(config.get("settings", "logrotate", fallback=7))
+        file_handle = TimedRotatingFileHandler(
+            filename=f"{datadir}/logs/{program}.log", backupCount=logrotate
+        )
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
@@ -292,7 +295,7 @@ def compound_bot(thebot):
             martingale_volume_coefficient = float(
                 thebot["martingale_volume_coefficient"]
             )
-            botid = thebot["id"]
+            # botid = thebot["id"]
 
             fundssoneeded = safety_order_size
             totalsofunds = safety_order_size
@@ -323,32 +326,77 @@ def compound_bot(thebot):
                 logger.info(f"Order #{i+1} = {order_x}")
                 i += 1
 
+            # # bo/so ratio calculations
+            # bopercentage = (
+            #     100
+            #     * float(base_order_size)
+            #     / (float(base_order_size) + float(safety_order_size))
+            # )
+            # sopercentage = (
+            #     100
+            #     * float(safety_order_size)
+            #     / (float(safety_order_size) + float(base_order_size))
+            # )
+            # logger.info("Current BO percentage: %s" % bopercentage)
+            # logger.info("Current SO percentage: %s" % sopercentage)
+
+            # # check if data is already in database if so use that, else store calculcated from above
+            # percentages = get_bot_ratio(botid)
+            # if percentages:
+            #     (botid, bopercentage, sopercentage) = percentages
+            #     logger.info("Using BO percentage from db: %s" % bopercentage)
+            #     logger.info("Using SO percentage from db: %s" % sopercentage)
+            # else:
+            #     # store in db for later use
+            #     db.execute(
+            #         f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})"
+            #     )
+            #     db.commit()
+
+            # calc profit part to compound
+            profitpercentage = float(
+                config.get("settings", "profittocompound", fallback=1.0)
+            )
+            logger.info("Profit available to compound: %s" % profitsum)
+            profitsum = profitsum * profitpercentage
+            logger.info(
+                "Profit to compound after applying percentage value from settings (%s): %s "
+                % (profitpercentage, profitsum)
+            )
+
+            # --------------- old compound calc stats here ----------------
+            # # calculate compound values
+            # boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
+            # soprofitsplit = (
+            #     ((profitsum * sopercentage) / 100)
+            #     / max_active_deals
+            #     / max_safety_orders
+            # )
+
+            # logger.info("BO compound value: %s" % boprofitsplit)
+            # logger.info("SO compound value: %s" % soprofitsplit)
+
+            # # compound the profits to base volume and safety volume
+            # newbaseordervolume = base_order_size + boprofitsplit
+            # newsafetyordervolume = safety_order_size + soprofitsplit
+
+            # ---------------- old compound calc ends here -----------------
+
+            # ------------ new compound calc starts here ---------------
+
             # bo/so ratio calculations
             bopercentage = (
                 100
                 * float(base_order_size)
-                / (float(base_order_size) + float(safety_order_size))
+                / (float(base_order_size) + float(totalsofunds))
             )
             sopercentage = (
                 100
-                * float(safety_order_size)
-                / (float(safety_order_size) + float(base_order_size))
+                * float(totalsofunds)
+                / (float(totalsofunds) + float(base_order_size))
             )
-            logger.info("Current BO percentage: %s" % bopercentage)
-            logger.info("Current SO percentage: %s" % sopercentage)
-
-            # check if data is already in database if so use that, else store calculcated from above
-            percentages = get_bot_ratio(botid)
-            if percentages:
-                (botid, bopercentage, sopercentage) = percentages
-                logger.info("Using BO percentage from db: %s" % bopercentage)
-                logger.info("Using SO percentage from db: %s" % sopercentage)
-            else:
-                # store in db for later use
-                db.execute(
-                    f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})"
-                )
-                db.commit()
+            logger.info("BO percentage: %s" % bopercentage)
+            logger.info("SO percentage: %s" % sopercentage)
 
             # calculate compound values
             boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
@@ -364,6 +412,8 @@ def compound_bot(thebot):
             # compound the profits to base volume and safety volume
             newbaseordervolume = base_order_size + boprofitsplit
             newsafetyordervolume = safety_order_size + soprofitsplit
+
+            # ------------ new compound calc ends here ---------------
 
             logger.info(
                 "Base order size increased from %s to %s"
