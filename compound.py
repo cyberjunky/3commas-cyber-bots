@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
+import argparse
 import configparser
 import json
 import logging
@@ -9,6 +10,7 @@ import sqlite3
 import sys
 import threading
 import time
+from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -18,9 +20,8 @@ from py3cw.request import Py3CW
 class NotificationHandler:
     """Notification class."""
 
-    def __init__(self, progname, enabled=False, notify_urls=None):
+    def __init__(self, enabled=False, notify_urls=None):
         if enabled and notify_urls:
-            self.progname = progname
             self.apobj = apprise.Apprise()
             urls = json.loads(notify_urls)
             for url in urls:
@@ -48,8 +49,64 @@ class NotificationHandler:
     def send_notification(self, message, attachments=None):
         """Send a notification if enabled."""
         if self.enabled:
-            msg = f"[3Commas bots helper {self.progname}]\n" + message
+            msg = f"[3Commas bots helper {program}]\n" + message
             self.queue.put((msg, attachments or []))
+
+
+class TimedRotatingFileHandler(_TimedRotatingFileHandler):
+    """Override original code to fix bug with not deleting old logfiles."""
+
+    def __init__(self, filename="", when="midnight", interval=1, backupCount=7):
+        super().__init__(
+            filename=filename,
+            when=when,
+            interval=int(interval),
+            backupCount=int(backupCount),
+        )
+
+    def getFilesToDelete(self):
+        """Find all logfiles present."""
+        dirname, basename = os.path.split(self.baseFilename)
+        filenames = os.listdir(dirname)
+        result = []
+        prefix = basename + "."
+        plen = len(prefix)
+        for filename in filenames:
+            if filename[:plen] == prefix:
+                suffix = filename[plen:]
+                if self.extMatch.match(suffix):
+                    result.append(os.path.join(dirname, filename))
+        result.sort()
+        if len(result) < self.backupCount:
+            result = []
+        else:
+            result = result[: len(result) - self.backupCount]
+        return result
+
+    def doRollover(self):
+        """Delete old logfiles but keep latest backupCount amount."""
+        super().doRollover()
+        self.close()
+        timetuple = time.localtime(time.time())
+        dfn = self.baseFilename + "." + time.strftime(self.suffix, timetuple)
+
+        if os.path.exists(dfn):
+            os.remove(dfn)
+
+        os.rename(self.baseFilename, dfn)
+
+        if self.backupCount > 0:
+            for oldlog in self.getFilesToDelete():
+                os.remove(oldlog)
+
+        self.stream = open(self.baseFilename, "w")
+
+        currenttime = int(time.time())
+        newrolloverat = self.computeRollover(currenttime)
+        while newrolloverat <= currenttime:
+            newrolloverat = newrolloverat + self.interval
+
+        self.rolloverAt = newrolloverat
 
 
 class Logger:
@@ -57,7 +114,7 @@ class Logger:
 
     my_logger = None
 
-    def __init__(self, progname, notificationhandler, debug_enabled, notify_enabled):
+    def __init__(self, notificationhandler, debug_enabled, notify_enabled):
         """Logger init."""
         self.my_logger = logging.getLogger(program)
         self.notify_enabled = notify_enabled
@@ -77,7 +134,7 @@ class Logger:
         if not os.path.exists("logs"):
             os.makedirs("logs")
         # Log to file
-        file_handle = logging.FileHandler(f"logs/{progname}.log")
+        file_handle = logging.FileHandler(f"{datadir}/logs/{program}.log")
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
@@ -128,12 +185,13 @@ def load_config():
     """Create default or load existing config file."""
 
     cfg = configparser.ConfigParser()
-    if cfg.read(f"{program}.ini"):
+    if cfg.read(f"{datadir}/{program}.ini"):
         return cfg
 
     cfg["settings"] = {
         "timeinterval": 3600,
         "debug": False,
+        "logrotate": 7,
         "botids": [12345, 67890],
         "profittocompound": 1.0,
         "accountmode": "paper",
@@ -143,7 +201,7 @@ def load_config():
         "notify-urls": ["notify-url1", "notify-url2"],
     }
 
-    with open(f"{program}.ini", "w") as cfgfile:
+    with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
@@ -182,18 +240,18 @@ def get_threecommas_deals(botid):
     return data
 
 
-def check_deal(id):
+def check_deal(dealid):
     """Check if deal was already logged."""
-    data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {id}").fetchone()
+    data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
     if data is None:
         return False
 
     return True
 
 
-def get_bot_ratio(id):
+def get_bot_ratio(botid):
     """Get bot bo/so percentages if already logged."""
-    data = cursor.execute(f"SELECT * FROM bots WHERE botid = {id}").fetchone()
+    data = cursor.execute(f"SELECT * FROM bots WHERE botid = {botid}").fetchone()
     if data is None:
         return None
 
@@ -209,23 +267,19 @@ def compound_bot(thebot):
         dealscount = 0
         profitsum = 0.0
         for deal in deals:
-            id = deal["id"]
+            dealid = deal["id"]
 
             # Register deal in database
-            exist = check_deal(id)
+            exist = check_deal(dealid)
             if exist:
-                logger.debug("Deal with id '%s' already processed, skipping." % id)
+                logger.debug("Deal with id '%s' already processed, skipping." % dealid)
             else:
                 # Deal not processed yet
                 profit = float(deal["final_profit"])
                 dealscount = dealscount + 1
                 profitsum = profitsum + profit
 
-                db.execute(f"INSERT INTO deals (dealid) VALUES ({id})")
-
-        # # profit values to debug only
-        # dealscount = 1
-        # profitsum = 1.0
+                db.execute(f"INSERT INTO deals (dealid) VALUES ({dealid})")
 
         logger.info("Finished deals: %s total profit: %s" % (dealscount, profitsum))
         db.commit()
@@ -236,15 +290,39 @@ def compound_bot(thebot):
             safety_order_size = float(thebot["safety_order_volume"])
             max_active_deals = thebot["max_active_deals"]
             max_safety_orders = thebot["max_safety_orders"]
+            martingale_volume_coefficient = float(
+                thebot["martingale_volume_coefficient"]
+            )
             botid = thebot["id"]
 
-            logger.info("Current BO in bot: %s" % base_order_size)
-            logger.info("Current SO in bot: %s" % safety_order_size)
-            logger.info("Max BO's in bot: %s" % max_active_deals)
-            logger.info("Max SO's per deal in bot: %s" % max_safety_orders)
-            logger.info(
-                "Total SO's in bot: %s" % (max_active_deals * max_safety_orders)
-            )
+            fundssoneeded = safety_order_size
+            totalsofunds = safety_order_size
+            if max_safety_orders > 1:
+                for i in range(1, max_safety_orders):
+                    fundssoneeded = fundssoneeded * float(martingale_volume_coefficient)
+                    totalsofunds = totalsofunds + fundssoneeded
+
+            totalorderfunds = totalsofunds + base_order_size
+            logger.info("Current bot settings :")
+            logger.info("Base order size      : %s" % base_order_size)
+            logger.info("Safety order size    : %s" % safety_order_size)
+            logger.info("Max active deals     : %s" % max_active_deals)
+            logger.info("Max safety orders    : %s" % max_safety_orders)
+            logger.info("SO volume scale      : %s" % martingale_volume_coefficient)
+            logger.info("Total funds for BO   : %s" % base_order_size)
+            logger.info("Total funds for SO(s): %s" % totalsofunds)
+            logger.info("Total funds for order: %s" % totalorderfunds)
+
+            # current order table
+            logger.info("Current order table:")
+            order_1 = safety_order_size
+            logger.info(f"Order BO = {base_order_size}")
+            order_x = base_order_size
+            i = 0
+            while i < max_safety_orders:
+                order_x += order_1 * pow(martingale_volume_coefficient, i)
+                logger.info(f"Order #{i+1} = {order_x}")
+                i += 1
 
             # bo/so ratio calculations
             bopercentage = (
@@ -263,7 +341,7 @@ def compound_bot(thebot):
             # check if data is already in database if so use that, else store calculcated from above
             percentages = get_bot_ratio(botid)
             if percentages:
-                (id, bopercentage, sopercentage) = percentages
+                (botid, bopercentage, sopercentage) = percentages
                 logger.info("Using BO percentage from db: %s" % bopercentage)
                 logger.info("Using SO percentage from db: %s" % sopercentage)
             else:
@@ -274,13 +352,15 @@ def compound_bot(thebot):
                 db.commit()
 
             # calculate compound values
-            boprofitsplit = (profitsum * bopercentage) / 100 / max_active_deals
-            soprofitsplit1 = (profitsum * sopercentage) / 100
-            soprofitsplit2 = soprofitsplit1 / max_active_deals
-            soprofitsplit = soprofitsplit2 / max_safety_orders
+            boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
+            soprofitsplit = (
+                ((profitsum * sopercentage) / 100)
+                / max_active_deals
+                / max_safety_orders
+            )
 
-            logger.info("BO compound: %s" % boprofitsplit)
-            logger.info("SO compound: %s" % soprofitsplit)
+            logger.info("BO compound value: %s" % boprofitsplit)
+            logger.info("SO compound value: %s" % soprofitsplit)
 
             # compound the profits to base volume and safety volume
             newbaseordervolume = base_order_size + boprofitsplit
@@ -294,6 +374,17 @@ def compound_bot(thebot):
                 "Safety order size increased from %s to %s"
                 % (safety_order_size, newsafetyordervolume)
             )
+
+            # new order table
+            logger.info("Order table after compounding:")
+            order_1 = newsafetyordervolume
+            logger.info(f"Order BO = {newbaseordervolume}")
+            order_x = newbaseordervolume
+            i = 0
+            while i < max_safety_orders:
+                order_x += order_1 * pow(martingale_volume_coefficient, i)
+                logger.info(f"Order #{i+1} = {order_x}")
+                i += 1
 
             # update bot settings
             error, update_bot = api.request(
@@ -335,63 +426,75 @@ def compound_bot(thebot):
                     % error["msg"]
                 )
         else:
-            logger.info(f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!", True)
+            logger.info(
+                f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!",
+                True,
+            )
     else:
         logger.info(f"{bot_name}\nNo (new) deals found for this bot!", True)
+
 
 def init_compound_db():
     """Create or open database to store bot and deals data."""
     try:
         dbname = f"{program}.sqlite3"
         dbpath = f"file:{dbname}?mode=rw"
-        db = sqlite3.connect(dbpath, uri=True)
+        dbconnection = sqlite3.connect(dbpath, uri=True)
 
         logger.info(f"Database '{dbname}' opened successfully")
     except sqlite3.OperationalError:
-        db = sqlite3.connect(dbname)
-        cursor = db.cursor()
+        dbconnection = sqlite3.connect(dbname)
+        dbcursor = dbconnection.cursor()
         logger.info(f"Database '{dbname}' created successfully")
 
-        cursor.execute("CREATE TABLE deals (dealid int Primary Key)")
-        cursor.execute(
+        dbcursor.execute("CREATE TABLE deals (dealid int Primary Key)")
+        dbcursor.execute(
             "CREATE TABLE bots (botid int Primary Key, bopercentage real, sopercentage real)"
         )
         logger.info("Database tables created successfully")
 
-    return db
+    return dbconnection
 
 
 # Start application
 program = Path(__file__).stem
 
+# Parse and interpret options.
+parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
+parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
+
+args = parser.parse_args()
+if args.datadir:
+    datadir = args.datadir
+else:
+    datadir = os.getcwd()
+
 # Create or load configuration file
 config = load_config()
 if not config:
-    logger = Logger(program, None, False, False)
+    logger = Logger(None, False, False)
     logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
-        f"Created example config file '{program}.ini', edit it and restart the program."
+        f"Created example config file '{datadir}/{program}.ini', edit it and restart the program."
     )
     sys.exit(0)
 else:
     # Init notification handler
     notification = NotificationHandler(
-        program,
         config.getboolean("settings", "notifications"),
         config.get("settings", "notify-urls"),
     )
 
     # Init logging
     logger = Logger(
-        program,
         notification,
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
     logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
-    logger.info(f"Loaded configuration from '{program}.ini'")
+    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 if config.get("settings", "accountmode") == "real":
     logger.info("Using REAL TRADING account")
@@ -416,7 +519,7 @@ if "compound" in program:
     while True:
 
         config = load_config()
-        logger.info(f"Loaded configuration from '{program}.ini'")
+        logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
         botids = json.loads(config.get("settings", "botids"))
 
         # Walk through all bots specified
