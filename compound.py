@@ -194,7 +194,6 @@ def load_config():
         "logrotate": 7,
         "botids": [12345, 67890],
         "profittocompound": 1.0,
-        "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
@@ -229,8 +228,8 @@ def get_threecommas_deals(botid):
         payload={
             "scope": "finished",
             "bot_id": str(botid),
+            "limit": 100,
         },
-        additional_headers={"Forced-Mode": MODE},
     )
     if error:
         logger.error("Fetching 3Commas deals failed with error: %s" % error)
@@ -496,12 +495,6 @@ else:
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
-if config.get("settings", "accountmode") == "real":
-    logger.info("Using REAL TRADING account")
-    MODE = "real"
-else:
-    logger.info("Using PAPER TRADING account")
-    MODE = "paper"
 
 if notification.enabled:
     logger.info("Notifications are enabled")
@@ -528,7 +521,6 @@ if "compound" in program:
                 entity="bots",
                 action="show",
                 action_id=str(bot),
-                additional_headers={"Forced-Mode": MODE},
             )
             if botdata:
                 compound_bot(botdata)
