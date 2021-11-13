@@ -137,7 +137,9 @@ class Logger:
 
         # Log to file and rotate if needed
         logrotate = int(config.get("settings", "logrotate", fallback=7))
-        file_handle = TimedRotatingFileHandler(filename=f"{datadir}/logs/{program}.log", backupCount=logrotate)
+        file_handle = TimedRotatingFileHandler(
+            filename=f"{datadir}/logs/{program}.log", backupCount=logrotate
+        )
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
@@ -484,11 +486,25 @@ def find_pairs(thebot):
     for coin in lunacrush:
         pair = base + "_" + coin
 
-        # Check if coin has minimum 24h volume
+        # Check for valid data
+        if lunacrush[coin] is None or minvolume is None:
+            logger.debug(
+                "Could not check minimal 24h volume for '%s' because data missing, skipping"
+                % coin
+            )
+            continue
+
+        # Check if coin has minimum 24h volume as set in bot
         if float(lunacrush[coin]) < float(minvolume):
-            logger.debug("%s has to low volume %s" % (coin, str(lunacrush[coin])))
-        else:
-            logger.debug("%s has enough volume %s" % (coin, str(lunacrush[coin])))
+            logger.debug(
+                "'%s' doesn't have enough 24h volume (%s)"
+                % (coin, str(lunacrush[coin]))
+            )
+            continue
+
+        logger.debug(
+            "'%s' has enough 24h volume (%s)" % (coin, str(lunacrush[coin]))
+        )
 
         # Check if pair is on 3Commas blacklist
         if pair in tickerlist:
@@ -514,7 +530,7 @@ def find_pairs(thebot):
         % blackpairslist
     )
     logger.debug(
-        "There pairs are not valid on the %s market according to 3Commas and were skipped: %s"
+        "There pairs are not valid on the '%s' market according to 3Commas and were skipped: %s"
         % (exchange, badpairslist)
     )
 
@@ -672,12 +688,16 @@ if "watchlist" in program:
             if base == "USDT":
                 botid = config.get("settings", "usdt-botid")
                 if botid == 0:
-                    logger.debug("No valid botid defined for '%s' in config, disabled." % base)
+                    logger.debug(
+                        "No valid botid defined for '%s' in config, disabled." % base
+                    )
                     return
             elif base == "BTC":
                 botid = config.get("settings", "btc-botid")
                 if botid == 0:
-                    logger.debug("No valid botid defined for '%s' in config, disabled." % base)
+                    logger.debug(
+                        "No valid botid defined for '%s' in config, disabled." % base
+                    )
                     return
             else:
                 logger.error("Error the base of pair '%s' is not supported yet!" % pair)
