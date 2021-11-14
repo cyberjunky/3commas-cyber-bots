@@ -243,6 +243,28 @@ def init_threecommas_api(cfg):
     )
 
 
+def get_filebased_blacklist():
+    """Get the pair blacklist from local file."""
+
+    newblacklist = []
+    try:
+        with open(blacklistfile, "r") as file:
+            while (pair := file.readline().rstrip()):
+                newblacklist.append(pair)
+        if newblacklist:
+            logger.info(
+                "Reading local blacklist file '%s' OK (%s pairs)"
+                % (blacklistfile, len(newblacklist))
+            )
+    except FileNotFoundError:
+        logger.error(
+            "Reading local blacklist file '%s' failed with error: File not found"
+            % blacklistfile
+        )
+
+    return newblacklist
+
+
 def get_threecommas_blacklist():
     """Get the pair blacklist from 3Commas."""
 
@@ -316,7 +338,10 @@ def check_pair(thebot, triggerexchange, base, coin):
 
     # Refetch data to catch changes
     # Update 3Commas data
-    blacklist = get_threecommas_blacklist()
+    if blacklistfile:
+        blacklist = get_filebased_blacklist()
+    else:
+        blacklist = get_threecommas_blacklist()
 
     logger.debug("Trigger base coin: %s" % base)
 
@@ -454,7 +479,10 @@ def find_pairs(thebot):
     blackpairslist = list()
 
     # Update 3Commas data
-    blacklist = get_threecommas_blacklist()
+    if blacklistfile:
+        blacklist = get_filebased_blacklist()
+    else:
+        blacklist = get_threecommas_blacklist()
 
     # Get price of BTC
     usdtbtc = get_threecommas_btcusd()
@@ -502,9 +530,7 @@ def find_pairs(thebot):
             )
             continue
 
-        logger.debug(
-            "'%s' has enough 24h volume (%s)" % (coin, str(lunacrush[coin]))
-        )
+        logger.debug("'%s' has enough 24h volume (%s)" % (coin, str(lunacrush[coin])))
 
         # Check if pair is on 3Commas blacklist
         if pair in tickerlist:
@@ -606,12 +632,18 @@ program = Path(__file__).stem
 # Parse and interpret options.
 parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
 parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
+parser.add_argument("-b", "--blacklist", help="blacklist to use", type=str)
 
 args = parser.parse_args()
 if args.datadir:
     datadir = args.datadir
 else:
     datadir = os.getcwd()
+
+if args.blacklist:
+    blacklistfile = args.blacklist
+else:
+    blacklistfile = None
 
 # Create or load configuration file
 config = load_config()
