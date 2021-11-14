@@ -192,6 +192,7 @@ def load_config():
         return cfg
 
     cfg["settings"] = {
+        "timezone": "Europe/Amsterdam",
         "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
@@ -293,7 +294,7 @@ def compound_bot(thebot):
                 for i in range(1, max_safety_orders):
                     fundssoneeded = fundssoneeded * float(martingale_volume_coefficient)
                     totalsofunds += fundssoneeded
-            
+
             ratiofunds = safety_order_size / totalsofunds
             totalorderfunds = totalsofunds + base_order_size
 
@@ -381,7 +382,7 @@ def compound_bot(thebot):
                 i += 1
 
             # Update bot settings
-            error, update_bot = api.request(
+            error, data = api.request(
                 entity="bots",
                 action="update",
                 action_id=str(thebot["id"]),
@@ -408,8 +409,7 @@ def compound_bot(thebot):
                     "active_safety_orders_count": thebot["active_safety_orders_count"],
                 },
             )
-            if error == {}:
-                logger.info("Bot BO/SO update completed!")
+            if data:
                 logger.info(
                     f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to ${round(newbaseordervolume, 4)}\nand SO from ${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
                     True,
@@ -471,6 +471,10 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Handle timezone
+    os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    time.tzset()
+
     # Init notification handler
     notification = NotificationHandler(
         config.getboolean("settings", "notifications"),

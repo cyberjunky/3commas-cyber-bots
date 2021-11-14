@@ -192,6 +192,7 @@ def load_config():
         return cfg
 
     cfg["settings"] = {
+        "timezone": "Europe/Amsterdam",
         "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
@@ -352,8 +353,8 @@ def get_lunarcrush_data():
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtc)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   " \
-                    f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}" \
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
+                    f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
             scoredict = data["data"]
@@ -460,8 +461,7 @@ def find_pairs(thebot):
             return
 
     logger.debug(
-        "These pairs are on your blacklist and were skipped: %s"
-        % blackpairslist
+        "These pairs are on your blacklist and were skipped: %s" % blackpairslist
     )
 
     logger.debug(
@@ -559,6 +559,7 @@ else:
 
 # Create or load configuration file
 config = load_config()
+
 if not config:
     logger = Logger(None, 7, False, False)
     logger.info(f"3Commas bot helper {program}!")
@@ -568,6 +569,10 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Handle timezone
+    os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    time.tzset()
+
     # Init notification handler
     notification = NotificationHandler(
         config.getboolean("settings", "notifications"),

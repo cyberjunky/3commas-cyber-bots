@@ -193,6 +193,7 @@ def load_config():
         return cfg
 
     cfg["settings"] = {
+        "timezone": "Europe/Amsterdam",
         "debug": False,
         "logrotate": 7,
         "usdt-botid": 0,
@@ -233,8 +234,7 @@ def get_filebased_blacklist():
     newblacklist = []
     try:
         with open(blacklistfile, "r") as file:
-            while pair := file.readline().rstrip():
-                newblacklist.append(pair)
+            newblacklist = file.readlines()
         if newblacklist:
             logger.info(
                 "Reading local blacklist file '%s' OK (%s pairs)"
@@ -422,6 +422,10 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Handle timezone
+    os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    time.tzset()
+
     # Init notification handler
     notification = NotificationHandler(
         config.getboolean("settings", "notifications"),
