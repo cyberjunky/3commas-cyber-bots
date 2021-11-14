@@ -118,7 +118,8 @@ So you can leave lc-apikey settings the way it is for now.*
 
 ### Download and install
 
-You need to have Python 3.8 or higher installed.
+You need run Python 3.7 or higher.
+
 Download the zip file of the latest release from [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) and unpack it, or do a `git clone` with the steps described below.
 
 ```
@@ -140,6 +141,7 @@ Then you can edit the file and start the bot helper again to use it.
 
 The configuration files for `galaxyscore` and `altrank` are quite similar and contain the following settings:
 
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
@@ -170,6 +172,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 The `watchlist` bot helper has a different layout:
 
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **usdt-botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
@@ -206,6 +209,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 This is the layout of the config file used by the `compound.py` bot helper:
 
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
@@ -221,6 +225,7 @@ This is the layout of the config file used by the `compound.py` bot helper:
 Example: (keys are bogus)
 ```
 [settings]
+timezone = Europe/Amsterdam
 timeinterval = 3600
 debug = False
 logrotate = 14
