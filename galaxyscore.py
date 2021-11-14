@@ -445,11 +445,13 @@ def find_pairs(thebot):
 
             # Did we get enough pairs already?
             fixednumpairs = int(config.get("settings", "numberofpairs"))
+            if fixednumpairs:
+                if len(newpairslist) == fixednumpairs:
+                    break
+            else:
+                if len(newpairslist) == int(thebot["max_active_deals"]):
+                    break
 
-            if fixednumpairs and len(newpairslist) == fixednumpairs:
-                break
-            if len(newpairslist) == int(thebot["max_active_deals"]):
-                break
         except KeyError as err:
             logger.error(
                 "Something went wrong while parsing LunarCrush data. KeyError for field %s"
