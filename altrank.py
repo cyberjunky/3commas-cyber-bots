@@ -15,7 +15,6 @@ from pathlib import Path
 import apprise
 import requests
 from py3cw.request import Py3CW
-from telethon import TelegramClient, events
 
 
 class NotificationHandler:
@@ -115,7 +114,7 @@ class Logger:
 
     my_logger = None
 
-    def __init__(self, notificationhandler, debug_enabled, notify_enabled):
+    def __init__(self, notificationhandler, logstokeep, debug_enabled, notify_enabled):
         """Logger init."""
         self.my_logger = logging.getLogger()
         self.notify_enabled = notify_enabled
@@ -136,9 +135,8 @@ class Logger:
             os.makedirs(f"{datadir}/logs")
 
         # Log to file and rotate if needed
-        logrotate = int(config.get("settings", "logrotate", fallback=7))
         file_handle = TimedRotatingFileHandler(
-            filename=f"{datadir}/logs/{program}.log", backupCount=logrotate
+            filename=f"{datadir}/logs/{program}.log", backupCount=logstokeep
         )
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
@@ -193,36 +191,19 @@ def load_config():
     if cfg.read(f"{datadir}/{program}.ini"):
         return cfg
 
-    if "watchlist" in program:
-        cfg["settings"] = {
-            "debug": False,
-            "logrotate": 7,
-            "usdt-botid": 0,
-            "btc-botid": 0,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "tgram-phone-number": "Your Telegram Phone number",
-            "tgram-channel": "Telegram Channel to watch",
-            "tgram-api-id": "Your Telegram API ID",
-            "tgram-api-hash": "Your Telegram API Hash",
-            "notifications": False,
-            "notify-urls": ["notify-url1"],
-        }
-    else:
-        cfg["settings"] = {
-            "timeinterval": 3600,
-            "debug": False,
-            "logrotate": 7,
-            "botids": [12345, 67890],
-            "numberofpairs": 10,
-            "accountmode": "paper",
-            "3c-apikey": "Your 3Commas API Key",
-            "3c-apisecret": "Your 3Commas API Secret",
-            "lc-apikey": "Your LunarCrush API Key",
-            "notifications": False,
-            "notify-urls": ["notify-url1"],
-        }
+    cfg["settings"] = {
+        "timeinterval": 3600,
+        "debug": False,
+        "logrotate": 7,
+        "botids": [12345, 67890],
+        "numberofpairs": 10,
+        "accountmode": "paper",
+        "3c-apikey": "Your 3Commas API Key",
+        "3c-apisecret": "Your 3Commas API Secret",
+        "lc-apikey": "Your LunarCrush API Key",
+        "notifications": False,
+        "notify-urls": ["notify-url1"],
+    }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
@@ -249,7 +230,7 @@ def get_filebased_blacklist():
     newblacklist = []
     try:
         with open(blacklistfile, "r") as file:
-            while (pair := file.readline().rstrip()):
+            while pair := file.readline().rstrip():
                 newblacklist.append(pair)
         if newblacklist:
             logger.info(
@@ -333,143 +314,81 @@ def get_threecommas_market(market_code):
     return tickerlist
 
 
-def check_pair(thebot, triggerexchange, base, coin):
-    """Check pair and trigger the bot."""
-
-    # Refetch data to catch changes
-    # Update 3Commas data
-    if blacklistfile:
-        blacklist = get_filebased_blacklist()
-    else:
-        blacklist = get_threecommas_blacklist()
-
-    logger.debug("Trigger base coin: %s" % base)
-
-    # Store some bot settings
-    base = thebot["pairs"][0].split("_")[0]
-    exchange = thebot["account_name"]
-    minvolume = thebot["min_volume_btc_24h"]
-
-    logger.debug("Base coin for this bot: %s" % base)
-    logger.debug("Exchange for this bot: %s" % exchange)
-    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
-
-    if "Paper Account" in exchange:
-        logger.info(
-            "Trigger is for '%s' exchange bot is on '%s'. Trading in Paper so skipping check."
-            % (triggerexchange, exchange),
-            True,
-        )
-    else:
-        # Check if bot is connected to same exchange
-        if exchange.upper() != triggerexchange.upper():
-            logger.info(
-                "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
-                % (triggerexchange.upper(), exchange.upper()),
-                True,
-            )
-            return
-
-    # Get market of 3Commas because it's slightly different then exchanges
-    if "Binance" in exchange or "Paper Account" in exchange:
-        tickerlist = get_threecommas_market("binance")
-    elif exchange == "FTX":
-        tickerlist = get_threecommas_market("ftx")
-    else:
-        logger.error(
-            "Bot is using the '%s' exchange which is not implemented yet!" % exchange
-        )
-        return
-
-    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    pair = base + "_" + coin
-    logger.debug("New pair constructed: %s" % pair)
-
-    # Check if pair is on 3Commas blacklist
-    if pair in blacklist:
-        logger.debug(
-            "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
-        )
-        return
-
-    # Check if pair is on 3Commas market ticker
-    if pair not in tickerlist:
-        logger.debug(
-            "This pair is not valid on the %s market according to 3Commas and was skipped: %s"
-            % (exchange, pair),
-            True,
-        )
-        return
-
-    # We have valid pair for our bot and we can trigger a new deal
-    logger.info("Triggering your 3Commas bot")
-    trigger_bot(thebot, pair)
-
-
-def trigger_bot(thebot, pair):
-    """Trigger bot to start deal asap for pair."""
-    error, data = api.request(
-        entity="bots",
-        action="start_new_deal",
-        action_id=str(thebot["id"]),
-        payload={"pair": pair},
-        additional_headers={"Forced-Mode": MODE},
-    )
-    if data:
-        logger.debug("Bot triggered: %s" % data)
-        logger.info(
-            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
-            % (thebot["name"], thebot["id"], pair),
-            True,
-        )
-    else:
-        logger.error(
-            "Error occurred while triggering start_new_deal bot '%s' error: %s"
-            % (thebot["name"], error["msg"]),
-        )
-
-
-def get_lunarcrush_data(usdtbtc_value):
+def get_lunarcrush_data():
     """Get the top x GalaxyScore or AltRank from LunarCrush."""
 
     scoredict = {}
+    # Get current USD value of BTC
+    usdtbtc = get_threecommas_btcusd()
 
-    # Select correct Top X type
-    if program == "altrank":
-        ranktype = "ar"
+    # Construct query for LunarCrush data
+    if "altrank" in program:
+        parms = {
+            "data": "market",
+            "type": "fast",
+            "sort": "acr",
+            "limit": 75,
+            "key": config.get("settings", "lc-apikey"),
+        }
     else:
-        ranktype = "gs"
+        parms = {
+            "data": "market",
+            "type": "fast",
+            "sort": "gs",
+            "limit": 75,
+            "key": config.get("settings", "lc-apikey"),
+            "desc": True,
+        }
 
-    url = "https://api.lunarcrush.com/v2?data=market&key={0}&limit=75&sort={1}&desc=true&type=fast".format(
-        config.get("settings", "lc-apikey"), ranktype
-    )
     try:
-        result = requests.get(url)
-        if result:
-            data = result.json()
-            for entry in data["data"]:
-                coin = entry["s"]
-                if ranktype == "ar":
-                    score = float(entry["acr"])
-                else:
-                    score = float(entry["gs"])
-                volume = float(entry["v"]) / float(usdtbtc_value)
-                scoredict[coin] = volume
-                logger.debug(
-                    "Coin: %s score: %s volume USD: %s volume BTC: %s value USDTBTC: %s"
-                    % (coin, score, entry["v"], str(volume), str(usdtbtc_value))
-                )
-            logger.info(
-                "Fetched LunarCrush Top X %s OK (%s coins)" % (ranktype, len(scoredict))
-            )
-
+        result = requests.get("https://api.lunarcrush.com/v2", params=parms)
         result.raise_for_status()
+        data = result.json()
+        if "data" in data.keys():
+            for i, crush in enumerate(data["data"], start=1):
+                crush["categories"] = (
+                    list(crush["categories"].split(",")) if crush["categories"] else []
+                )
+                crush["rank"] = i
+                crush["volbtc"] = crush["v"] / float(usdtbtc)
+                logger.debug(
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   " \
+                    f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}" \
+                    f"   categories:{crush['categories']}"
+                )
+            scoredict = data["data"]
+
     except requests.exceptions.HTTPError as err:
-        logger.error(
-            "Fetching LunarCrush Top X %s failed with error: %s" % (ranktype, err)
-        )
+        logger.error("Fetching LunarCrush data failed with error: %s" % err)
+        return None
+
+    logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(scoredict)))
 
     return scoredict
+
+
+def load_tickerlist(exchange):
+    """Return tickerlist for exchange."""
+
+    if "Binance" in exchange or "Paper Account" in exchange or MODE == "paper":
+        return get_threecommas_market("binance")
+
+    if exchange == "FTX":
+        return get_threecommas_market("ftx")
+
+    logger.error(
+        "Bot is using the '%s' exchange which is not implemented yet!" % exchange
+    )
+    sys.exit()
+
+
+def load_blacklist():
+    """Return blacklist to be used."""
+
+    if blacklistfile:
+        return get_filebased_blacklist()
+
+    return get_threecommas_blacklist()
 
 
 def find_pairs(thebot):
@@ -478,109 +397,95 @@ def find_pairs(thebot):
     badpairslist = list()
     blackpairslist = list()
 
-    # Update 3Commas data
-    if blacklistfile:
-        blacklist = get_filebased_blacklist()
-    else:
-        blacklist = get_threecommas_blacklist()
+    # Update the blacklist
+    blacklist = load_blacklist()
 
-    # Get price of BTC
-    usdtbtc = get_threecommas_btcusd()
-
-    # Update LunaCrush data
-    lunacrush = get_lunarcrush_data(usdtbtc)
-
-    # Store some bot settings
+    # Gather bot settings
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
-    maxactivedeals = thebot["max_active_deals"]
 
-    logger.debug("Base coin for this bot: %s" % base)
-    logger.debug("Exchange for this bot: %s" % exchange)
-    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
-    logger.info("Finding the best pairs for %s exchange" % exchange)
+    logger.debug("Base currency for this bot: %s" % base)
+    logger.debug("Exchange used by this bot: %s" % exchange)
+    logger.debug("Minimal 24h BTC volume for this bot: %s" % minvolume)
 
-    if "Binance" in exchange or "Paper Account" in exchange or MODE == "paper":
-        tickerlist = get_threecommas_market("binance")
-    elif exchange == "FTX":
-        tickerlist = get_threecommas_market("ftx")
-    else:
-        logger.error(
-            "Bot is using the %s exchange which is not implemented yet!" % exchange
-        )
-        sys.exit()
+    # Load tickerlist for exchange
+    tickerlist = load_tickerlist(exchange)
 
-    for coin in lunacrush:
-        pair = base + "_" + coin
+    # Fetch and parse LunaCrush data
+    for entry in get_lunarcrush_data():
+        try:
+            pair = base + "_" + entry["s"]
+            volbtc = entry["volbtc"]
 
-        # Check for valid data
-        if lunacrush[coin] is None or minvolume is None:
-            logger.debug(
-                "Could not check minimal 24h volume for '%s' because data missing, skipping"
-                % coin
-            )
-            continue
+            # Check for valid data
+            if volbtc is None or minvolume is None:
+                logger.debug(
+                    "Could not check 24h BTC volume for quote '%s', data is missing, skipping"
+                    % entry["s"]
+                )
+                continue
 
-        # Check if coin has minimum 24h volume as set in bot
-        if float(lunacrush[coin]) < float(minvolume):
-            logger.debug(
-                "'%s' doesn't have enough 24h volume (%s)"
-                % (coin, str(lunacrush[coin]))
-            )
-            continue
+            # Check if coin has minimum 24h volume as set in bot
+            if float(volbtc) < float(minvolume):
+                logger.debug(
+                    "Quote currency '%s' does not have enough 24h BTC volume (%s), skipping"
+                    % (entry["s"], str(volbtc))
+                )
+                continue
 
-        logger.debug("'%s' has enough 24h volume (%s)" % (coin, str(lunacrush[coin])))
-
-        # Check if pair is on 3Commas blacklist
-        if pair in tickerlist:
-            if pair in blacklist:
-                blackpairslist.append(pair)
+            # Check if pair is on 3Commas blacklist
+            if pair in tickerlist:
+                if pair in blacklist:
+                    blackpairslist.append(pair)
+                else:
+                    newpairslist.append(pair)
             else:
-                newpairslist.append(pair)
-        else:
-            badpairslist.append(pair)
+                badpairslist.append(pair)
 
-        # Did we get enough pairs already?
-        fixednumpairs = int(config.get("settings", "numberofpairs"))
+            # Did we get enough pairs already?
+            fixednumpairs = int(config.get("settings", "numberofpairs"))
 
-        if fixednumpairs:
-            if len(newpairslist) == fixednumpairs:
+            if fixednumpairs and len(newpairslist) == fixednumpairs:
                 break
-        else:
-            if len(newpairslist) == int(maxactivedeals):
+            if len(newpairslist) == int(thebot["max_active_deals"]):
                 break
+        except KeyError as err:
+            logger.error(
+                "Something went wrong while parsing LunarCrush data. KeyError for field %s"
+                % err
+            )
+            return
 
     logger.debug(
-        "These pairs are on your 3Commas blacklist and were skipped: %s"
+        "These pairs are on your blacklist and were skipped: %s"
         % blackpairslist
     )
+
     logger.debug(
-        "There pairs are not valid on the '%s' market according to 3Commas and were skipped: %s"
+        "These pairs are invalid on the '%s' market according to 3Commas and were skipped: %s"
         % (exchange, badpairslist)
     )
 
-    logger.debug("New     pairs: %s" % newpairslist)
-    logger.debug("Current pairs: %s" % thebot["pairs"])
+    logger.debug("Current pairs: %s\nNew pairs: %s" % (thebot["pairs"], newpairslist))
 
     # Do we already use these pairs?
-    if not newpairslist == thebot["pairs"]:
-        # We have new pairs for our bot update it
-        if newpairslist:
-            logger.info("Updating your 3Commas bot(s)")
-            update_bot(thebot, newpairslist)
-        else:
-            logger.info(
-                "None of the by LunarCrush suggested pairs found on %s exchange!"
-                % exchange
-            )
-    else:
+    if newpairslist == thebot["pairs"]:
         logger.info(
             "Bot '%s' with id '%s' is already using the best pairs"
             % (thebot["name"], thebot["id"]),
             True,
         )
         return
+
+    # We have new pairs for our bot update it
+    if not newpairslist:
+        logger.info(
+            "None of the by LunarCrush suggested pairs found on %s exchange!" % exchange
+        )
+        return
+
+    update_bot(thebot, newpairslist)
 
 
 def update_bot(thebot, newpairs):
@@ -631,8 +536,12 @@ program = Path(__file__).stem
 
 # Parse and interpret options.
 parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
-parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
-parser.add_argument("-b", "--blacklist", help="blacklist to use", type=str)
+parser.add_argument(
+    "-d", "--datadir", help="directory to use for config and logs files", type=str
+)
+parser.add_argument(
+    "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
+)
 
 args = parser.parse_args()
 if args.datadir:
@@ -640,6 +549,7 @@ if args.datadir:
 else:
     datadir = os.getcwd()
 
+# pylint: disable-msg=C0103
 if args.blacklist:
     blacklistfile = args.blacklist
 else:
@@ -648,7 +558,7 @@ else:
 # Create or load configuration file
 config = load_config()
 if not config:
-    logger = Logger(None, False, False)
+    logger = Logger(None, 7, False, False)
     logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
@@ -665,6 +575,7 @@ else:
     # Init logging
     logger = Logger(
         notification,
+        int(config.get("settings", "logrotate", fallback=7)),
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
@@ -687,111 +598,38 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-if "watchlist" in program:
-    # Watchlist telegram trigger
+# Lunacrush GalayScore or AltRank pairs
+while True:
 
-    # Start telegram client
-    client = TelegramClient(
-        program,
-        config.get("settings", "tgram-api-id"),
-        config.get("settings", "tgram-api-hash"),
-    ).start(config.get("settings", "tgram-phone-number"))
+    # Reload config files and refetch data to catch changes
+    config = load_config()
+    logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
+    botids = json.loads(config.get("settings", "botids"))
 
-    @client.on(events.NewMessage(chats=config.get("settings", "tgram-channel")))
-    async def callback(event):
-        """Parse Telegram message."""
-        logger.info(
-            "Received telegram message: '%s'" % event.message.text.replace("\n", " - "),
-            True,
+    # Walk through all bots specified
+    for bot in botids:
+        if bot == 0:
+            continue
+
+        boterror, botdata = api.request(
+            entity="bots",
+            action="show",
+            action_id=str(bot),
+            additional_headers={"Forced-Mode": MODE},
         )
-
-        trigger = event.raw_text.splitlines()
-        if trigger[0] == "BINANCE" or trigger[0] == "FTX" or trigger[0] == "KUCOIN":
-            exchange = trigger[0].replace("\n", "")
-            pair = trigger[1].replace("#", "").replace("\n", "")
-            base = pair.split("_")[0].replace("#", "").replace("\n", "")
-            coin = pair.split("_")[1].replace("\n", "")
-
-            logger.debug("Exhange: %s" % exchange)
-            logger.debug("Pair: %s" % pair)
-            logger.debug("Base: %s" % base)
-            logger.debug("Coin: %s" % coin)
-
-            if base == "USDT":
-                botid = config.get("settings", "usdt-botid")
-                if botid == 0:
-                    logger.debug(
-                        "No valid botid defined for '%s' in config, disabled." % base
-                    )
-                    return
-            elif base == "BTC":
-                botid = config.get("settings", "btc-botid")
-                if botid == 0:
-                    logger.debug(
-                        "No valid botid defined for '%s' in config, disabled." % base
-                    )
-                    return
-            else:
-                logger.error("Error the base of pair '%s' is not supported yet!" % pair)
-                return
-
-            error, data = api.request(
-                entity="bots",
-                action="show",
-                action_id=str(botid),
-            )
-
-            if data:
-                await client.loop.run_in_executor(
-                    None, check_pair, data, exchange, base, coin
-                )
-            else:
-                logger.error("Error occurred triggering bot: %s" % error["msg"])
+        if botdata:
+            find_pairs(botdata)
         else:
-            logger.info("Not a crypto trigger message, or exchange not yet supported.")
+            logger.error("Error occurred updating bots: %s" % boterror["msg"])
 
-    # Start telegram client
-    client.start()
-    logger.info(
-        "Listening to telegram chat '%s' for triggers"
-        % config.get("settings", "tgram-channel"),
-        True,
-    )
-    client.run_until_disconnected()
+    # pylint: disable=C0103
+    timeint = int(config.get("settings", "timeinterval"))
 
-else:
-    # Lunacrush GalayScore or Altrank pairs
-    while True:
-
-        # Reload config files and refetch data to catch changes
-        config = load_config()
-        logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
-        botids = json.loads(config.get("settings", "botids"))
-
-        # Walk through all bots specified
-        for bot in botids:
-            if bot == 0:
-                continue
-
-            boterror, botdata = api.request(
-                entity="bots",
-                action="show",
-                action_id=str(bot),
-                additional_headers={"Forced-Mode": MODE},
-            )
-            if botdata:
-                find_pairs(botdata)
-            else:
-                logger.error("Error occurred updating bots: %s" % boterror["msg"])
-
-        # pylint: disable=C0103
-        timeint = int(config.get("settings", "timeinterval"))
-
-        if timeint > 0:
-            localtime = time.time()
-            nexttime = localtime + int(timeint)
-            timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-            logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
-            time.sleep(timeint)
-        else:
-            break
+    if timeint > 0:
+        localtime = time.time()
+        nexttime = localtime + int(timeint)
+        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
+        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
+        time.sleep(timeint)
+    else:
+        break
