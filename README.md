@@ -114,7 +114,7 @@ So you can leave lc-apikey settings the way it is for now.*
 ### Download and install
 
 You need to have Python 3.8 or higher installed.
-Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone.
+Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone with the steps below.
 
 ```
 $ sudo apt install git
@@ -205,7 +205,7 @@ This is the layout of the config file used by the `compound.py` helper:
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
--   **profittocompound** - ratio of profit to compound (1.0 = 100%, currently not implemented yet)
+-   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
