@@ -9,7 +9,8 @@ import queue
 import sys
 import threading
 import time
-from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
+from logging.handlers import \
+    TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -468,21 +469,10 @@ def find_pairs(thebot):
         % (exchange, badpairslist)
     )
 
-    logger.debug("Current pairs: %s\nNew pairs: %s" % (thebot["pairs"], newpairslist))
-
-    # Do we already use these pairs?
-    if newpairslist == thebot["pairs"]:
-        logger.info(
-            "Bot '%s' with id '%s' is already using the best pairs"
-            % (thebot["name"], thebot["id"]),
-            True,
-        )
-        return
-
-    # We have new pairs for our bot update it
     if not newpairslist:
         logger.info(
-            "None of the by LunarCrush suggested pairs found on %s exchange!" % exchange
+            "None of the by LunarCrush suggested pairs have been found on the %s exchange!"
+            % exchange
         )
         return
 
@@ -491,6 +481,18 @@ def find_pairs(thebot):
 
 def update_bot(thebot, newpairs):
     """Update bot with new pairs."""
+
+    # Do we already use these pairs?
+    if newpairs == thebot["pairs"]:
+        logger.info(
+            "Bot '%s' with id '%s' is already using the best pairs"
+            % (thebot["name"], thebot["id"]),
+            True,
+        )
+        return
+
+    logger.debug("Current pairs: %s\nNew pairs: %s" % (thebot["pairs"], newpairs))
+
     error, data = api.request(
         entity="bots",
         action="update",
