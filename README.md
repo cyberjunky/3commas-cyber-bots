@@ -1,6 +1,11 @@
 # 3commas-cyber-bots <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
+## Disclaimer
+> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE).
+
+> :exclamation: Always test your settings with your paper account first!
+ 
 ## Why you build these bot helpers?
 
 I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
@@ -466,16 +471,6 @@ If you enjoyed this project — or just feeling generous — consider a small do
 
 ## Disclaimer
 
-This project is for informational purposes only. You should not construe any
-such information or other material as legal, tax, investment, financial, or
-other advice. Nothing contained here constitutes a solicitation, recommendation,
-endorsement, or offer by me or any third party service provider to buy or sell
-any securities or other financial instruments in this or in any other
-jurisdiction in which such solicitation or offer would be unlawful under the
-securities laws of such jurisdiction.
+> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE).
 
-If you plan to use real money, USE AT YOUR OWN RISK.
-
-Under no circumstances will I be held responsible or liable in any way for any
-claims, damages, losses, expenses, costs, or liabilities whatsoever, including,
-without limitation, any direct or indirect damages for loss of profits.
+> :exclamation: Always test your settings with your paper account first!
