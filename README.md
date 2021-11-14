@@ -25,6 +25,8 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
+
 ![GalaxyScore](images/galaxyscore.png)
 
 ## AltRank bot helper named `altrank.py`
@@ -37,6 +39,8 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 ## How does it work?
 
 Same as galaxyscore bot helper except with AltRank data.
+
+NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
 ![AltRank](images/altrank.png)
 
