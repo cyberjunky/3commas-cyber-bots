@@ -2,7 +2,7 @@
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Disclaimer
-> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE).
+> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE), read it also.
 
 > :exclamation: Always test your settings with your paper account first!
  
