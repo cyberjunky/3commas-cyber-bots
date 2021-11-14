@@ -251,15 +251,6 @@ def check_deal(dealid):
     return True
 
 
-def get_bot_ratio(botid):
-    """Get bot bo/so percentages if already logged."""
-    data = cursor.execute(f"SELECT * FROM bots WHERE botid = {botid}").fetchone()
-    if data is None:
-        return None
-
-    return data
-
-
 def compound_bot(thebot):
     """Find profit from deals and calculate new SO and BO values."""
     deals = get_threecommas_deals(thebot["id"])
@@ -287,7 +278,7 @@ def compound_bot(thebot):
         db.commit()
 
         if profitsum:
-            # bot values to calculate with
+            # Bot values to calculate with
             base_order_size = float(thebot["base_order_volume"])
             safety_order_size = float(thebot["safety_order_volume"])
             max_active_deals = thebot["max_active_deals"]
@@ -295,16 +286,17 @@ def compound_bot(thebot):
             martingale_volume_coefficient = float(
                 thebot["martingale_volume_coefficient"]
             )
-            # botid = thebot["id"]
 
             fundssoneeded = safety_order_size
             totalsofunds = safety_order_size
             if max_safety_orders > 1:
                 for i in range(1, max_safety_orders):
                     fundssoneeded = fundssoneeded * float(martingale_volume_coefficient)
-                    totalsofunds = totalsofunds + fundssoneeded
-
+                    totalsofunds += fundssoneeded
+            
+            ratiofunds = safety_order_size / totalsofunds
             totalorderfunds = totalsofunds + base_order_size
+
             logger.info("Current bot settings :")
             logger.info("Base order size      : %s" % base_order_size)
             logger.info("Safety order size    : %s" % safety_order_size)
@@ -314,8 +306,9 @@ def compound_bot(thebot):
             logger.info("Total funds for BO   : %s" % base_order_size)
             logger.info("Total funds for SO(s): %s" % totalsofunds)
             logger.info("Total funds for order: %s" % totalorderfunds)
+            logger.info("Funds ratio for SO(s): %s" % ratiofunds)
 
-            # current order table
+            # Calculate current order table
             logger.info("Current order table:")
             order_1 = safety_order_size
             logger.info(f"Order BO = {base_order_size}")
@@ -326,34 +319,7 @@ def compound_bot(thebot):
                 logger.info(f"Order #{i+1} = {order_x}")
                 i += 1
 
-            # # bo/so ratio calculations
-            # bopercentage = (
-            #     100
-            #     * float(base_order_size)
-            #     / (float(base_order_size) + float(safety_order_size))
-            # )
-            # sopercentage = (
-            #     100
-            #     * float(safety_order_size)
-            #     / (float(safety_order_size) + float(base_order_size))
-            # )
-            # logger.info("Current BO percentage: %s" % bopercentage)
-            # logger.info("Current SO percentage: %s" % sopercentage)
-
-            # # check if data is already in database if so use that, else store calculcated from above
-            # percentages = get_bot_ratio(botid)
-            # if percentages:
-            #     (botid, bopercentage, sopercentage) = percentages
-            #     logger.info("Using BO percentage from db: %s" % bopercentage)
-            #     logger.info("Using SO percentage from db: %s" % sopercentage)
-            # else:
-            #     # store in db for later use
-            #     db.execute(
-            #         f"INSERT INTO bots (botid, bopercentage, sopercentage) VALUES ({botid}, {bopercentage}, {sopercentage})"
-            #     )
-            #     db.commit()
-
-            # calc profit part to compound
+            # Calculate profit part to compound
             profitpercentage = float(
                 config.get("settings", "profittocompound", fallback=1.0)
             )
@@ -364,27 +330,7 @@ def compound_bot(thebot):
                 % (profitpercentage, profitsum)
             )
 
-            # --------------- old compound calc stats here ----------------
-            # # calculate compound values
-            # boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
-            # soprofitsplit = (
-            #     ((profitsum * sopercentage) / 100)
-            #     / max_active_deals
-            #     / max_safety_orders
-            # )
-
-            # logger.info("BO compound value: %s" % boprofitsplit)
-            # logger.info("SO compound value: %s" % soprofitsplit)
-
-            # # compound the profits to base volume and safety volume
-            # newbaseordervolume = base_order_size + boprofitsplit
-            # newsafetyordervolume = safety_order_size + soprofitsplit
-
-            # ---------------- old compound calc ends here -----------------
-
-            # ------------ new compound calc starts here ---------------
-
-            # bo/so ratio calculations
+            # Calculate the BO/SO ratio
             bopercentage = (
                 100
                 * float(base_order_size)
@@ -398,22 +344,21 @@ def compound_bot(thebot):
             logger.info("BO percentage: %s" % bopercentage)
             logger.info("SO percentage: %s" % sopercentage)
 
-            # calculate compound values
+            # Calculate compound values
             boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
             soprofitsplit = (
                 ((profitsum * sopercentage) / 100)
                 / max_active_deals
                 / max_safety_orders
+                * ratiofunds
             )
 
             logger.info("BO compound value: %s" % boprofitsplit)
             logger.info("SO compound value: %s" % soprofitsplit)
 
-            # compound the profits to base volume and safety volume
+            # Compound the profits to BO and SO settings
             newbaseordervolume = base_order_size + boprofitsplit
             newsafetyordervolume = safety_order_size + soprofitsplit
-
-            # ------------ new compound calc ends here ---------------
 
             logger.info(
                 "Base order size increased from %s to %s"
@@ -424,7 +369,7 @@ def compound_bot(thebot):
                 % (safety_order_size, newsafetyordervolume)
             )
 
-            # new order table
+            # Calculate new order table
             logger.info("Order table after compounding:")
             order_1 = newsafetyordervolume
             logger.info(f"Order BO = {newbaseordervolume}")
@@ -435,7 +380,7 @@ def compound_bot(thebot):
                 logger.info(f"Order #{i+1} = {order_x}")
                 i += 1
 
-            # update bot settings
+            # Update bot settings
             error, update_bot = api.request(
                 entity="bots",
                 action="update",
@@ -497,9 +442,6 @@ def init_compound_db():
         logger.info(f"Database '{dbname}' created successfully")
 
         dbcursor.execute("CREATE TABLE deals (dealid int Primary Key)")
-        dbcursor.execute(
-            "CREATE TABLE bots (botid int Primary Key, bopercentage real, sopercentage real)"
-        )
         logger.info("Database tables created successfully")
 
     return dbconnection
