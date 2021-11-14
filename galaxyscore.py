@@ -631,8 +631,8 @@ program = Path(__file__).stem
 
 # Parse and interpret options.
 parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
-parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
-parser.add_argument("-b", "--blacklist", help="blacklist to use", type=str)
+parser.add_argument("-d", "--datadir", help="directory to use for config and logs files", type=str)
+parser.add_argument("-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str)
 
 args = parser.parse_args()
 if args.datadir:
