@@ -114,7 +114,7 @@ So you can leave lc-apikey settings the way it is for now.*
 ### Download and install
 
 You need to have Python 3.8 or higher installed.
-Download the zip file of the latest release [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) or do a git clone with the steps below.
+Download the zip file of the latest release from [here](https://github.com/cyberjunky/3commas-cyber-bots/releases) and unpack it, or do a `git clone` with the steps described below.
 
 ```
 $ sudo apt install git
@@ -123,23 +123,23 @@ $ cd 3commas-cyber-bots
 $ pip3 install -r requirements.txt
 ```
 
-### Create user configuration
+### Configuration of the bot helpers
 
-Start the bot(s) you want to use e.g. for altrank, a config file with name of bot is created (ending in .ini)
+For a new install just start the bot helper you want to use like below for altrank, a config file with the name of bot is created (ending in .ini)
 
 ```
 $ python3 ./altrank.py
 ```
 
-If your run `galaxyscore`,`altrank` or `watchlist` bot helper for the first time it will create default config file named `galaxyscore.ini`. `altrank.ini` or `watchlist.ini`. Edit it with the information below.
+Then you can edit the file and start the bot helper again to use it.
 
-The configuration files for `galaxyscore` and `altrank` contain the following sections and fields:
+The configuration files for `galaxyscore` and `altrank` are quite similar and contain the following settings:
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the max active deals for each bot as pair number. (default is 10)
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
@@ -163,7 +163,7 @@ notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-`watchlist` has a slightly different layout:
+The `watchlist` bot helper has a different layout:
 
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
@@ -199,7 +199,7 @@ notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-This is the layout of the config file used by the `compound.py` helper:
+This is the layout of the config file used by the `compound.py` bot helper:
 
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
@@ -228,7 +228,7 @@ notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-The 3Commas API need to have 'BotsRead, BotsWrite' permissions.
+NOTE: The 3Commas API need to have 'BotsRead and BotsWrite' permissions.
 
 ### Telegram ID, Hash and Secrets explained
 There are two sets of Telegram related settings.
@@ -285,7 +285,7 @@ If you didn't send a message to your bot first this is what the logs show:
 2021-11-11 19:35:14,682 - apprise - WARNING - There were not Telegram chat_ids to notify.
 ```
 
-### Run the bot(s)
+### Running the bot helpers
 
 #### Run Manually
 `$ python3 ./galaxyscore.py`
@@ -295,6 +295,24 @@ and/or
 `$ python3 ./watchlist.py`
 and/or
 `$ python3 ./compound.py`
+
+They also have some command-line options:
+
+```
+./galaxyscore.py -h
+usage: galaxyscore.py [-h] [-d DATADIR] [-b BLACKLIST]
+
+Cyberjunky's 3Commas bot helper.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DATADIR, --datadir DATADIR
+                        directory to use for config and logs files
+  -b BLACKLIST, --blacklist BLACKLIST
+                        local blacklist to use instead of 3Commas's
+```
+
+The blacklist file layout is one pair per line.
 
 ### Example output for `altrank`
 ```
