@@ -9,8 +9,7 @@ import queue
 import sys
 import threading
 import time
-from logging.handlers import \
-    TimedRotatingFileHandler as _TimedRotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -122,15 +121,18 @@ class Logger:
         self.notificationhandler = notificationhandler
         if debug_enabled:
             self.my_logger.setLevel(logging.DEBUG)
-            self.my_logger.propagate = True
+            self.my_logger.propagate = False
         else:
             self.my_logger.setLevel(logging.INFO)
             self.my_logger.propagate = False
 
+        date_fmt = "%Y-%m-%d %H:%M:%S"
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
         )
-
+        console_formatter = logging.Formatter(
+            "%(asctime)s - %(filename)s - %(message)s", date_fmt
+        )
         # Create directory if not exists
         if not os.path.exists(f"{datadir}/logs"):
             os.makedirs(f"{datadir}/logs")
@@ -139,14 +141,13 @@ class Logger:
         file_handle = TimedRotatingFileHandler(
             filename=f"{datadir}/logs/{program}.log", backupCount=logstokeep
         )
-        file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
 
         # Log to console
         console_handle = logging.StreamHandler()
         console_handle.setLevel(logging.INFO)
-        console_handle.setFormatter(formatter)
+        console_handle.setFormatter(console_formatter)
         self.my_logger.addHandler(console_handle)
 
     def log(self, message, level="info"):
@@ -199,6 +200,7 @@ def load_config():
         "logrotate": 7,
         "botids": [12345, 67890],
         "numberofpairs": 10,
+        "maxaltrankscore": 1500,
         "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
@@ -328,7 +330,7 @@ def get_lunarcrush_data():
             "data": "market",
             "type": "fast",
             "sort": "acr",
-            "limit": 75,
+            "limit": 100,
             "key": config.get("settings", "lc-apikey"),
         }
     else:
@@ -336,7 +338,7 @@ def get_lunarcrush_data():
             "data": "market",
             "type": "fast",
             "sort": "gs",
-            "limit": 75,
+            "limit": 100,
             "key": config.get("settings", "lc-apikey"),
             "desc": True,
         }
@@ -361,7 +363,7 @@ def get_lunarcrush_data():
 
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching LunarCrush data failed with error: %s" % err)
-        return None
+        return scoredict
 
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(scoredict)))
 
@@ -392,38 +394,52 @@ def load_blacklist():
     return get_threecommas_blacklist()
 
 
+def handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist):
+    """Check pair conditions."""
+
+    # Check if pair is in tickerlist and on 3Commas blacklist
+    if pair in tickerlist:
+        if pair in blacklist:
+            blackpairs.append(pair)
+        else:
+            newpairs.append(pair)
+    else:
+        badpairs.append(pair)
+
+
 def find_pairs(thebot):
     """Find new pairs and update the bot."""
-    newpairslist = list()
-    badpairslist = list()
-    blackpairslist = list()
-
-    # Update the blacklist
-    blacklist = load_blacklist()
 
     # Gather bot settings
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
 
-    logger.debug("Base currency for this bot: %s" % base)
-    logger.debug("Exchange used by this bot: %s" % exchange)
-    logger.debug("Minimal 24h BTC volume for this bot: %s" % minvolume)
+    logger.debug("Bot base currency: %s" % base)
+    logger.debug("Bot exchange: %s" % exchange)
+    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
+
+    # Start fresh
+    newpairs = list()
+    badpairs = list()
+    blackpairs = list()
 
     # Load tickerlist for exchange
     tickerlist = load_tickerlist(exchange)
 
     # Fetch and parse LunaCrush data
-    for entry in get_lunarcrush_data():
+    for entry in lunarcrush:
         try:
-            pair = base + "_" + entry["s"]
+            coin = entry["s"]
+            pair = base + "_" + coin
             volbtc = entry["volbtc"]
+            acrscore = entry["acr"]
 
             # Check for valid data
             if volbtc is None or minvolume is None:
                 logger.debug(
                     "Could not check 24h BTC volume for quote '%s', data is missing, skipping"
-                    % entry["s"]
+                    % coin
                 )
                 continue
 
@@ -431,26 +447,26 @@ def find_pairs(thebot):
             if float(volbtc) < float(minvolume):
                 logger.debug(
                     "Quote currency '%s' does not have enough 24h BTC volume (%s), skipping"
-                    % (entry["s"], str(volbtc))
+                    % (coin, str(volbtc))
                 )
                 continue
 
-            # Check if pair is on 3Commas blacklist
-            if pair in tickerlist:
-                if pair in blacklist:
-                    blackpairslist.append(pair)
-                else:
-                    newpairslist.append(pair)
-            else:
-                badpairslist.append(pair)
+            # Check if coin has minimum AltRank score
+            if acrscore > maxacrscore:
+                logger.debug(
+                    "Quote currency '%s' is not in AltRank score top %s (%s), skipping"
+                    % (coin, maxacrscore, acrscore)
+                )
+                continue
+
+            handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist)
 
             # Did we get enough pairs already?
-            fixednumpairs = int(config.get("settings", "numberofpairs"))
-            if fixednumpairs:
-                if len(newpairslist) == fixednumpairs:
+            if numberofpairs:
+                if len(newpairs) == numberofpairs:
                     break
             else:
-                if len(newpairslist) == int(thebot["max_active_deals"]):
+                if len(newpairs) == int(thebot["max_active_deals"]):
                     break
 
         except KeyError as err:
@@ -460,23 +476,21 @@ def find_pairs(thebot):
             )
             return
 
-    logger.debug(
-        "These pairs are on your blacklist and were skipped: %s" % blackpairslist
-    )
+    logger.debug("These pairs are on your blacklist and were skipped: %s" % blackpairs)
 
     logger.debug(
         "These pairs are invalid on the '%s' market according to 3Commas and were skipped: %s"
-        % (exchange, badpairslist)
+        % (exchange, badpairs)
     )
 
-    if not newpairslist:
+    if not newpairs:
         logger.info(
             "None of the by LunarCrush suggested pairs have been found on the %s exchange!"
             % exchange
         )
         return
 
-    update_bot(thebot, newpairslist)
+    update_bot(thebot, newpairs)
 
 
 def update_bot(thebot, newpairs):
@@ -612,13 +626,19 @@ while True:
     # Reload config files and refetch data to catch changes
     config = load_config()
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
+
+    # User settings
+    numberofpairs = int(config.get("settings", "numberofpairs"))
+    maxacrscore = int(config.get("settings", "maxaltrankscore", fallback=100))
     botids = json.loads(config.get("settings", "botids"))
+    timeint = int(config.get("settings", "timeinterval"))
+
+    # Update the blacklist and download lunarcrush data
+    blacklist = load_blacklist()
+    lunarcrush = get_lunarcrush_data()
 
     # Walk through all bots specified
     for bot in botids:
-        if bot == 0:
-            continue
-
         boterror, botdata = api.request(
             entity="bots",
             action="show",
@@ -629,9 +649,6 @@ while True:
             find_pairs(botdata)
         else:
             logger.error("Error occurred updating bots: %s" % boterror["msg"])
-
-    # pylint: disable=C0103
-    timeint = int(config.get("settings", "timeinterval"))
 
     if timeint > 0:
         localtime = time.time()

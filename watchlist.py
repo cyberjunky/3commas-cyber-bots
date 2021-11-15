@@ -114,39 +114,40 @@ class Logger:
 
     my_logger = None
 
-    def __init__(self, notificationhandler, debug_enabled, notify_enabled):
+    def __init__(self, notificationhandler, logstokeep, debug_enabled, notify_enabled):
         """Logger init."""
         self.my_logger = logging.getLogger()
         self.notify_enabled = notify_enabled
         self.notificationhandler = notificationhandler
         if debug_enabled:
             self.my_logger.setLevel(logging.DEBUG)
-            self.my_logger.propagate = True
+            self.my_logger.propagate = False
         else:
             self.my_logger.setLevel(logging.INFO)
             self.my_logger.propagate = False
 
+        date_fmt = "%Y-%m-%d %H:%M:%S"
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
         )
-
+        console_formatter = logging.Formatter(
+            "%(asctime)s - %(filename)s - %(message)s", date_fmt
+        )
         # Create directory if not exists
         if not os.path.exists(f"{datadir}/logs"):
             os.makedirs(f"{datadir}/logs")
 
         # Log to file and rotate if needed
-        logrotate = int(config.get("settings", "logrotate", fallback=7))
         file_handle = TimedRotatingFileHandler(
-            filename=f"{datadir}/logs/{program}.log", backupCount=logrotate
+            filename=f"{datadir}/logs/{program}.log", backupCount=logstokeep
         )
-        file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
 
         # Log to console
         console_handle = logging.StreamHandler()
         console_handle.setLevel(logging.INFO)
-        console_handle.setFormatter(formatter)
+        console_handle.setFormatter(console_formatter)
         self.my_logger.addHandler(console_handle)
 
     def log(self, message, level="info"):
@@ -414,7 +415,7 @@ else:
 # Create or load configuration file
 config = load_config()
 if not config:
-    logger = Logger(None, False, False)
+    logger = Logger(None, 7, False, False)
     logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
@@ -435,6 +436,7 @@ else:
     # Init logging
     logger = Logger(
         notification,
+        int(config.get("settings", "logrotate", fallback=7)),
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
