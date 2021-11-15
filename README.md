@@ -451,7 +451,7 @@ So it looks something like this: (strings are bogus)
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/%%123456789/?image=False&detect=yes&format=text&overflow=upstream&rto=4.0&cto=4.0&verify=yes" ]
 ```
 
-5) I get this error running pip3 install step
+5) I get this error running pip3 install step:
 ```
        #include <ffi.h>
                 ^~~~~~~
@@ -461,13 +461,20 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/%%
 
 Install libffi-dev with `sudo apt install libffi-dev` and try again.
 
-6) I get error can't find Rust compiler
+6) I get error 'can't find Rust compiler':
 
 Update pip3 like so:
 ```
 $ pip3 install --upgrade pip
 ```
 And try again.
+
+6) After running the watchlist.py script for a few days, the following errors sometimes shows up in the logs:
+```
+Error occurred while triggering start_new_deal bot 'Bot name' error: Other error occurred: Unknown error occurred#Exceptions::OpenDealPresentForThisPair None None.
+```
+This happens when your bot is in a paper trade account, `watchlist` will then ignore the exchange field in the trigger, so when two of the same pairs for different exchanges are triggered, you get the same pair twice, and 3Commas tells you that you already have a trade for this pair, this only happens in paper mode.
+
 
 ### Debugging
 
