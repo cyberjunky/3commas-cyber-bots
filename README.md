@@ -471,7 +471,7 @@ And try again.
 
 ### Debugging
 
-Set debug to True in config.ini and check log file `logs/galaxyscore.log` or `logs/altrank.log` for debug information
+Set debug to True in config.ini and check the appropriate log file under `logs/` for debug information
 ```
 debug = True
 ```
