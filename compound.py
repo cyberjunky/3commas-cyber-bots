@@ -420,7 +420,7 @@ def compound_bot(thebot):
                     logger.info(
                         f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) "
                         "made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to "
-                        "${round(newbaseordervolume, 8)}\nand SO from "
+                        "${round(newbaseordervolume, 4)}\nand SO from "
                         "${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
                         True,
                     )
