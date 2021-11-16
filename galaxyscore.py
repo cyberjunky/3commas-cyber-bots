@@ -471,15 +471,15 @@ def find_pairs(thebot):
 
         except KeyError as err:
             logger.error(
-                "Something went wrong while parsing LunarCrush data. KeyError for field %s"
+                "Something went wrong while parsing LunarCrush data. KeyError for field: %s"
                 % err
             )
             return
 
-    logger.debug("These pairs are on your blacklist and were skipped: %s" % blackpairs)
+    logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
     logger.debug(
-        "These pairs are invalid on the '%s' market according to 3Commas and were skipped: %s"
+        "These pairs are invalid on '%s' and were skipped: %s"
         % (exchange, badpairs)
     )
 

@@ -10,7 +10,8 @@ import sqlite3
 import sys
 import threading
 import time
-from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
+from logging.handlers import \
+    TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -358,11 +359,11 @@ def compound_bot(thebot):
             newsafetyordervolume = safety_order_size + soprofitsplit
 
             logger.info(
-                "Base order size increased from %s to %s"
+                "Calculated BO size increase from: %s to %s"
                 % (base_order_size, newbaseordervolume)
             )
             logger.info(
-                "Safety order size increased from %s to %s"
+                "Calculated SO size increase from: %s to %s"
                 % (safety_order_size, newsafetyordervolume)
             )
 
@@ -407,16 +408,20 @@ def compound_bot(thebot):
             )
             if data:
                 base = thebot["pairs"][0].split("_")[0]
-                if base == 'BTC':
-                    decimals = 8
+                if base == "BTC":
                     logger.info(
-                        f"Compounded ₿{round(profitsum, decimals)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ₿{round(base_order_size, decimals)} to ₿{round(newbaseordervolume, decimals)}\nand SO from ₿{round(safety_order_size, decimals)} to ₿{round(newsafetyordervolume, decimals)}",
+                        f"Compounded ₿{round(profitsum, 8)} in profit from {dealscount} deal(s) "
+                        "made by '{bot_name}'\nChanged BO from ₿{round(base_order_size, 8)} to "
+                        "₿{round(newbaseordervolume, 8)}\nand SO from "
+                        "₿{round(safety_order_size, 8)} to ₿{round(newsafetyordervolume, 8)}",
                         True,
                     )
                 else:
-                    decimals = 4
                     logger.info(
-                        f"Compounded ${round(profitsum, decimals)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, decimals)} to ${round(newbaseordervolume, decimals)}\nand SO from ${round(safety_order_size, decimals)} to ${round(newsafetyordervolume, decimals)}",
+                        f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) "
+                        "made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to "
+                        "${round(newbaseordervolume, 8)}\nand SO from "
+                        "${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
                         True,
                     )
             else:
@@ -477,8 +482,10 @@ if not config:
     sys.exit(0)
 else:
     # Handle timezone
-    if hasattr(time, 'tzset'):
-        os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    if hasattr(time, "tzset"):
+        os.environ["TZ"] = config.get(
+            "settings", "timezone", fallback="Europe/Amsterdam"
+        )
         time.tzset()
 
     # Init notification handler
