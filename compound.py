@@ -406,10 +406,19 @@ def compound_bot(thebot):
                 },
             )
             if data:
-                logger.info(
-                    f"Compounded ${round(profitsum, 4)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, 4)} to ${round(newbaseordervolume, 4)}\nand SO from ${round(safety_order_size, 4)} to ${round(newsafetyordervolume, 4)}",
-                    True,
-                )
+                base = thebot["pairs"][0].split("_")[0]
+                if base == 'BTC':
+                    decimals = 8
+                    logger.info(
+                        f"Compounded ₿{round(profitsum, decimals)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ₿{round(base_order_size, decimals)} to ₿{round(newbaseordervolume, decimals)}\nand SO from ₿{round(safety_order_size, decimals)} to ₿{round(newsafetyordervolume, decimals)}",
+                        True,
+                    )
+                else:
+                    decimals = 4
+                    logger.info(
+                        f"Compounded ${round(profitsum, decimals)} in profit from {dealscount} deal(s) made by '{bot_name}'\nChanged BO from ${round(base_order_size, decimals)} to ${round(newbaseordervolume, decimals)}\nand SO from ${round(safety_order_size, decimals)} to ${round(newsafetyordervolume, decimals)}",
+                        True,
+                    )
             else:
                 logger.error(
                     "Error occurred updating bot with new BO/SO values: %s"
