@@ -429,8 +429,8 @@ def compound_bot(thebot):
 def init_compound_db():
     """Create or open database to store bot and deals data."""
     try:
-        dbname = f"{program}.sqlite3"
-        dbpath = f"file:{dbname}?mode=rw"
+        dbname = f"{datadir}/{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
         dbconnection = sqlite3.connect(dbpath, uri=True)
 
         logger.info(f"Database '{dbname}' opened successfully")
