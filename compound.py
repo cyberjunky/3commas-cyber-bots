@@ -350,7 +350,12 @@ def compound_bot(thebot):
 
             # Calculate compound values
             boprofitsplit = ((profitsum * bopercentage) / 100) / max_active_deals
-            soprofitsplit = boprofitsplit * (safety_order_size / base_order_size)
+            soprofitsplit = (
+                ((profitsum * sopercentage) / 100)
+                / max_active_deals
+                / max_safety_orders
+                * ratiofunds
+            )
 
             logger.info("BO compound value: %s" % boprofitsplit)
             logger.info("SO compound value: %s" % soprofitsplit)
