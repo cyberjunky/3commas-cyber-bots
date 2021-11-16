@@ -298,7 +298,6 @@ def compound_bot(thebot):
                     fundssoneeded = fundssoneeded * float(martingale_volume_coefficient)
                     totalsofunds += fundssoneeded
 
-            ratiofunds = safety_order_size / totalsofunds
             totalorderfunds = totalsofunds + base_order_size
 
             logger.info("Current bot settings :")
@@ -310,7 +309,6 @@ def compound_bot(thebot):
             logger.info("Total funds for BO   : %s" % base_order_size)
             logger.info("Total funds for SO(s): %s" % totalsofunds)
             logger.info("Total funds for order: %s" % totalorderfunds)
-            logger.info("Funds ratio for SO(s): %s" % ratiofunds)
 
             # Calculate current order table
             logger.info("Current order table:")
@@ -470,8 +468,9 @@ if not config:
     sys.exit(0)
 else:
     # Handle timezone
-    os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
-    time.tzset()
+    if hasattr(time, 'tzset'):
+        os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+        time.tzset()
 
     # Init notification handler
     notification = NotificationHandler(

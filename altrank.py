@@ -585,8 +585,9 @@ if not config:
     sys.exit(0)
 else:
     # Handle timezone
-    os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
-    time.tzset()
+    if hasattr(time, 'tzset'):
+        os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+        time.tzset()
 
     # Init notification handler
     notification = NotificationHandler(
