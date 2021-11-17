@@ -239,9 +239,9 @@ def get_threecommas_deals(botid):
         },
     )
     if error:
-        logger.error("Fetching 3Commas deals failed with error: %s" % error)
+        logger.error("Fetching deals failed with error: %s" % error)
     else:
-        logger.debug("Fetched %s 3Commas deals OK" % data)
+        logger.info("Fetched the last %s deals for this bot OK" % len(data))
 
     return data
 
@@ -427,15 +427,15 @@ def compound_bot(thebot):
 def init_compound_db():
     """Create or open database to store bot and deals data."""
     try:
-        dbname = f"{datadir}/{program}.sqlite3"
-        dbpath = f"file:{dbname}?mode=rw"
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
         dbconnection = sqlite3.connect(dbpath, uri=True)
 
-        logger.info(f"Database '{dbname}' opened successfully")
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
     except sqlite3.OperationalError:
         dbconnection = sqlite3.connect(dbname)
         dbcursor = dbconnection.cursor()
-        logger.info(f"Database '{dbname}' created successfully")
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute("CREATE TABLE deals (dealid int Primary Key)")
         logger.info("Database tables created successfully")
