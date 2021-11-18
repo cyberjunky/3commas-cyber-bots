@@ -414,10 +414,12 @@ def find_pairs(thebot):
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
+    if not minvolume:
+        minvolume = 0.0
 
-    logger.debug("Bot base currency: %s" % base)
-    logger.debug("Bot exchange: %s" % exchange)
-    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
+    logger.info("Bot base currency: %s" % base)
+    logger.info("Bot exchange: %s" % exchange)
+    logger.info("Bot minimal 24h BTC volume: %s" % minvolume)
 
     # Start fresh
     newpairs = list()

@@ -241,7 +241,7 @@ def get_threecommas_deals(botid):
     if error:
         logger.error("Fetching deals failed with error: %s" % error)
     else:
-        logger.info("Fetched the last %s deals for this bot OK" % len(data))
+        logger.info("Fetched the deals for this bot OK (%s deals)" % len(data))
 
     return data
 
