@@ -401,6 +401,27 @@ How to edit an already installed service file:
 $ sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
+
+### Options for hosting this
+
+- Intel NUC, install Debian or Ubuntu without GUI.
+  And follow installation steps above.
+  
+- Raspberry Pi, install the Raspberry Pi OS
+  And follow installation steps above.
+
+- Docker, this will follow soon. 
+
+In the Cloud, if you are willing to store your config files with your API keys in the Cloud, these are some options:
+
+- PythonAnywhere https://eu.pythonanywhere.com/ Create free account, click on 'Bash' button and do a `git clone ...`, cd... 'pip3 install -r requirements' and you can run the scripts.
+  More instructions can be found here https://www.youtube.com/watch?v=NH2PhXYvrWs, if you want to run multiple bot helpers, create another Bash console by clicking on the 'Bash' button again, cd to the 3commas-cyber-bots folder and start the next.
+
+- Google Cloud https://console.cloud.google.com Login with your gmail adress,goto 'Compute Engine', 'VM instances', create 
+  You can create a small sized VM, you need to specify your CC details.
+  More instructions can be found here https://www.youtube.com/watch?v=5OL7fu2R4M8
+  NOTE: From Europe there are no free VM's available as shown in the video, at least I could not find them.
+
 ### TODO
 - You tell me, I'm open for ideas and requests!
 
