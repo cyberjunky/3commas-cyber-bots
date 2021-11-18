@@ -282,7 +282,7 @@ def get_threecommas_btcusd():
         additional_headers={"Forced-Mode": MODE},
     )
     if data:
-        logger.info("Fetched 3Commas BTC price in USDT %s OK" % data["last"])
+        logger.info("Fetched 3Commas BTC price OK (%s USDT)" % data["last"])
         price = data["last"]
     else:
         logger.error(

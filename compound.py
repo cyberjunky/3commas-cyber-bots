@@ -433,7 +433,7 @@ def init_compound_db():
 
         logger.info(f"Database '{datadir}/{dbname}' opened successfully")
     except sqlite3.OperationalError:
-        dbconnection = sqlite3.connect(dbname)
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
         dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
