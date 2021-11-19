@@ -337,7 +337,7 @@ def process_deals(deals):
             deals_count += 1
             profit_sum += profit
 
-            db.execute(f"INSERT INTO deals (dealid) VALUES ({deal_id})")
+            db.execute(f"INSERT INTO deals (dealid, profit) VALUES ({deal_id}, {profit})")
 
     logger.info("Finished deals: %s total profit: %s" % (deals_count, profit_sum))
     db.commit()
@@ -437,7 +437,7 @@ def init_compound_db():
         dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
-        dbcursor.execute("CREATE TABLE deals (dealid int Primary Key)")
+        dbcursor.execute("CREATE TABLE deals (dealid int Primary Key, profit real)")
         logger.info("Database tables created successfully")
 
     return dbconnection
