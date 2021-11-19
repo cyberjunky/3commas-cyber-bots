@@ -337,7 +337,9 @@ def process_deals(deals):
             deals_count += 1
             profit_sum += profit
 
-            db.execute(f"INSERT INTO deals (dealid, profit) VALUES ({deal_id}, {profit})")
+            db.execute(
+                f"INSERT INTO deals (dealid, profit) VALUES ({deal_id}, {profit})"
+            )
 
     logger.info("Finished deals: %s total profit: %s" % (deals_count, profit_sum))
     db.commit()
@@ -432,15 +434,24 @@ def init_compound_db():
         dbconnection = sqlite3.connect(dbpath, uri=True)
 
         logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
     except sqlite3.OperationalError:
         dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
         dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
-        dbcursor.execute("CREATE TABLE deals (dealid int Primary Key, profit real)")
+        dbcursor.execute("CREATE TABLE deals (dealid INT Primary Key, profit REAL)")
         logger.info("Database tables created successfully")
 
     return dbconnection
+
+
+def upgrade_compound_db():
+    """Upgrade database if needed."""
+    try:
+        cursor.execute("ALTER TABLE deals ADD COLUMN profit REAL")
+    except:
+        pass  # ignore errors
 
 
 # Start application
@@ -501,6 +512,8 @@ api = init_threecommas_api(config)
 # Initialize or open database
 db = init_compound_db()
 cursor = db.cursor()
+# Upgrade database if needed
+upgrade_compound_db()
 
 if "compound" in program:
     # Auto compound profit by tweaking SO/BO
