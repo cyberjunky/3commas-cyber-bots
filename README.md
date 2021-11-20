@@ -2,9 +2,18 @@
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Disclaimer
-> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE), read it also.
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+> My code is [MIT Licensed](LICENSE), read it please.
 
-> :exclamation: Always test your settings with your paper account first!
+> Always test your settings with your paper account first!
  
 ## Why you build these bot helpers?
 
@@ -401,6 +410,20 @@ How to edit an already installed service file:
 $ sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
+### Need for multiple settings
+
+If you want a set of bots having 20 pairs of AltRank/GalaxyScore and another set use 10, or want to trigger on multiple Telegram channels, you can simply copy the script and use a descriptive name, it will create and use it's own settings file, and logfile... as long as the original name is in the file name.
+```
+e.g.
+$ cp altrank.py altrank10.py
+$ ./altrank10.py 
+2021-11-20 13:22:37 - altrank10.py - 3Commas bot helper altrank10!
+2021-11-20 13:22:37 - altrank10.py - Started at Saturday 13:22:37 20-11-2021.
+2021-11-20 13:22:37 - altrank10.py - Created example config file 'altrank10.ini', edit it and restart the program.
+
+$ cp scripts/3commas-altrank-bot.service script/3commas-altrank10-bot.service
+And change ExecStart entryr accordingly
+```
 
 ### Options for hosting this
 
@@ -509,7 +532,15 @@ If you enjoyed this project — or just feeling generous — consider a small do
 <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
 ## Disclaimer
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+> My code is [MIT Licensed](LICENSE), read it please.
 
-> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE).
-
-> :exclamation: Always test your settings with your paper account first!
+> Always test your settings with your paper account first!
