@@ -440,7 +440,13 @@ And change ExecStart entryr accordingly
 
 In the Cloud, if you are willing to store your config files with your API keys in the Cloud, these are some options:
 
-- PythonAnywhere https://eu.pythonanywhere.com/ Create free account, click on 'Bash' button and do a `git clone ..., cd... 'pip3 install -r requirements'` and you can run the scripts.
+- PythonAnywhere https://eu.pythonanywhere.com/ Create free account, click on 'Bash' button and do:
+```
+$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+$ cd 3commas-cyber-bots
+$ pip3 install -r requirements.txt
+```
+  Then you can run any of the scripts.
   More instructions can be found here https://www.youtube.com/watch?v=NH2PhXYvrWs, if you want to run multiple bot helpers, create another Bash console by clicking on the 'Bash' button again, cd to the 3commas-cyber-bots folder and start the next.
 
 - Google Cloud https://console.cloud.google.com Login with your gmail adress,goto 'Compute Engine', 'VM instances', create 
