@@ -450,8 +450,9 @@ def upgrade_compound_db():
     """Upgrade database if needed."""
     try:
         cursor.execute("ALTER TABLE deals ADD COLUMN profit REAL")
-    except:
-        pass  # ignore errors
+        logger.info("Database schema upgraded")
+    except sqlite3.OperationalError:
+        logger.debug("Database schema is up-to-date")
 
 
 # Start application
