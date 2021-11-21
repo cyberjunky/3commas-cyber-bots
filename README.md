@@ -1,14 +1,24 @@
-# 3commas-cyber-bots <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>
+# 3commas-cyber-bots <a href="https://github.com/cyberjunky/3commas-cyber-bots/blob/main/README.md#donate"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a> 
+
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Disclaimer
-> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE), read it also.
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+> My code is [MIT Licensed](LICENSE), read it please.
 
-> :exclamation: Always test your settings with your paper account first!
+> Always test your setup and settings with your PAPER ACCOUNT first!
  
 ## Why you build these bot helpers?
 
-I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
+I rather don't want to pay for Monthly services if this is not needed, I rather invest it in crypto. (or Coffee to program) And I also want to learn how things work in the Crypto world.
 
 ## GalaxyScore bot helper named `galaxyscore.py`
 Type = trading pair
@@ -401,6 +411,20 @@ How to edit an already installed service file:
 $ sudo systemctl edit --full 3commas-galaxyscore-bot.service 
 ```
 
+### Need for multiple settings
+
+If you want a set of bots having 20 pairs of AltRank/GalaxyScore and another set use 10, or want to trigger on multiple Telegram channels, you can simply copy the script and use a descriptive name, it will create and use it's own settings file, and logfile... as long as the original name is in the file name.
+```
+e.g.
+$ cp altrank.py altrank10.py
+$ ./altrank10.py 
+2021-11-20 13:22:37 - altrank10.py - 3Commas bot helper altrank10!
+2021-11-20 13:22:37 - altrank10.py - Started at Saturday 13:22:37 20-11-2021.
+2021-11-20 13:22:37 - altrank10.py - Created example config file 'altrank10.ini', edit it and restart the program.
+
+$ cp scripts/3commas-altrank-bot.service script/3commas-altrank10-bot.service
+And change ExecStart entryr accordingly
+```
 
 ### Options for hosting this
 
@@ -505,11 +529,27 @@ debug = True
 ```
 
 ## Donate
-If you enjoyed this project — or just feeling generous — consider a small donation. :v:
+If you enjoyed this project — or just feeling generous — consider sending a small donation. Using the PayPal button or one of the wallets below. :v:
 <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
-## Disclaimer
+Wallets:
 
-> :bangbang: I'm not responsible for any money you lose by using this software. The code is [MIT Licensed](LICENSE).
+- USDT (TRC20): TEQPsmmWbmjTdbufxkJvkbiVHhmL6YWK6R
+- USDT (ERC20): 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
 
-> :exclamation: Always test your settings with your paper account first!
+- BTC (BTC)   : 18igByUc1W2PVdP7Z6MFm2XeQMCtfVZJw4
+- BTC (ERC20) : 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
+
+## Disclamer
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+> My code is [MIT Licensed](LICENSE), read it please.
+
+> Always test your settings with your paper account first!
