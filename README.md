@@ -18,18 +18,18 @@ SOFTWARE.
 
 > Always test your setup and settings with your PAPER ACCOUNT first!
  
-## Why you build these bot helpers?
+## Why did you build these bot helpers?
 
 I rather don't want to pay for Monthly services if this is not needed, I rather invest it in crypto. (or Coffee to program) And I also want to learn how things work in the Crypto world.
 
 ## GalaxyScore bot helper named `galaxyscore.py`
 Type = trading pair
 
-## What does it do?
+### What does it do?
 
 It will monitor LunarCrush's GalaxyScores and use the Top X to create pairs for your 3Comma's composite DCA bots to use.
 
-## How does it work?
+### How does it work?
 
 The GalaxyScore Top 10 coins from LunarCrush are downloaded, the base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending ion your exchange) to see if the pairs are valid.
 
@@ -44,11 +44,11 @@ NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s),
 ## AltRank bot helper named `altrank.py`
 Type = trading pair
 
-## What does it do?
+### What does it do?
 
 It will monitor LunarCrush's AltRank list and use the Top X to create pairs for your 3Comma's composite DCA bots to use.
 
-## How does it work?
+### How does it work?
 
 Same as galaxyscore bot helper except with AltRank data.
 
@@ -59,11 +59,11 @@ NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s),
 ## Watchlist bot helper named `watchlist.py`
 Type = start deal trigger
 
-## What does it do?
+### What does it do?
 
 It will monitor a specific Telegram chat channel and sent a 'start new deal' trigger to the linked bot for that pair.
 
-## How does it work?
+### How does it work?
 
 Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to -for example- BUSD_xxx if bot uses a different base coin.
 The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
@@ -75,11 +75,11 @@ The bot(s) need to have "Manually/API (Bot won't open new trades automatically)"
 ## Compound bot helper named `compound.py`
 Type = compounder
 
-## What does it do?
+### What does it do?
 
 It will compound profits made by a bot to the BO and SO of the same bot.
 
-## How does it work?
+### How does it work?
 
 Every interval the bots specfied in the config are read, their deals are checked for profits.
 If profit has been made, the value will be added to the BO and SO values of the bot.
