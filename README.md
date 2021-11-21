@@ -1,6 +1,8 @@
-# 3commas-cyber-bots <a href="https://github.com/cyberjunky/3commas-cyber-bots/blob/main/README.md#donate"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a> 
+# 3Commas Cyber Bot Helpers <a href="https://github.com/cyberjunky/3commas-cyber-bots/blob/main/README.md#donate"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a> 
 
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
+
+<img src="images/robots.jpg"></a> 
 
 ## Disclaimer
 ```
@@ -529,7 +531,7 @@ debug = True
 ```
 
 ## Donate
-If you enjoyed this project — or just feeling generous — consider sending a small donation. Using the PayPal button or one of the wallets below. :v:
+If you enjoyed this project -and want to support further improvement and development- consider sending a small donation using the PayPal button or one of the Crypto Wallets below. :v:
 <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
 Wallets:
@@ -540,7 +542,7 @@ Wallets:
 - BTC (BTC)   : 18igByUc1W2PVdP7Z6MFm2XeQMCtfVZJw4
 - BTC (ERC20) : 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
 
-## Disclamer
+## Disclamer (Reminder)
 ```
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -552,4 +554,4 @@ SOFTWARE.
 ```
 > My code is [MIT Licensed](LICENSE), read it please.
 
-> Always test your settings with your paper account first!
+> Always test your settings with your PAPER ACCOUNT first!
