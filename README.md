@@ -1,4 +1,5 @@
-# 3commas-cyber-bots <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>
+# 3commas-cyber-bots <a href="https://github.com/cyberjunky/3commas-cyber-bots/blob/main/README.md#donate"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a> 
+
 A collection of 3Commas bot helpers I wrote. (collection will grow over time)
 
 ## Disclaimer
@@ -13,11 +14,11 @@ SOFTWARE.
 ```
 > My code is [MIT Licensed](LICENSE), read it please.
 
-> Always test your settings with your paper account first!
+> Always test your setup and settings with your PAPER ACCOUNT first!
  
 ## Why you build these bot helpers?
 
-I don't want to pay for services if this is not needed, I rather invest it in crypto, and I also want to learn how things work.
+I rather don't want to pay for Monthly services if this is not needed, I rather invest it in crypto. (or Coffee to program) And I also want to learn how things work in the Crypto world.
 
 ## GalaxyScore bot helper named `galaxyscore.py`
 Type = trading pair
@@ -528,10 +529,17 @@ debug = True
 ```
 
 ## Donate
-If you enjoyed this project — or just feeling generous — consider a small donation. :v:
+If you enjoyed this project — or just feeling generous — consider sending a small donation. Using the PayPal button or one of the wallets below. :v:
 <a href="https://www.paypal.me/cyberjunkynl/"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a>  
 
-## Disclaimer
+Wallets:
+
+- USDT (TRC20): TEQPsmmWbmjTdbufxkJvkbiVHhmL6YWK6R
+- USDT (ERC20): 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
+
+- BTC (BTC)   : 18igByUc1W2PVdP7Z6MFm2XeQMCtfVZJw4
+- BTC (ERC20) : 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
+
 ```
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
