@@ -373,10 +373,10 @@ def get_lunarcrush_data():
 def load_tickerlist(exchange):
     """Return tickerlist for exchange."""
 
-    if "Binance" in exchange or "Paper Account" in exchange or MODE == "paper":
+    if "binance" in exchange.lower() or "paper account" in exchange.lower() or MODE == "paper":
         return get_threecommas_market("binance")
 
-    if exchange == "FTX":
+    if "ftx" in exchange.lower():
         return get_threecommas_market("ftx")
 
     logger.error(

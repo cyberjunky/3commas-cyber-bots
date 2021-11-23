@@ -334,9 +334,9 @@ def check_pair(thebot, triggerexchange, base, coin):
             return
 
     # Get market of 3Commas because it's slightly different then exchanges
-    if "Binance" in exchange or "Paper Account" in exchange:
+    if "binance" in exchange.lower() or "paper account" in exchange.lower():
         tickerlist = get_threecommas_market("binance")
-    elif exchange == "FTX":
+    elif "ftx" in exchange.lower():
         tickerlist = get_threecommas_market("ftx")
     else:
         logger.error(
@@ -424,8 +424,10 @@ if not config:
     sys.exit(0)
 else:
     # Handle timezone
-    if hasattr(time, 'tzset'):
-        os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    if hasattr(time, "tzset"):
+        os.environ["TZ"] = config.get(
+            "settings", "timezone", fallback="Europe/Amsterdam"
+        )
         time.tzset()
 
     # Init notification handler
@@ -482,12 +484,17 @@ async def callback(event):
         pair = trigger[1].replace("#", "").replace("\n", "")
         base = pair.split("_")[0].replace("#", "").replace("\n", "")
         coin = pair.split("_")[1].replace("\n", "")
+        trade = trigger[2].replace("\n", "")
 
-        logger.debug("Exhange: %s" % exchange)
+        logger.debug("Exchange: %s" % exchange)
         logger.debug("Pair: %s" % pair)
         logger.debug("Base: %s" % base)
         logger.debug("Coin: %s" % coin)
+        logger.debug("Trade type: %s" % trade)
 
+        if trade != "LONG":
+            logger.debug(f"Trade type '{trade}' is not supported yet!")
+            return
         if base == "USDT":
             botid = config.get("settings", "usdt-botid")
             if botid == 0:
