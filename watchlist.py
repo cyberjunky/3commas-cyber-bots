@@ -299,13 +299,6 @@ def get_threecommas_market(market_code):
 def check_pair(thebot, triggerexchange, base, coin):
     """Check pair and trigger the bot."""
 
-    # Refetch data to catch changes
-    # Update pairs blacklist
-    if len(blacklistfile):
-        blacklist = get_filebased_blacklist()
-    else:
-        blacklist = get_threecommas_blacklist()
-
     logger.debug("Trigger base coin: %s" % base)
 
     # Store some bot settings
@@ -343,6 +336,13 @@ def check_pair(thebot, triggerexchange, base, coin):
             "Bot is using the '%s' exchange which is not implemented yet!" % exchange
         )
         return
+
+    # Refetch data to catch changes
+    # Update pairs blacklist
+    if len(blacklistfile):
+        blacklist = get_filebased_blacklist()
+    else:
+        blacklist = get_threecommas_blacklist()
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
     pair = base + "_" + coin
