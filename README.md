@@ -193,8 +193,8 @@ The `watchlist` bot helper has a different layout:
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **usdt-botid** - the bot id of the USDT multipair bot to use. (can also be using BUSD)
--   **btc-botid** -  the bot id of the BTC multipair bot to use.
+-   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
+-   **btc-botids** -  a list of bot (BTC multipair) id's to use.
 -   **numberofpairs** - number of pairs to update your bots with. (default is 10)
 -   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
 -   **3c-apikey** - Your 3Commas API key value.
