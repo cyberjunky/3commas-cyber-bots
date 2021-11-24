@@ -197,8 +197,8 @@ def load_config():
         "timezone": "Europe/Amsterdam",
         "debug": False,
         "logrotate": 7,
-        "usdt-botid": 0,
-        "btc-botid": 0,
+        "usdt-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
         "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
@@ -496,35 +496,36 @@ async def callback(event):
             logger.debug(f"Trade type '{trade}' is not supported yet!")
             return
         if base == "USDT":
-            botid = config.get("settings", "usdt-botid")
-            if botid == 0:
+            botids = json.loads(config.get("settings", "usdt-botids"))
+            if len(botids) == 0:
                 logger.debug(
-                    "No valid botid defined for '%s' in config, disabled." % base
+                    "No valid botids defined for '%s' in config, disabled." % base
                 )
                 return
         elif base == "BTC":
-            botid = config.get("settings", "btc-botid")
-            if botid == 0:
+            botids = json.loads(config.get("settings", "btc-botids"))
+            if len(botids) == 0:
                 logger.debug(
-                    "No valid botid defined for '%s' in config, disabled." % base
+                    "No valid botids defined for '%s' in config, disabled." % base
                 )
                 return
         else:
             logger.error("Error the base of pair '%s' is not supported yet!" % pair)
             return
 
-        error, data = api.request(
-            entity="bots",
-            action="show",
-            action_id=str(botid),
-        )
+        for bot in botids:
+	        error, data = api.request(
+		        entity="bots",
+		        action="show",
+		        action_id=str(bot),
+	        )
 
-        if data:
-            await client.loop.run_in_executor(
-                None, check_pair, data, exchange, base, coin
-            )
-        else:
-            logger.error("Error occurred triggering bot: %s" % error["msg"])
+	        if data:
+		        await client.loop.run_in_executor(
+			        None, check_pair, data, exchange, base, coin
+		        )
+	        else:
+		        logger.error("Error occurred triggering bot: %s" % error["msg"])
     else:
         logger.info("Not a crypto trigger message, or exchange not yet supported.")
 
