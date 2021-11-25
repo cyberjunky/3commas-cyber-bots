@@ -548,6 +548,10 @@ Wallets:
 - BTC (BTC)   : 18igByUc1W2PVdP7Z6MFm2XeQMCtfVZJw4
 - BTC (ERC20) : 0x73b41c3996315e921cb38d5d1bca13502bd72fe5
 
+Or at least join my Pi mining team, it's free:
+
+1π! Pi is a new digital currency developed by Stanford PhDs, with over 25 million members worldwide. To claim your Pi, follow this link https://minepi.com/cyberjunky and use my username (cyberjunky) as your invitation code. 
+
 ## Disclamer (Reminder)
 ```
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
