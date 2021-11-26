@@ -201,6 +201,7 @@ def load_config():
         "botids": [12345, 67890],
         "numberofpairs": 10,
         "maxaltrankscore": 1500,
+        "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "lc-apikey": "Your LunarCrush API Key",
@@ -255,7 +256,7 @@ def get_threecommas_blacklist():
     error, data = api.request(
         entity="bots",
         action="pairs_black_list",
-        # additional_headers={"Forced-Mode": MODE},
+        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         logger.info(
@@ -278,7 +279,7 @@ def get_threecommas_btcusd():
         entity="accounts",
         action="currency_rates",
         payload={"market_code": "binance", "pair": "USDT_BTC"},
-        # additional_headers={"Forced-Mode": MODE},
+        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         logger.info("Fetched 3Commas BTC price OK (%s USDT)" % data["last"])
@@ -292,26 +293,6 @@ def get_threecommas_btcusd():
     return price
 
 
-def get_threecommas_account(accountid):
-    """Get account details."""
-
-    error, data = api.request(
-        entity="accounts",
-        action="",
-        # additional_headers={"Forced-Mode": 'real'},
-    )
-    if data != {}:
-        for account in data:
-            if account["id"] == accountid:
-                marketcode = account["market_code"]
-                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
-                return marketcode
-        return "paper_trading"
-
-    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
-    return None
-
-
 def get_threecommas_market(market_code):
     """Get all the valid pairs for market_code from 3Commas account."""
 
@@ -320,12 +301,12 @@ def get_threecommas_market(market_code):
         entity="accounts",
         action="market_pairs",
         payload={"market_code": market_code},
-        # additional_headers={"Forced-Mode": MODE},
+        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         tickerlist = data
         logger.info(
-            "Fetched 3Commas market data for '%s' OK (%s pairs)"
+            "Fetched 3Commas market data for %s OK (%s pairs)"
             % (market_code, len(tickerlist))
         )
     else:
@@ -389,6 +370,25 @@ def get_lunarcrush_data():
     return scoredict
 
 
+def load_tickerlist(exchange):
+    """Return tickerlist for exchange."""
+
+    if (
+        "binance" in exchange.lower()
+        or "paper account" in exchange.lower()
+        or MODE == "paper"
+    ):
+        return get_threecommas_market("binance")
+
+    if "ftx" in exchange.lower():
+        return get_threecommas_market("ftx")
+
+    logger.error(
+        "Bot is using the '%s' exchange which is not implemented yet!" % exchange
+    )
+    sys.exit()
+
+
 def load_blacklist():
     """Return blacklist to be used."""
 
@@ -422,6 +422,7 @@ def find_pairs(thebot):
         minvolume = 0.0
 
     logger.info("Bot base currency: %s" % base)
+    logger.info("Bot exchange: %s" % exchange)
     logger.info("Bot minimal 24h BTC volume: %s" % minvolume)
 
     # Start fresh
@@ -429,10 +430,8 @@ def find_pairs(thebot):
     badpairs = list()
     blackpairs = list()
 
-    # get marketcode from account and load tickerlist
-    marketcode = get_threecommas_account(thebot["account_id"])
-    tickerlist = get_threecommas_market(marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    # Load tickerlist for exchange
+    tickerlist = load_tickerlist(exchange)
 
     # Fetch and parse LunaCrush data
     for entry in lunarcrush:
@@ -486,13 +485,13 @@ def find_pairs(thebot):
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
     logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
+        "These pairs are invalid on '%s' and were skipped: %s" % (exchange, badpairs)
     )
 
     if not newpairs:
         logger.info(
-            "None of the by LunarCrush suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
+            "None of the by LunarCrush suggested pairs have been found on the %s exchange!"
+            % exchange
         )
         return
 
@@ -517,7 +516,7 @@ def update_bot(thebot, newpairs):
         entity="bots",
         action="update",
         action_id=str(thebot["id"]),
-        # additional_headers={"Forced-Mode": MODE},
+        additional_headers={"Forced-Mode": MODE},
         payload={
             "name": str(thebot["name"]),
             "pairs": newpairs,
@@ -616,6 +615,13 @@ else:
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
+if config.get("settings", "accountmode") == "real":
+    logger.info("Using REAL TRADING account")
+    MODE = "real"
+else:
+    logger.info("Using PAPER TRADING account")
+    MODE = "paper"
+
 if notification.enabled:
     logger.info("Notifications are enabled")
 else:
@@ -647,7 +653,7 @@ while True:
             entity="bots",
             action="show",
             action_id=str(bot),
-            # additional_headers={"Forced-Mode": MODE},
+            additional_headers={"Forced-Mode": MODE},
         )
         if botdata:
             find_pairs(botdata)
