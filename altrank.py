@@ -373,7 +373,11 @@ def get_lunarcrush_data():
 def load_tickerlist(exchange):
     """Return tickerlist for exchange."""
 
-    if "binance" in exchange.lower() or "paper account" in exchange.lower() or MODE == "paper":
+    if (
+        "binance" in exchange.lower()
+        or "paper account" in exchange.lower()
+        or MODE == "paper"
+    ):
         return get_threecommas_market("binance")
 
     if "ftx" in exchange.lower():
@@ -481,8 +485,7 @@ def find_pairs(thebot):
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
     logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s"
-        % (exchange, badpairs)
+        "These pairs are invalid on '%s' and were skipped: %s" % (exchange, badpairs)
     )
 
     if not newpairs:
@@ -532,6 +535,8 @@ def update_bot(thebot, newpairs):
             ),
             "take_profit_type": thebot["take_profit_type"],
             "strategy_list": thebot["strategy_list"],
+            "leverage_type": thebot["leverage_type"],
+            "leverage_custom_value": thebot["leverage_custom_value"],
             "bot_id": int(thebot["id"]),
         },
     )
@@ -587,8 +592,10 @@ if not config:
     sys.exit(0)
 else:
     # Handle timezone
-    if hasattr(time, 'tzset'):
-        os.environ["TZ"] = config.get("settings", "timezone", fallback="Europe/Amsterdam")
+    if hasattr(time, "tzset"):
+        os.environ["TZ"] = config.get(
+            "settings", "timezone", fallback="Europe/Amsterdam"
+        )
         time.tzset()
 
     # Init notification handler
