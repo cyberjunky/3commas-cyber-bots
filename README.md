@@ -448,7 +448,8 @@ $ pip3 install -r requirements.txt
 ```
   Then you can run any of the scripts.
   More instructions can be found here https://www.youtube.com/watch?v=NH2PhXYvrWs, if you want to run multiple bot helpers, create another Bash console by clicking on the 'Bash' button again, cd to the 3commas-cyber-bots folder and start the next.
-
+  Please visit the wiki for more information [Wiki PythonAnywhere](https://github.com/cyberjunky/3commas-cyber-bots/wiki/PythonAnywhere)
+  
 - Google Cloud https://console.cloud.google.com Login with your gmail adress,goto 'Compute Engine', 'VM instances', create 
   You can create a small sized VM, you need to specify your CC details.
   More instructions can be found here https://www.youtube.com/watch?v=5OL7fu2R4M8
