@@ -234,7 +234,7 @@ def get_filebased_blacklist():
 
     newblacklist = []
     try:
-        with open(blacklistfile, "r") as file:
+        with open(f"{datadir}/{blacklistfile}", "r") as file:
             newblacklist = file.readlines()
         if newblacklist:
             logger.info(
@@ -339,8 +339,10 @@ def check_pair(thebot, triggerexchange, base, coin):
 
     # Refetch data to catch changes
     # Update pairs blacklist
+    skipChecks = False
     if len(blacklistfile):
         blacklist = get_filebased_blacklist()
+        skipChecks = True
     else:
         blacklist = get_threecommas_blacklist()
 
@@ -366,16 +368,19 @@ def check_pair(thebot, triggerexchange, base, coin):
 
     # We have valid pair for our bot and we can trigger a new deal
     logger.info("Triggering your 3Commas bot")
-    trigger_bot(thebot, pair)
+    trigger_bot(thebot, pair, skipChecks)
 
 
-def trigger_bot(thebot, pair):
+def trigger_bot(thebot, pair, skip_checks):
     """Trigger bot to start deal asap for pair."""
     error, data = api.request(
         entity="bots",
         action="start_new_deal",
         action_id=str(thebot["id"]),
-        payload={"pair": pair},
+        payload={
+            "pair": pair,
+            "skip_signal_checks": skip_checks
+            },
         additional_headers={"Forced-Mode": MODE},
     )
     if data:
