@@ -339,10 +339,10 @@ def check_pair(thebot, triggerexchange, base, coin):
 
     # Refetch data to catch changes
     # Update pairs blacklist
-    skipChecks = False
+    skipchecks = False
     if len(blacklistfile):
         blacklist = get_filebased_blacklist()
-        skipChecks = True
+        skipchecks = True
     else:
         blacklist = get_threecommas_blacklist()
 
@@ -368,7 +368,7 @@ def check_pair(thebot, triggerexchange, base, coin):
 
     # We have valid pair for our bot and we can trigger a new deal
     logger.info("Triggering your 3Commas bot")
-    trigger_bot(thebot, pair, skipChecks)
+    trigger_bot(thebot, pair, skipchecks)
 
 
 def trigger_bot(thebot, pair, skip_checks):
@@ -377,10 +377,7 @@ def trigger_bot(thebot, pair, skip_checks):
         entity="bots",
         action="start_new_deal",
         action_id=str(thebot["id"]),
-        payload={
-            "pair": pair,
-            "skip_signal_checks": skip_checks
-            },
+        payload={"pair": pair, "skip_signal_checks": skip_checks},
         additional_headers={"Forced-Mode": MODE},
     )
     if data:
@@ -519,18 +516,18 @@ async def callback(event):
             return
 
         for bot in botids:
-	        error, data = api.request(
-		        entity="bots",
-		        action="show",
-		        action_id=str(bot),
-	        )
+            error, data = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(bot),
+            )
 
-	        if data:
-		        await client.loop.run_in_executor(
-			        None, check_pair, data, exchange, base, coin
-		        )
-	        else:
-		        logger.error("Error occurred triggering bot: %s" % error["msg"])
+            if data:
+                await client.loop.run_in_executor(
+                    None, check_pair, data, exchange, base, coin
+                )
+            else:
+                logger.error("Error occurred triggering bot: %s" % error["msg"])
     else:
         logger.info("Not a crypto trigger message, or exchange not yet supported.")
 
