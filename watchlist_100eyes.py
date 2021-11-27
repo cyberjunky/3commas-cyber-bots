@@ -512,17 +512,17 @@ async def callback(event):
                     logger.debug(
                         "No valid botids defined for '%s' in config, disabled." % base
                     )
-                    sys.exit()
+                    continue
             elif base == "BTC":
                 botids = json.loads(config.get("settings", "btc-botids"))
                 if len(botids) == 0:
                     logger.debug(
                         "No valid botids defined for '%s' in config, disabled." % base
                     )
-                    sys.exit()
+                    continue
             else:
                 logger.error("Error the base of pair '%s' is not supported yet!" % pair)
-                sys.exit()
+                continue
 
             for bot in botids:
                 error, data = api.request(
