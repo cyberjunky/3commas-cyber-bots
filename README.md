@@ -256,7 +256,7 @@ notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-NOTE: The 3Commas API need to have 'BotsRead and BotsWrite' permissions.
+NOTE: The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions.
 
 ### Telegram ID, Hash and Secrets explained
 There are two sets of Telegram related settings.
