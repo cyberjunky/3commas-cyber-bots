@@ -529,6 +529,13 @@ Error occurred while triggering start_new_deal bot 'Bot name' error: Other error
 ```
 This happens when your bot is in a paper trade account, `watchlist` will then ignore the exchange field in the trigger, so when two of the same pairs for different exchanges are triggered, you get the same pair twice, and 3Commas tells you that you already have a trade for this pair, this only happens in paper mode.
 
+7) I get error 'TypeError: object of type 'int' has no len()'
+```
+  File "./watchlist_100eyes.py", line 511, in callback
+    if len(botids) == 0:
+TypeError: object of type 'int' has no len()
+```
+Make sure usdt-botids and btc-botids are defined within [] in your ini files.
 
 ### Debugging
 
