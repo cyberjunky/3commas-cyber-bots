@@ -1,0 +1,13 @@
+[Unit]
+Description=3Commas Watchlist 100eyes Daemon
+After=multi-user.target
+
+[Service]
+# Set WorkingDirectory and ExecStart to your file paths accordingly
+WorkingDirectory=/home/ron/3commas-cyber-bots
+ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/watchlist_100eyes.py
+User=ron
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
