@@ -531,11 +531,20 @@ This happens when your bot is in a paper trade account, `watchlist` will then ig
 
 7) I get error 'TypeError: object of type 'int' has no len()'
 ```
-  File "./watchlist_100eyes.py", line 511, in callback
+  File "./*.py", line 511, in callback
     if len(botids) == 0:
 TypeError: object of type 'int' has no len()
 ```
 Make sure usdt-botids and btc-botids are defined within [] in your ini files.
+
+8) I get error ` for account in data: TypeError: 'NoneType' object is not iterable`
+```
+  File "./*.py", line 250, in get_threecommas_account
+    for account in data:
+TypeError: 'NoneType' object is not iterable
+```
+Newer versions of the scripts also need AccountRead permissions for the 3Commas API Keys.
+Create new ones, with it and paste them in your ini file(s)
 
 ### Debugging
 
