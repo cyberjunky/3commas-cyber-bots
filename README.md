@@ -456,6 +456,23 @@ $ pip3 install -r requirements.txt
   More instructions can be found here https://www.youtube.com/watch?v=5OL7fu2R4M8
   NOTE: From Europe there are no free VM's available as shown in the video, at least I could not find them.
 
+
+### Run from Python Enviroment (optional)
+
+You can use the install script called setup.sh to create this environment. Simply run it as ./setup.sh and you have the options:
+```
+usage:
+	-i,--install    Install 3commas-cyber-bots from scratch
+	-u,--update     Command git pull to update.
+```
+It creates a .env python enviroment to install the requirements in, and you can run the scripts from there without cluttering your machine.
+
+Before running any of the scripts manually enter the virtual environment first
+```
+cd 3commas-cyber-bots
+source .env/bin/activate
+```
+
 ### TODO
 - You tell me, I'm open for ideas and requests!
 
