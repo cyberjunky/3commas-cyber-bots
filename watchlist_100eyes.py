@@ -504,7 +504,7 @@ async def callback(event):
         coin, base = parse_line(line)
 
         if coin and base:
-            logger.info("Pair: %s" % coin + "_" + base)
+            logger.info("Pair: %s" % base + "_" + coin)
 
             if base == "USDT":
                 botids = json.loads(config.get("settings", "usdt-botids"))
