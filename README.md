@@ -256,7 +256,8 @@ notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
 
-NOTE: The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions.
+### 3Commas API key permissions needed
+The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.
 
 ### Telegram ID, Hash and Secrets explained
 There are two sets of Telegram related settings.
@@ -529,6 +530,22 @@ Error occurred while triggering start_new_deal bot 'Bot name' error: Other error
 ```
 This happens when your bot is in a paper trade account, `watchlist` will then ignore the exchange field in the trigger, so when two of the same pairs for different exchanges are triggered, you get the same pair twice, and 3Commas tells you that you already have a trade for this pair, this only happens in paper mode.
 
+7) I get error 'TypeError: object of type 'int' has no len()'
+```
+  File "./*.py", line 511, in callback
+    if len(botids) == 0:
+TypeError: object of type 'int' has no len()
+```
+Make sure usdt-botids and btc-botids are defined within [] in your ini files.
+
+8) I get error ` for account in data: TypeError: 'NoneType' object is not iterable`
+```
+  File "./*.py", line 250, in get_threecommas_account
+    for account in data:
+TypeError: 'NoneType' object is not iterable
+```
+Newer versions of the scripts also need AccountRead permissions for the 3Commas API Keys.
+Create new ones, with it and paste them in your ini file(s)
 
 ### Debugging
 
