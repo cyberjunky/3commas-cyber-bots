@@ -1,4 +1,6 @@
 
+## Running in docker
+
 Choose the Dockerfile to use and copy it to 3commas-cyber-bots directory
 If you use a RaspberryPi
 ```
@@ -11,13 +13,15 @@ $ cp Dockerfile ..
 
 Edit the file 
 ```
-cd ..
-vi Dockerfile
+$ cd ..
+$ vi Dockerfile
+```
 
 Replace <SCRIPT_NAME>.py with the tool you want to run
 
 
 So for galaxyscore it looks like this:
+
 ```
 FROM python:3.8-slim
 
@@ -66,6 +70,7 @@ To run in daemon mode add -d
 $ docker run -d --mount source=config-galaxyscore,target=/config galaxyscore
 ```
 
+## docker-compose
 
 You can also run it using docker-compose
 
