@@ -97,7 +97,7 @@ Type = start deal trigger
 
 ### What does it do?
 
-It will monitor the Telegram chat channel of 100-eyese.com service (this is a paid service where you can select your own triggers to trigger on)
+It will monitor the Telegram chat channel of the https://www.100-eyes.com/ service (this is a paid service where you can select your own triggers to trigger on)
 and sent a 'start new deal' trigger to the linked bot for that pair.
 
 ### How does it work?
