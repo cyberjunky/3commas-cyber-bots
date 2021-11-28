@@ -87,8 +87,6 @@ Deals are marked as processed and original BO/SO ratio of the bot is stored to b
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-NOTE: You cannot mix paper and real account bots in botids, they have to match accountmode set (for safety)
-
 ![Compound](images/compound.png)
 
 
@@ -109,6 +107,25 @@ Parse incoming Telegram messages, check the format of message for BTC_xxx or USD
 The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
 
 It will only react on trigger messages as defined under `[triggers]` in your ini file, it wil ignore any others.
+
+
+## Take profit bot helper named `tpincrement.py`
+Type = takeprofit adjuster
+
+### What does it do?
+
+It will check active deals for the bot(s) specified and see how many SO are used, depending on number it will add a defined % to the TP value.
+
+Some notes:
+
+- Default increments are 0.1% for every SO completed - this can be changed in the config file.
+- Existing deals will be updated on the first initiation of the database - so please take this into account - this is by design.
+- If the increment value is changed in the config file, all existing deals will use the original value which is stored in the DB - so the config will not affect older deals.
+- Not yet tested over an extensive period.
+
+All credits for this code go to ![adzw01](https://github.com/adzw01) !
+
+![Tpincrement](images/tpincrement.png)
 
 
 ## Binance account Setup
