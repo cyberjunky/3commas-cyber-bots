@@ -225,26 +225,6 @@ def init_threecommas_api(cfg):
     )
 
 
-def get_threecommas_deals(botid):
-    """Get all deals from 3Commas from a bot."""
-
-    error, data = api.request(
-        entity="deals",
-        action="",
-        payload={
-            "scope": "active",
-            "bot_id": str(botid),
-            "limit": 100,
-        },
-    )
-    if error:
-        logger.error("Fetching deals failed with error: %s" % error)
-    else:
-        logger.info("Fetched the deals for this bot OK (%s deals)" % len(data))
-
-    return data
-
-
 def check_deal(dealid):
     """Check if deal was already logged."""
     data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
@@ -284,7 +264,7 @@ def increment_deals(thebot):
     """Check deals from bot and compare SO agains the database."""
 
     deals_count = 0
-    deals = get_threecommas_deals(thebot["id"])
+    deals = thebot["active_deals"]
 
     if deals:
         for deal in deals:
@@ -323,7 +303,9 @@ def increment_deals(thebot):
                 new_percentage = round(float(deal["take_profit"]) + to_increment, 2)
                 update_deal(thebot, deal, to_increment, new_percentage)
 
-        logger.info(f"Finished updating {deals_count} deals")
+        logger.info(
+            f"Finished updating {deals_count} deals for bot \"{thebot['name']}\""
+        )
         db.commit()
 
 
