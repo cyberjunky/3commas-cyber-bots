@@ -298,7 +298,7 @@ def get_threecommas_account(accountid):
         action="",
         additional_headers={"Forced-Mode": "real"},
     )
-    if data != {}:
+    if data:
         for account in data:
             if account["id"] == accountid:
                 marketcode = account["market_code"]
@@ -428,6 +428,9 @@ def find_pairs(thebot):
 
     # get marketcode from account and load tickerlist
     marketcode = get_threecommas_account(thebot["account_id"])
+    if not marketcode:
+        return
+
     tickerlist = get_threecommas_market(marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
@@ -584,7 +587,7 @@ if not config:
     logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
-        f"Created example config file '{program}.ini', edit it and restart the program."
+        f"Created example config file '{datadir}/{program}.ini', edit it and restart the program."
     )
     sys.exit(0)
 else:
@@ -608,7 +611,7 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
-    logger.info(f"3Commas bot helper {program}")
+    logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 

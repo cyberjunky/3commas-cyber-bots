@@ -199,7 +199,6 @@ def load_config():
         "logrotate": 7,
         "usdt-botids": [12345, 67890],
         "btc-botids": [12345, 67890],
-        "accountmode": "paper",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "tgram-phone-number": "Your Telegram Phone number",
@@ -227,6 +226,26 @@ def init_threecommas_api(cfg):
             "retry_status_codes": [502],
         },
     )
+
+
+def get_threecommas_account(accountid):
+    """Get account details."""
+
+    error, data = api.request(
+        entity="accounts",
+        action="",
+        additional_headers={"Forced-Mode": "real"},
+    )
+    if data:
+        for account in data:
+            if account["id"] == accountid:
+                marketcode = account["market_code"]
+                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
+                return marketcode
+        return "paper_trading"
+
+    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
+    return None
 
 
 def get_filebased_blacklist():
@@ -257,7 +276,6 @@ def get_threecommas_blacklist():
     error, data = api.request(
         entity="bots",
         action="pairs_black_list",
-        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         logger.info(
@@ -280,7 +298,6 @@ def get_threecommas_market(market_code):
         entity="accounts",
         action="market_pairs",
         payload={"market_code": market_code},
-        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         tickerlist = data
@@ -310,34 +327,28 @@ def check_pair(thebot, triggerexchange, base, coin):
     logger.debug("Exchange for this bot: %s" % exchange)
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
-    if "Paper Account" in exchange:
+    # Get marketcode from account and load corresponding tickerlist
+    marketcode = get_threecommas_account(thebot["account_id"])
+    if not marketcode:
+        return
+
+    if marketcode == "paper_trading":
         logger.info(
-            "Trigger is for '%s' exchange bot is on '%s'. Trading in Paper so skipping check."
-            % (triggerexchange, exchange),
+            "Trigger is for '%s' exchange while bot is connected to '%s'."
+            " Trading in Paper so skipping check." % (triggerexchange, marketcode),
             True,
         )
-    else:
-        # Check if bot is connected to same exchange
-        if exchange.upper() != triggerexchange.upper():
-            logger.info(
-                "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
-                % (triggerexchange.upper(), exchange.upper()),
-                True,
-            )
-            return
-
-    # Get market of 3Commas because it's slightly different then exchanges
-    if "binance" in exchange.lower() or "paper account" in exchange.lower():
-        tickerlist = get_threecommas_market("binance")
-    elif "ftx" in exchange.lower():
-        tickerlist = get_threecommas_market("ftx")
-    else:
-        logger.error(
-            "Bot is using the '%s' exchange which is not implemented yet!" % exchange
+    elif marketcode != triggerexchange.lower():
+        logger.info(
+            "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
+            % (triggerexchange.lower(), marketcode.lower()),
+            True,
         )
         return
 
-    # Refetch data to catch changes
+    tickerlist = get_threecommas_market(marketcode)
+    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+
     # Update pairs blacklist
     skipchecks = False
     if len(blacklistfile):
@@ -378,7 +389,6 @@ def trigger_bot(thebot, pair, skip_checks):
         action="start_new_deal",
         action_id=str(thebot["id"]),
         payload={"pair": pair, "skip_signal_checks": skip_checks},
-        additional_headers={"Forced-Mode": MODE},
     )
     if data:
         logger.debug("Bot triggered: %s" % data)
@@ -445,16 +455,9 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
-    logger.info(f"3Commas bot helper {program}")
+    logger.info(f"3Commas bot helper {program}!")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
-
-if config.get("settings", "accountmode") == "real":
-    logger.info("Using REAL TRADING account")
-    MODE = "real"
-else:
-    logger.info("Using PAPER TRADING account")
-    MODE = "paper"
 
 if notification.enabled:
     logger.info("Notifications are enabled")
@@ -482,11 +485,15 @@ async def callback(event):
 
     trigger = event.raw_text.splitlines()
     if trigger[0] == "BINANCE" or trigger[0] == "FTX" or trigger[0] == "KUCOIN":
-        exchange = trigger[0].replace("\n", "")
-        pair = trigger[1].replace("#", "").replace("\n", "")
-        base = pair.split("_")[0].replace("#", "").replace("\n", "")
-        coin = pair.split("_")[1].replace("\n", "")
-        trade = trigger[2].replace("\n", "")
+        try:
+            exchange = trigger[0].replace("\n", "")
+            pair = trigger[1].replace("#", "").replace("\n", "")
+            base = pair.split("_")[0].replace("#", "").replace("\n", "")
+            coin = pair.split("_")[1].replace("\n", "")
+            trade = trigger[2].replace("\n", "")
+        except IndexError:
+            logger.debug(f"Invalid trigger message format!")
+            return
 
         logger.debug("Exchange: %s" % exchange)
         logger.debug("Pair: %s" % pair)

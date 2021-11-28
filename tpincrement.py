@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import queue
-import re
+import sqlite3
 import sys
 import threading
 import time
@@ -15,7 +15,6 @@ from pathlib import Path
 
 import apprise
 from py3cw.request import Py3CW
-from telethon import TelegramClient, events
 
 
 class NotificationHandler:
@@ -190,34 +189,22 @@ class Logger:
 def load_config():
     """Create default or load existing config file."""
 
-    cfg = configparser.ConfigParser(allow_no_value=True)
-    # overwrite optionxform method for overriding default behaviour
-    cfg.optionxform = lambda optionstr: optionstr
-
+    cfg = configparser.ConfigParser()
     if cfg.read(f"{datadir}/{program}.ini"):
         return cfg
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
+        "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
-        "usdt-botids": [12345, 67890],
-        "btc-botids": [12345, 67890],
+        "botids": [12345, 67890],
+        "increment-percentage": 0.10,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
-        "tgram-phone-number": "Your Telegram Phone number",
-        "tgram-channel": "Telegram Channel to watch",
-        "tgram-api-id": "Your Telegram API ID",
-        "tgram-api-hash": "Your Telegram API Hash",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
-
-    cfg.add_section("triggers")
-    cfg.set(
-        "triggers",
-        "# Place messages to trigger on here, one per line. (without the [PAIR] in front)",
-    )
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
@@ -238,184 +225,130 @@ def init_threecommas_api(cfg):
     )
 
 
-def get_threecommas_account(accountid):
-    """Get account details."""
+def get_threecommas_deals(botid):
+    """Get all deals from 3Commas from a bot."""
 
     error, data = api.request(
-        entity="accounts",
+        entity="deals",
         action="",
-        additional_headers={"Forced-Mode": "real"},
+        payload={
+            "scope": "active",
+            "bot_id": str(botid),
+            "limit": 100,
+        },
     )
-    if data != {}:
-        for account in data:
-            if account["id"] == accountid:
-                marketcode = account["market_code"]
-                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
-                return marketcode
-        return "paper_trading"
+    if error:
+        logger.error("Fetching deals failed with error: %s" % error)
+    else:
+        logger.info("Fetched the deals for this bot OK (%s deals)" % len(data))
 
-    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
-    return None
+    return data
 
 
-def get_filebased_blacklist():
-    """Get the pair blacklist from local file."""
+def check_deal(dealid):
+    """Check if deal was already logged."""
+    data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
+    if data is None:
+        return None
 
-    newblacklist = []
-    try:
-        with open(f"{datadir}/{blacklistfile}", "r") as file:
-            newblacklist = file.readlines()
-        if newblacklist:
-            logger.info(
-                "Reading local blacklist file '%s' OK (%s pairs)"
-                % (blacklistfile, len(newblacklist))
+    return data
+
+
+def update_deal(thebot, deal, to_increment, new_percentage):
+    """Update bot with new take profit percentage."""
+    bot_name = thebot["name"]
+    deal_id = deal["id"]
+
+    error, data = api.request(
+        entity="deals",
+        action="update_deal",
+        action_id=str(deal_id),
+        payload={
+            "deal_id": thebot["id"],
+            "take_profit": new_percentage,
+        },
+    )
+    if data:
+        logger.info(
+            f"Incremented TP for deal {deal_id}/{deal['pair']} and bot \"{bot_name}\"\n"
+            f"Changed TP from {deal['take_profit']}% to {new_percentage}% (+{to_increment}%)",
+            True,
+        )
+    else:
+        logger.error(
+            "Error occurred updating bot with new take profit values: %s" % error["msg"]
+        )
+
+
+def increment_deals(thebot):
+    """Check deals from bot and compare SO agains the database."""
+
+    deals_count = 0
+    deals = get_threecommas_deals(thebot["id"])
+
+    if deals:
+        for deal in deals:
+            deal_id = deal["id"]
+            completed_safety_orders_count = int(deal["completed_safety_orders_count"])
+
+            deals_count += 1
+
+            existing_deal = check_deal(deal_id)
+            if existing_deal is not None:
+                db.execute(
+                    f"UPDATE deals SET safety_count = {completed_safety_orders_count} "
+                    f"WHERE dealid = {deal_id}"
+                )
+            else:
+                db.execute(
+                    f"INSERT INTO deals (dealid, safety_count, increment) VALUES ({deal_id}, "
+                    f"{completed_safety_orders_count}, {increment_percentage})"
+                )
+
+            to_increment = round(
+                (
+                    completed_safety_orders_count
+                    if existing_deal is None
+                    else completed_safety_orders_count
+                    - int(existing_deal["safety_count"])
+                )
+                * (
+                    increment_percentage
+                    if existing_deal is None
+                    else float(existing_deal["increment"])
+                ),
+                2,
             )
-    except FileNotFoundError:
-        logger.error(
-            "Reading local blacklist file '%s' failed with error: File not found"
-            % blacklistfile
+            if to_increment != 0.0:
+                new_percentage = round(float(deal["take_profit"]) + to_increment, 2)
+                update_deal(thebot, deal, to_increment, new_percentage)
+
+        logger.info(f"Finished updating {deals_count} deals")
+        db.commit()
+
+
+def init_tpincrement_db():
+    """Create or open database to store bot and deals data."""
+    try:
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
+        dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
+
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
+    except sqlite3.OperationalError:
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
+
+        dbcursor.execute(
+            "CREATE TABLE deals (dealid INT Primary Key, safety_count INT, increment FLOAT)"
         )
+        logger.info("Database tables created successfully")
 
-    return newblacklist
-
-
-def get_threecommas_blacklist():
-    """Get the pair blacklist from 3Commas."""
-
-    newblacklist = list()
-    error, data = api.request(
-        entity="bots",
-        action="pairs_black_list",
-    )
-    if data:
-        logger.info(
-            "Fetched 3Commas pairs blacklist OK (%s pairs)" % len(data["pairs"])
-        )
-        newblacklist = data["pairs"]
-    else:
-        logger.error(
-            "Fetching 3Commas pairs blacklist failed with error: %s" % error["msg"]
-        )
-
-    return newblacklist
-
-
-def get_threecommas_market(market_code):
-    """Get all the valid pairs for market_code from 3Commas account."""
-
-    tickerlist = []
-    error, data = api.request(
-        entity="accounts",
-        action="market_pairs",
-        payload={"market_code": market_code},
-    )
-    if data:
-        tickerlist = data
-        logger.info(
-            "Fetched 3Commas market data for %s OK (%s pairs)"
-            % (market_code, len(tickerlist))
-        )
-    else:
-        logger.error(
-            "Fetching 3Commas market data failed with error: %s" % error["msg"]
-        )
-
-    return tickerlist
-
-
-def check_pair(thebot, base, coin):
-    """Check pair and trigger the bot."""
-
-    logger.debug("Trigger base coin: %s" % base)
-
-    # Store some bot settings
-    base = thebot["pairs"][0].split("_")[0]
-    exchange = thebot["account_name"]
-    minvolume = thebot["min_volume_btc_24h"]
-
-    logger.debug("Base coin for this bot: %s" % base)
-    logger.debug("Exchange for this bot: %s" % exchange)
-    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
-
-    # Get marketcode from account and load corresponding tickerlist
-    marketcode = get_threecommas_account(thebot["account_id"])
-    tickerlist = get_threecommas_market(marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
-
-    # Update pairs blacklist
-    skipchecks = False
-    if len(blacklistfile):
-        blacklist = get_filebased_blacklist()
-        skipchecks = True
-    else:
-        blacklist = get_threecommas_blacklist()
-
-    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    pair = base + "_" + coin
-    logger.debug("New pair constructed: %s" % pair)
-
-    # Check if pair is on 3Commas blacklist
-    if pair in blacklist:
-        logger.debug(
-            "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
-        )
-        return
-
-    # Check if pair is on 3Commas market ticker
-    if pair not in tickerlist:
-        logger.debug(
-            "This pair is not valid on the %s market according to 3Commas and was skipped: %s"
-            % (exchange, pair),
-            True,
-        )
-        return
-
-    # We have valid pair for our bot and we can trigger a new deal
-    logger.info("Triggering your 3Commas bot")
-    trigger_bot(thebot, pair, skipchecks)
-
-
-def trigger_bot(thebot, pair, skip_checks):
-    """Trigger bot to start deal asap for pair."""
-    error, data = api.request(
-        entity="bots",
-        action="start_new_deal",
-        action_id=str(thebot["id"]),
-        payload={"pair": pair, "skip_signal_checks": skip_checks},
-    )
-    if data:
-        logger.debug("Bot triggered: %s" % data)
-        logger.info(
-            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
-            % (thebot["name"], thebot["id"], pair),
-            True,
-        )
-    else:
-        logger.error(
-            "Error occurred while triggering start_new_deal bot '%s' error: %s"
-            % (thebot["name"], error["msg"]),
-        )
-
-
-def parse_line(msgline):
-    """Does line contains pair and signal, extract them."""
-
-    for coin in ["BTC", "USDT"]:
-        validline = re.search(rf"\[[A-Z]+({coin})\]", msgline)
-        if validline:
-            values = re.split(rf"\[([A-Z]+)({coin})\]\s([A-Za-z0-9. ()]+)", msgline)
-            if values:
-                coin = values[1]
-                base = values[2]
-                trigger = values[3]
-                if trigger.strip() in triggers:
-                    return coin, base
-                else:
-                    logger.info(
-                        f"No match for '{trigger.strip()}'"
-                    )
-
-    return None, None
+    return dbconnection
 
 
 # Start application
@@ -424,7 +357,6 @@ program = Path(__file__).stem
 # Parse and interpret options.
 parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
 parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
-parser.add_argument("-b", "--blacklist", help="blacklist to use", type=str)
 
 args = parser.parse_args()
 if args.datadir:
@@ -432,20 +364,14 @@ if args.datadir:
 else:
     datadir = os.getcwd()
 
-# pylint: disable-msg=C0103
-if args.blacklist:
-    blacklistfile = args.blacklist
-else:
-    blacklistfile = ""
-
 # Create or load configuration file
 config = load_config()
 if not config:
     logger = Logger(None, 7, False, False)
-    logger.info(f"3Commas bot helper {program}!")
+    logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
-        f"Created example config file '{program}.ini', edit it and restart the program."
+        f"Created example config file '{datadir}/{program}.ini', edit it and restart the program."
     )
     sys.exit(0)
 else:
@@ -469,7 +395,7 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
-    logger.info(f"3Commas bot helper {program}!")
+    logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
@@ -480,76 +406,40 @@ else:
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+# Initialize or open database
+db = init_tpincrement_db()
+cursor = db.cursor()
 
-# Get trigger settings from config
-triggers = list(config["triggers"].keys())
+# Auto increment TP %
+while True:
 
-# Watchlist telegram trigger
-client = TelegramClient(
-    program,
-    config.get("settings", "tgram-api-id"),
-    config.get("settings", "tgram-api-hash"),
-).start(config.get("settings", "tgram-phone-number"))
+    config = load_config()
+    logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
-
-@client.on(events.NewMessage(chats=config.get("settings", "tgram-channel")))
-async def callback(event):
-    """Parse Telegram message."""
-    logger.info(
-        "Received telegram message: '%s'" % event.message.text.replace("\n", " - "),
-        True,
+    # User settings
+    botids = json.loads(config.get("settings", "botids"))
+    timeint = int(config.get("settings", "timeinterval"))
+    increment_percentage = float(
+        config.get("settings", "increment-percentage", fallback=0.10)
     )
 
-    triggermsg = event.raw_text.splitlines()
-
-    # Parse all lines of the trigger message
-    for line in triggermsg:
-        pair = None
-        coin, base = parse_line(line)
-
-        if coin and base:
-            logger.info("Pair: %s" % base + "_" + coin)
-
-            if base == "USDT":
-                botids = json.loads(config.get("settings", "usdt-botids"))
-                if len(botids) == 0:
-                    logger.debug(
-                        "No valid botids defined for '%s' in config, disabled." % base
-                    )
-                    continue
-            elif base == "BTC":
-                botids = json.loads(config.get("settings", "btc-botids"))
-                if len(botids) == 0:
-                    logger.debug(
-                        "No valid botids defined for '%s' in config, disabled." % base
-                    )
-                    continue
-            else:
-                logger.error("Error the base of pair '%s' is not supported yet!" % pair)
-                continue
-
-            for bot in botids:
-                error, data = api.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(bot),
-                )
-
-                if data:
-                    await client.loop.run_in_executor(
-                        None, check_pair, data, base, coin
-                    )
-                else:
-                    logger.error("Error occurred triggering bot: %s" % error["msg"])
+    # Walk through all bots specified
+    for bot in botids:
+        boterror, botdata = api.request(
+            entity="bots",
+            action="show",
+            action_id=str(bot),
+        )
+        if botdata:
+            increment_deals(botdata)
         else:
-            logger.info("Not a crypto trigger line, skipping.")
+            logger.error("Error occurred incrementing deals: %s" % boterror["msg"])
 
-
-# Start telegram client
-client.start()
-logger.info(
-    "Listening to telegram chat '%s' for triggers"
-    % config.get("settings", "tgram-channel"),
-    True,
-)
-client.run_until_disconnected()
+    if timeint > 0:
+        localtime = time.time()
+        nexttime = localtime + int(timeint)
+        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
+        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
+        time.sleep(timeint)
+    else:
+        break
