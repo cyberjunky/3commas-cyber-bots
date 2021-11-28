@@ -13,8 +13,8 @@ $ cp Dockerfile ..
 
 Edit the file 
 ```
-cd ..
-vi Dockerfile
+$ cd ..
+$ vi Dockerfile
 ```
 
 Replace <SCRIPT_NAME>.py with the tool you want to run
