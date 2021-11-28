@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+    bot:
+        image: galaxyscore
+        build:
+          context: .
+        container_name: galaxyscore
+        tty: true
+        volumes:
+          - config-galaxyscore:/app/config
+          - /etc/timezone:/etc/timezone:ro
+        command: python galaxyscore.py -d config
+
+volumes:
+    config-galaxyscore:
