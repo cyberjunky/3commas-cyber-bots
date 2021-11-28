@@ -91,6 +91,26 @@ NOTE: You cannot mix paper and real account bots in botids, they have to match a
 
 ![Compound](images/compound.png)
 
+
+## Watchlist bot helper named `watchlist_100eyes.py `
+Type = start deal trigger
+
+### What does it do?
+
+It will monitor the Telegram chat channel of 100-eyese.com service (this is a paid service where you can select your own triggers to trigger on)
+and sent a 'start new deal' trigger to the linked bot for that pair.
+
+### How does it work?
+
+Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs.
+
+3Commas blacklist and market are checked for the exchange the bot is connected to.
+
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
+
+It will only react on trigger messages as defined under `[triggers]` in your ini file, it wil ignore any others.
+
+
 ## Binance account Setup
 
 -   Create a [Binance account](https://accounts.binance.com/en/register?ref=156153717) (Includes my referral, I'll be super grateful if you use it).
