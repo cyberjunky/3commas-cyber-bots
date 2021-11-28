@@ -1,4 +1,6 @@
 
+## Running in docker
+
 Choose the Dockerfile to use and copy it to 3commas-cyber-bots directory
 If you use a RaspberryPi
 ```
@@ -68,6 +70,7 @@ To run in daemon mode add -d
 $ docker run -d --mount source=config-galaxyscore,target=/config galaxyscore
 ```
 
+## docker-compose
 
 You can also run it using docker-compose
 
