@@ -13,11 +13,13 @@ Edit the file
 ```
 cd ..
 vi Dockerfile
+```
 
 Replace <SCRIPT_NAME>.py with the tool you want to run
 
 
 So for galaxyscore it looks like this:
+
 ```
 FROM python:3.8-slim
 
