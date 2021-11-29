@@ -39,6 +39,41 @@ After this the bot helper will sleep for the set interval time, after which it w
 
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
+### Configuration
+
+The configuration file for `galaxyscore` has the following settings:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
+-   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **lc-apikey** - Your LunarCrush API key value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timeinterval = 1800
+debug = False
+logrotate = 14
+botids = [ 123456 ]
+numberofpairs = 10
+maxaltrankscore = 250
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+lc-apikey = z2cwr88jkyclno8ryj0f
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+### Example output
+
 ![GalaxyScore](images/galaxyscore.png)
 
 ## AltRank bot helper named `altrank.py`
@@ -54,23 +89,43 @@ Same as galaxyscore bot helper except with AltRank data.
 
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
+### Configuration
+
+The configuration file for `galaxyscore` has the following settings:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
+-   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **lc-apikey** - Your LunarCrush API key value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 1800
+debug = False
+logrotate = 14
+botids = [ 123456 ]
+numberofpairs = 10
+maxaltrankscore = 250
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+lc-apikey = z2cwr88jkyclno8ryj0f
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+### Example output
 ![AltRank](images/altrank.png)
 
-## Watchlist bot helper named `watchlist.py`
-Type = start deal trigger
-
-### What does it do?
-
-It will monitor a specific Telegram chat channel and sent a 'start new deal' trigger to the linked bot for that pair.
-
-### How does it work?
-
-Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to -for example- BUSD_xxx if bot uses a different base coin.
-The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
-
-The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
-
-![Watchlist](images/watchlist.png)
 
 ## Compound bot helper named `compound.py`
 Type = compounder
@@ -87,8 +142,96 @@ Deals are marked as processed and original BO/SO ratio of the bot is stored to b
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+### Configuration
+
+This is the layout of the config file used by the `compound.py` bot helper:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 3600
+debug = False
+logrotate = 14
+botids = [ 123456 ]
+profittocompound = 1.0
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+### Example output
+
 ![Compound](images/compound.png)
 
+## Watchlist bot helper named `watchlist.py`
+Type = start deal trigger
+
+### What does it do?
+
+It will monitor a specific Telegram chat channel and sent a 'start new deal' trigger to the linked bot for that pair.
+
+### How does it work?
+
+Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs, it will also change pair to -for example- BUSD_xxx if bot uses a different base coin.
+The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
+
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
+
+### Configuration
+
+The `watchlist` bot helper config file uses this layout:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
+-   **btc-botids** -  a list of bot (BTC multipair) id's to use.
+-   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - Your telegram API id.
+-   **tgram-api-hash** - Your telegram API hash.
+-   **tgram-channel** - Name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+debug = False
+logrotate = 14
+usdt-botid = 123456
+btc-botid = 789012
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+### Example output
+
+![Watchlist](images/watchlist.png)
 
 ## Watchlist bot helper named `watchlist_100eyes.py `
 Type = start deal trigger
@@ -100,13 +243,52 @@ and sent a 'start new deal' trigger to the linked bot for that pair.
 
 ### How does it work?
 
-Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs.
-
-3Commas blacklist and market are checked for the exchange the bot is connected to.
-
-The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
-
+Parse incoming Telegram messages, check the format of message for BTC_xxx or USDT_xxx pairs.  
+3Commas blacklist and market are checked for the exchange the bot is connected to.  
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as tirgger.  
 It will only react on trigger messages as defined under `[triggers]` in your ini file, it wil ignore any others.
+The `watchlist` bot helper config file uses this layout:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
+-   **btc-botids** -  a list of bot (BTC multipair) id's to use.
+-   **numberofpairs** - number of pairs to update your bots with. (default is 10)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - Your telegram API id.
+-   **tgram-api-hash** - Your telegram API hash.
+-   **tgram-channel** - Name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   **[triggers]** - this sections contains a list of trigger texts to trigger deal on (without the \[PAIR\] in front and everything after (5m) or (15m)
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+debug = False
+logrotate = 14
+usdt-botid = 123456
+btc-botid = 789012
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[triggers]
+Stochastics Oversold  (15m)
+Stochastics Oversold  (5m)
+Close Below Lower BB  (5m)
+Bullish Engulfing + RSI was Oversold  (5m)
+```
 
 
 ## Take profit bot helper named `tpincrement.py`
@@ -114,16 +296,65 @@ Type = takeprofit adjuster
 
 ### What does it do?
 
-It will check active deals for the bot(s) specified and see how many SO are used, depending on number it will add a defined % to the TP value.
+It will check active deals for the bot(s) specified and see how many SO are used, depending on number it will add a defined % per safety order to the TP value.
 
 Some notes:
 
-- Default increments are 0.1% for every SO completed - this can be changed in the config file.
-- Existing deals will be updated on the first initiation of the database - so please take this into account - this is by design.
-- If the increment value is changed in the config file, all existing deals will use the original value which is stored in the DB - so the config will not affect older deals.
-- Not yet tested over an extensive period.
+Example setting 'increment-step-scale = \[0.1, 0.05, 0.03\]' works like this:
+
+Safety order 1 increment is 0.1%  
+Safety order 2 increment is 0.05%  
+Safety order 3 increment is 0.03%  
+
+Safety orders > 3 are ignored and not adjusted (you can increase the number of steps in the config to cater more safety orders e.g. \[0.1, 0.05, 0.03, 0.03, 0.03\] will cater for 5 SO)
+
+Upon each update inteval, the safety orders are compared from the last 'run', so no SO are missed, the difference is then calculated.
+For example, using the above example config:
+
+Update interval 1 = SO's complete is 0, so the increase is 0%  
+Update interval 2 = SO's complete is 2, so the increase is 0.15%  
+Update interval 3 = SO's complete is 3, so the increase is 0.03%  
+
+Existing deals will be updated on the first initiation of the database - so please take this into account - this is by design.
+Not yet tested over an extensive period.
 
 All credits for this code go to ![adzw01](https://github.com/adzw01) !
+
+### Configuration
+
+The configuration file for `tpincrement` contains the following settings:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **increment-step-scale** - a list of increment percentages for the safety orders
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 1800
+debug = False
+logrotate = 14
+usdt-botid = 123456
+btc-botid = 789012
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+### Example output
 
 ![Tpincrement](images/tpincrement.png)
 
@@ -192,106 +423,8 @@ $ python3 ./altrank.py
 
 Then you can edit the file and start the bot helper again to use it.
 
-The configuration files for `galaxyscore` and `altrank` are quite similar and contain the following settings:
+Look at the helper sections above for each layout and description of the settings.
 
--   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **timeinterval** - update timeinterval in Seconds. (default is 3600)
--   **debug** - set to true to enable debug logging to file. (default is False)
--   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
--   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
--   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **lc-apikey** - Your LunarCrush API key value.
--   **notifications** - set to true to enable notifications. (default = False)
--   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
-
-Example: (keys are bogus)
-```
-[settings]
-timeinterval = 1800
-debug = False
-logrotate = 14
-botids = [ 123456 ]
-numberofpairs = 10
-maxaltrankscore = 250
-accountmode = real
-3c-apikey = 4mzhnpio6la4h1158ylt2
-3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
-lc-apikey = z2cwr88jkyclno8ryj0f
-notifications = True
-notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
-```
-
-The `watchlist` bot helper has a different layout:
-
--   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **debug** - set to true to enable debug logging to file. (default is False)
--   **logrotate** - number of days to keep logs. (default = 7)
--   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
--   **btc-botids** -  a list of bot (BTC multipair) id's to use.
--   **numberofpairs** - number of pairs to update your bots with. (default is 10)
--   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
--   **tgram-api-id** - Your telegram API id.
--   **tgram-api-hash** - Your telegram API hash.
--   **tgram-channel** - Name of the chat channel to monitor.
--   **notifications** - set to true to enable notifications. (default = False)
--   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
-
-
-Example: (keys are bogus)
-```
-[settings]
-debug = False
-logrotate = 14
-usdt-botid = 123456
-btc-botid = 789012
-accountmode = paper
-3c-apikey = 4mzhnpio6la4h1158ylt2
-3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
-tgram-phone-number = +316512345678
-tgram-api-id = 1234566
-tgram-api-hash = o6la4h1158ylt4mzhnpio6la
-tgram-channel = mytriggerchannel
-notifications = True
-notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
-```
-
-This is the layout of the config file used by the `compound.py` bot helper:
-
--   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **timeinterval** - update timeinterval in Seconds. (default is 3600)
--   **debug** - set to true to enable debug logging to file. (default is False)
--   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
--   **accountmode** - trading account mode for the API to use (real or paper). (default is paper)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **notifications** - set to true to enable notifications. (default = False)
--   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
-
-
-Example: (keys are bogus)
-```
-[settings]
-timezone = Europe/Amsterdam
-timeinterval = 3600
-debug = False
-logrotate = 14
-botids = [ 123456 ]
-profittocompound = 1.0
-accountmode = paper
-3c-apikey = 4mzhnpio6la4h1158ylt2
-3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
-notifications = True
-notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
-```
 
 ### 3Commas API key permissions needed
 The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.
