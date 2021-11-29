@@ -1,0 +1,13 @@
+[Unit]
+Description=3Commas Take Profit Increment Daemon
+After=multi-user.target
+
+[Service]
+# Set WorkingDirectory and ExecStart to your file paths accordingly
+WorkingDirectory=/home/ron/3commas-cyber-bots
+ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/tpincrement.py
+User=ron
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
