@@ -199,7 +199,7 @@ def load_config():
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "increment-percentage": 0.10,
+        "increment-step-scale": [0.10, 0.05, 0.05, 0.05, 0.05, 0.05],
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
@@ -265,11 +265,12 @@ def increment_deals(thebot):
 
     deals_count = 0
     deals = thebot["active_deals"]
-
+    print(thebot)
     if deals:
         for deal in deals:
             deal_id = deal["id"]
             completed_safety_orders_count = int(deal["completed_safety_orders_count"])
+            to_increment = 0
 
             deals_count += 1
 
@@ -281,27 +282,25 @@ def increment_deals(thebot):
                 )
             else:
                 db.execute(
-                    f"INSERT INTO deals (dealid, safety_count, increment) VALUES ({deal_id}, "
-                    f"{completed_safety_orders_count}, {increment_percentage})"
+                    f"INSERT INTO deals (dealid, safety_count) VALUES ({deal_id}, "
+                    f"{completed_safety_orders_count})"
                 )
 
-            to_increment = round(
-                (
-                    completed_safety_orders_count
-                    if existing_deal is None
-                    else completed_safety_orders_count
-                    - int(existing_deal["safety_count"])
-                )
-                * (
-                    increment_percentage
-                    if existing_deal is None
-                    else float(existing_deal["increment"])
-                ),
-                2,
+            existing_deal_safety_count = (
+                0 if existing_deal is None else existing_deal["safety_count"]
             )
+
+            for cnt in range(
+                existing_deal_safety_count + 1, completed_safety_orders_count + 1
+            ):
+                try:
+                    to_increment += float(increment_step_scale[cnt - 1])
+                except IndexError:
+                    pass
+
             if to_increment != 0.0:
                 new_percentage = round(float(deal["take_profit"]) + to_increment, 2)
-                update_deal(thebot, deal, to_increment, new_percentage)
+                update_deal(thebot, deal, round(to_increment, 2), new_percentage)
 
         logger.info(
             f"Finished updating {deals_count} deals for bot \"{thebot['name']}\""
@@ -326,11 +325,36 @@ def init_tpincrement_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
-            "CREATE TABLE deals (dealid INT Primary Key, safety_count INT, increment FLOAT)"
+            "CREATE TABLE deals (dealid INT Primary Key, safety_count INT)"
         )
         logger.info("Database tables created successfully")
 
     return dbconnection
+
+
+def upgrade_tpincrement_db():
+    """Upgrade database if needed."""
+    try:
+        cursor.execute("ALTER TABLE deals DROP COLUMN increment")
+        logger.info("Database schema upgraded")
+    except sqlite3.OperationalError:
+        logger.debug("Database schema is up-to-date")
+
+
+def upgrade_config(cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "increment-step-scale")
+    except configparser.NoOptionError:
+        cfg.set(
+            "settings", "increment-step-scale", "[0.10, 0.05, 0.05, 0.05, 0.05, 0.05]"
+        )
+        cfg.remove_option("settings", "increment-percentage")
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+    return cfg
 
 
 # Start application
@@ -357,6 +381,9 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
     # Handle timezone
     if hasattr(time, "tzset"):
         os.environ["TZ"] = config.get(
@@ -391,6 +418,8 @@ api = init_threecommas_api(config)
 # Initialize or open database
 db = init_tpincrement_db()
 cursor = db.cursor()
+# Upgrade database if needed
+upgrade_tpincrement_db()
 
 # Auto increment TP %
 while True:
@@ -401,9 +430,7 @@ while True:
     # User settings
     botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
-    increment_percentage = float(
-        config.get("settings", "increment-percentage", fallback=0.10)
-    )
+    increment_step_scale = json.loads(config.get("settings", "increment-step-scale"))
 
     # Walk through all bots specified
     for bot in botids:
