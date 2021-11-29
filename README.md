@@ -59,6 +59,7 @@ The configuration file for `galaxyscore` has the following settings:
 Example: (keys are bogus)
 ```
 [settings]
+timezone = Europe/Amsterdam
 timeinterval = 1800
 debug = False
 logrotate = 14
