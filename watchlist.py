@@ -254,7 +254,7 @@ def get_filebased_blacklist():
     newblacklist = []
     try:
         with open(f"{datadir}/{blacklistfile}", "r") as file:
-            newblacklist = file.readlines()
+            newblacklist = file.read().splitlines()
         if newblacklist:
             logger.info(
                 "Reading local blacklist file '%s' OK (%s pairs)"

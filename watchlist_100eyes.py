@@ -264,7 +264,7 @@ def get_filebased_blacklist():
     newblacklist = []
     try:
         with open(f"{datadir}/{blacklistfile}", "r") as file:
-            newblacklist = file.readlines()
+            newblacklist = file.read().splitlines()
         if newblacklist:
             logger.info(
                 "Reading local blacklist file '%s' OK (%s pairs)"
@@ -323,7 +323,7 @@ def get_threecommas_market(market_code):
     return tickerlist
 
 
-def check_pair(thebot, base, coin):
+def check_pair(thebot, base, coin, trigger):
     """Check pair and trigger the bot."""
 
     logger.debug("Trigger base coin: %s" % base)
@@ -371,11 +371,10 @@ def check_pair(thebot, base, coin):
         return
 
     # We have valid pair for our bot and we can trigger a new deal
-    logger.info("Triggering your 3Commas bot")
-    trigger_bot(thebot, pair, skipchecks)
+    trigger_bot(thebot, pair, skipchecks, trigger)
 
 
-def trigger_bot(thebot, pair, skip_checks):
+def trigger_bot(thebot, pair, skip_checks, trigger):
     """Trigger bot to start deal asap for pair."""
     error, data = api.request(
         entity="bots",
@@ -386,8 +385,8 @@ def trigger_bot(thebot, pair, skip_checks):
     if data:
         logger.debug("Bot triggered: %s" % data)
         logger.info(
-            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
-            % (thebot["name"], thebot["id"], pair),
+            "Bot '%s' start_new_deal triggered by '%s' for pair %s"
+            % (thebot["name"], trigger, pair),
             True,
         )
     else:
@@ -407,15 +406,15 @@ def parse_line(msgline):
             if values:
                 coin = values[1]
                 base = values[2]
-                trigger = values[3]
-                if trigger.strip() in triggers:
-                    return coin, base
+                trigger = values[3].strip()
+                if trigger in triggers:
+                    return coin, base, trigger
                 else:
                     logger.info(
-                        f"No match for '{trigger.strip()}'"
+                        f"No match for '{trigger}'"
                     )
 
-    return None, None
+    return None, None, None
 
 
 # Start application
@@ -505,7 +504,7 @@ async def callback(event):
     # Parse all lines of the trigger message
     for line in triggermsg:
         pair = None
-        coin, base = parse_line(line)
+        coin, base, trigger = parse_line(line)
 
         if coin and base:
             logger.info("Pair: %s" % base + "_" + coin)
@@ -537,7 +536,7 @@ async def callback(event):
 
                 if data:
                     await client.loop.run_in_executor(
-                        None, check_pair, data, base, coin
+                        None, check_pair, data, base, coin, trigger
                     )
                 else:
                     logger.error("Error occurred triggering bot: %s" % error["msg"])
