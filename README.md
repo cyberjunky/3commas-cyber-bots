@@ -608,7 +608,78 @@ And change ExecStart entryr accordingly
 - Raspberry Pi, install the Raspberry Pi OS
   And follow installation steps above.
 
-- Docker, this will follow soon. 
+- Docker
+
+# Home assistant Portainer
+
+## requirements
+- Pycharm
+-  Docker desktop
+-  Home Assistant with Portainer addon installed
+-  Git
+
+## Pycharm settings
+
+Make shure **Activate virtualenv** is enabled in File --> Settings --> Tools --> Terminal
+
+## Pycharm steps
+-  File --> New Project 
+-  Name project and select **New environment using Virtualenv** click **Create**
+-  On the bottom left select Terminal
+```
+$ sudo apt install git
+$ git clone https://github.com/cyberjunky/3commas-cyber-bots.git
+$ cd 3commas-cyber-bots
+$ pip3 install -r requirements.txt
+$ python compound.py
+```
+Once compound.py is executed it wil create a compound.ini edit this file and start the script again to see if it works
+
+## Create dockerfile
+
+Create a file without an extention in the directory above the **3commas-cyber-bots** folder
+
+- Your project folder
+- - 3commas-cyber-bots
+- - venv
+- - Dockerfile
+
+Open the Dockerfile and add this
+
+```
+FROM python:3.9  
+  
+WORKDIR /commabot  
+  
+COPY /3commas-cyber-bots/requirements.txt .  
+  
+RUN pip install -r requirements.txt  
+  
+COPY /3commas-cyber-bots/ .  
+  
+CMD ["python", "./compound.py"]
+```
+Save everything
+
+
+## creating the docker container
+
+In the terminal make shure you are in the folder above **3commas-cyber-bots**
+
+```
+docker build -t 3commabot .
+
+docker save 3commabot > 3commabot.tar
+```
+Now you should see a file **3commabot.tar**
+
+## Adding Container to portainer
+
+ - Go to Images --> import
+ - Select file --> select your **3commabot.tar** --> upload
+ - Go to Containers --> select **Add container** --> image enter **3commabot:latest** and give your container a name
+ - **Deploy the container**
+
 
 In the Cloud, if you are willing to store your config files with your API keys in the Cloud, these are some options:
 
