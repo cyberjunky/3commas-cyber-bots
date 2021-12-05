@@ -313,10 +313,8 @@ def get_threecommas_market(market_code):
     return tickerlist
 
 
-def check_pair(thebot, triggerexchange, base, coin):
+def check_pair(thebot, triggerexchange, coin):
     """Check pair and trigger the bot."""
-
-    logger.debug("Trigger base coin: %s" % base)
 
     # Store some bot settings
     base = thebot["pairs"][0].split("_")[0]
@@ -492,7 +490,7 @@ async def callback(event):
             coin = pair.split("_")[1].replace("\n", "")
             trade = trigger[2].replace("\n", "")
         except IndexError:
-            logger.debug(f"Invalid trigger message format!")
+            logger.debug("Invalid trigger message format!")
             return
 
         logger.debug("Exchange: %s" % exchange)
@@ -523,6 +521,13 @@ async def callback(event):
             return
 
         for bot in botids:
+
+            if bot == 0:
+                logger.debug(
+                    "No valid botid defined for '%s' in config, skipping." % base
+                )
+                continue
+
             error, data = api.request(
                 entity="bots",
                 action="show",
@@ -531,7 +536,7 @@ async def callback(event):
 
             if data:
                 await client.loop.run_in_executor(
-                    None, check_pair, data, exchange, base, coin
+                    None, check_pair, data, exchange, coin
                 )
             else:
                 logger.error("Error occurred triggering bot: %s" % error["msg"])

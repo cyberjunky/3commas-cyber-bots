@@ -141,7 +141,6 @@ class Logger:
         file_handle = TimedRotatingFileHandler(
             filename=f"{datadir}/logs/{program}.log", backupCount=logstokeep
         )
-        # file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
 
@@ -196,15 +195,15 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
-        "timeinterval": 3600,
+        "timeinterval": 90,
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "profittocompound": 1.0,
+        "activation-percentage": 0,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
-        "notify-urls": ["notify-url1", "notify-url2"],
+        "notify-urls": ["notify-url1"],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -226,233 +225,126 @@ def init_threecommas_api(cfg):
     )
 
 
-def get_threecommas_deals(botid):
-    """Get all deals from 3Commas from a bot."""
-
-    error, data = api.request(
-        entity="deals",
-        action="",
-        payload={
-            "scope": "finished",
-            "bot_id": str(botid),
-            "limit": 100,
-        },
-    )
-    if data:
-        logger.info("Fetched the deals for this bot OK (%s deals)" % len(data))
-    else:
-        logger.error("Fetching deals failed with error: %s" % error)
-
-    return data
-
-
 def check_deal(dealid):
     """Check if deal was already logged."""
     data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
     if data is None:
-        return False
+        return None
 
-    return True
+    return data
 
 
-def update_bot(
-    thebot, new_base_order_volume, new_safety_order_volume, profit_sum, deals_count
-):
-    """Update bot with new order volumes."""
-
+def update_deal(thebot, deal, new_stoploss):
+    """Update bot with new SL."""
     bot_name = thebot["name"]
-    base_order_volume = float(thebot["base_order_volume"])
-    safety_order_volume = float(thebot["safety_order_volume"])
-
-    logger.info(
-        "Calculated BO volume changed from: %s to %s"
-        % (base_order_volume, new_base_order_volume)
-    )
-    logger.info(
-        "Calculated SO volume changed from: %s to %s"
-        % (safety_order_volume, new_safety_order_volume)
-    )
+    deal_id = deal["id"]
 
     error, data = api.request(
-        entity="bots",
-        action="update",
-        action_id=str(thebot["id"]),
+        entity="deals",
+        action="update_deal",
+        action_id=str(deal_id),
         payload={
-            "bot_id": thebot["id"],
-            "name": thebot["name"],
-            "pairs": thebot["pairs"],
-            "base_order_volume": new_base_order_volume,  # new base order volume
-            "safety_order_volume": new_safety_order_volume,  # new safety order volume
-            "take_profit": thebot["take_profit"],
-            "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
-            "martingale_step_coefficient": thebot["martingale_step_coefficient"],
-            "max_active_deals": thebot["max_active_deals"],
-            "max_safety_orders": thebot["max_safety_orders"],
-            "safety_order_step_percentage": thebot["safety_order_step_percentage"],
-            "take_profit_type": thebot["take_profit_type"],
-            "strategy_list": thebot["strategy_list"],
-            "active_safety_orders_count": thebot["active_safety_orders_count"],
+            "deal_id": thebot["id"],
+            "stop_loss_percentage": new_stoploss,
         },
     )
     if data:
-        base = thebot["pairs"][0].split("_")[0]
-        if base == "BTC":
-            logger.info(
-                f"Compounded ₿{round(profit_sum, 8)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, 8)} to "
-                f"₿{round(new_base_order_volume, 8)}\nChanged SO from "
-                f"₿{round(safety_order_volume, 8)} to ₿{round(new_safety_order_volume, 8)}",
-                True,
-            )
-        else:
-            logger.info(
-                f"Compounded ${round(profit_sum, 4)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ${round(base_order_volume, 4)} to "
-                f"${round(new_base_order_volume, 4)}\nChanged SO from "
-                f"${round(safety_order_volume, 4)} to ${round(new_safety_order_volume, 4)}",
-                True,
-            )
+        logger.info(
+            f"Changing SL for deal {deal_id}/{deal['pair']} on bot \"{bot_name}\"\n"
+            f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}% - current profit = {deal['actual_profit_percentage']}%",
+            True,
+        )
     else:
         logger.error(
-            "Error occurred updating bot with new BO/SO values: %s" % error["msg"]
+            "Error occurred updating bot with new take profit values: %s" % error["msg"]
         )
 
 
-def process_deals(deals):
-    """Check deals from bot."""
+def process_deals(thebot):
+    """Check deals from bot and compare SL agains the database."""
 
     deals_count = 0
-    profit_sum = 0.0
-
-    for deal in deals:
-        deal_id = deal["id"]
-
-        # Register deal in database
-        exist = check_deal(deal_id)
-        if exist:
-            logger.debug("Deal with id '%s' already processed, skipping." % deal_id)
-        else:
-            # Deal not processed yet
-            profit = float(deal["final_profit"])
-            deals_count += 1
-            profit_sum += profit
-
-            db.execute(
-                f"INSERT INTO deals (dealid, profit) VALUES ({deal_id}, {profit})"
-            )
-
-    logger.info("Finished deals: %s total profit: %s" % (deals_count, profit_sum))
-    db.commit()
-
-    # Calculate profit part to compound
-    logger.info("Profit available to compound: %s" % profit_sum)
-    profit_sum *= profit_percentage
-    logger.info(
-        "Profit available after applying percentage value (%s): %s "
-        % (profit_percentage, profit_sum)
-    )
-
-    return (deals_count, profit_sum)
-
-
-def compound_bot(thebot):
-    """Find profit from deals and calculate new SO and BO values."""
-
-    bot_name = thebot["name"]
-    deals = get_threecommas_deals(thebot["id"])
+    deals = thebot["active_deals"]
 
     if deals:
-        deals_count, profit_sum = process_deals(deals)
+        for deal in deals:
+            deals_count += 1
 
-        if profit_sum:
-            # Bot values to calculate with
-            base_order_volume = float(thebot["base_order_volume"])
-            safety_order_volume = float(thebot["safety_order_volume"])
-            max_active_deals = thebot["max_active_deals"]
-            max_safety_orders = thebot["max_safety_orders"]
-            martingale_volume_coefficient = float(
-                thebot["martingale_volume_coefficient"]
+            sl_price = float(
+                (0 if deal["stop_loss_price"] is None else deal["stop_loss_price"])
             )
 
-            funds_so_needed = safety_order_volume
-            total_so_funds = safety_order_volume
-            if max_safety_orders > 1:
-                for i in range(1, max_safety_orders):
-                    funds_so_needed *= float(martingale_volume_coefficient)
-                    total_so_funds += funds_so_needed
+            if sl_price != 0:
+                deal_id = deal["id"]
 
-            logger.info("Current bot settings :")
-            logger.info("Base order volume    : %s" % base_order_volume)
-            logger.info("Safety order volume  : %s" % safety_order_volume)
-            logger.info("Max active deals     : %s" % max_active_deals)
-            logger.info("Max safety orders    : %s" % max_safety_orders)
-            logger.info("SO volume scale      : %s" % martingale_volume_coefficient)
+                actual_profit_percentage = float(deal["actual_profit_percentage"])
+                stoploss = float(deal["stop_loss_percentage"])
 
-            # Calculate the BO/SO ratio
-            bo_percentage = (
-                100
-                * float(base_order_volume)
-                / (float(base_order_volume) + float(total_so_funds))
-            )
-            so_percentage = (
-                100
-                * float(total_so_funds)
-                / (float(total_so_funds) + float(base_order_volume))
-            )
-            logger.info("BO percentage: %s" % bo_percentage)
-            logger.info("SO percentage: %s" % so_percentage)
+                existing_deal = check_deal(deal_id)
+                last_profit_percentage = round(
+                    actual_profit_percentage
+                    if existing_deal is None
+                    or existing_deal["last_stop_loss_percentage"] != stoploss
+                    else float(existing_deal["last_profit_percentage"]),
+                    2,
+                )  # If user changes SL in 3C then we have to start again
 
-            # Calculate compound values
-            bo_profit = ((profit_sum * bo_percentage) / 100) / max_active_deals
-            so_profit = bo_profit * (safety_order_volume / base_order_volume)
+                if (
+                    existing_deal is None
+                    or actual_profit_percentage >= last_profit_percentage
+                ) and actual_profit_percentage >= activation_percentage:
 
-            logger.info("BO compound value: %s" % bo_profit)
-            logger.info("SO compound value: %s" % so_profit)
+                    new_stoploss = round(
+                        stoploss + (last_profit_percentage - actual_profit_percentage),
+                        2,
+                    )
 
-            # Update the bot
-            update_bot(
-                thebot,
-                (base_order_volume + bo_profit),
-                (safety_order_volume + so_profit),
-                profit_sum,
-                deals_count,
-            )
-        else:
-            logger.info(
-                f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!",
-                True,
-            )
-    else:
-        logger.info(f"{bot_name}\nNo (new) deals found for this bot!", True)
+                    if existing_deal is not None and new_stoploss < stoploss:
+                        update_deal(thebot, deal, new_stoploss)
+
+                    if existing_deal is not None:
+                        db.execute(
+                            f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
+                            f"last_stop_loss_percentage = {new_stoploss} "
+                            f"WHERE dealid = {deal_id}"
+                        )
+                    else:
+                        db.execute(
+                            f"INSERT INTO deals (dealid, last_profit_percentage, last_stop_loss_percentage) "
+                            f"VALUES ({deal_id}, {actual_profit_percentage}, {new_stoploss})"
+                        )
+                        logger.info(
+                            f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}\""
+                        )
+
+        logger.info(
+            f"Finished processing {deals_count} deals for bot \"{thebot['name']}\""
+        )
+        db.commit()
 
 
-def init_compound_db():
+def init_tsl_db():
     """Create or open database to store bot and deals data."""
     try:
         dbname = f"{program}.sqlite3"
         dbpath = f"file:{datadir}/{dbname}?mode=rw"
         dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
 
         logger.info(f"Database '{datadir}/{dbname}' opened successfully")
 
     except sqlite3.OperationalError:
         dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
         dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
-        dbcursor.execute("CREATE TABLE deals (dealid INT Primary Key, profit REAL)")
+        dbcursor.execute(
+            "CREATE TABLE deals (dealid INT Primary Key, last_profit_percentage FLOAT, last_stop_loss_percentage FLOAT)"
+        )
         logger.info("Database tables created successfully")
 
     return dbconnection
-
-
-def upgrade_compound_db():
-    """Upgrade database if needed."""
-    try:
-        cursor.execute("ALTER TABLE deals ADD COLUMN profit REAL")
-        logger.info("Database schema upgraded")
-    except sqlite3.OperationalError:
-        logger.debug("Database schema is up-to-date")
 
 
 # Start application
@@ -472,7 +364,7 @@ else:
 config = load_config()
 if not config:
     logger = Logger(None, 7, False, False)
-    logger.info(f"3Commas bot helper {program}!")
+    logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
         f"Created example config file '{datadir}/{program}.ini', edit it and restart the program."
@@ -511,42 +403,37 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 # Initialize or open database
-db = init_compound_db()
+db = init_tsl_db()
 cursor = db.cursor()
-# Upgrade database if needed
-upgrade_compound_db()
 
-if "compound" in program:
-    # Auto compound profit by tweaking SO/BO
-    while True:
+# TSL %
+while True:
 
-        config = load_config()
-        logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
+    config = load_config()
+    logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
-        # User settings
-        botids = json.loads(config.get("settings", "botids"))
-        timeint = int(config.get("settings", "timeinterval"))
-        profit_percentage = float(
-            config.get("settings", "profittocompound", fallback=1.0)
+    # User settings
+    botids = json.loads(config.get("settings", "botids"))
+    timeint = int(config.get("settings", "timeinterval"))
+    activation_percentage = json.loads(config.get("settings", "activation-percentage"))
+
+    # Walk through all bots specified
+    for bot in botids:
+        boterror, botdata = api.request(
+            entity="bots",
+            action="show",
+            action_id=str(bot),
         )
-
-        # Walk through all bots specified
-        for bot in botids:
-            boterror, botdata = api.request(
-                entity="bots",
-                action="show",
-                action_id=str(bot),
-            )
-            if botdata:
-                compound_bot(botdata)
-            else:
-                logger.error("Error occurred compounding bots: %s" % boterror["msg"])
-
-        if timeint > 0:
-            localtime = time.time()
-            nexttime = localtime + int(timeint)
-            timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-            logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
-            time.sleep(timeint)
+        if botdata:
+            process_deals(botdata)
         else:
-            break
+            logger.error("Error occurred incrementing deals: %s" % boterror["msg"])
+
+    if timeint > 0:
+        localtime = time.time()
+        nexttime = localtime + int(timeint)
+        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
+        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
+        time.sleep(timeint)
+    else:
+        break
