@@ -92,7 +92,7 @@ NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s),
 
 ### Configuration
 
-The configuration file for `galaxyscore` has the following settings:
+The configuration file for `altrank` has the following settings:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
@@ -608,7 +608,9 @@ And change ExecStart entryr accordingly
 - Raspberry Pi, install the Raspberry Pi OS
   And follow installation steps above.
 
-- Docker, this will follow soon. 
+- Docker find all settings and [documentation here](docker/)
+
+
 
 In the Cloud, if you are willing to store your config files with your API keys in the Cloud, these are some options:
 
