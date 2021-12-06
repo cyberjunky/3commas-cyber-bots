@@ -467,7 +467,7 @@ api = init_threecommas_api(config)
 
 # Watchlist telegram trigger
 client = TelegramClient(
-    program,
+    f"{datadir}/{program}",
     config.get("settings", "tgram-api-id"),
     config.get("settings", "tgram-api-hash"),
 ).start(config.get("settings", "tgram-phone-number"))
