@@ -147,7 +147,7 @@ NOTE: the 'Trading 24h minimal volume' value in your bot(s) is still used to fil
 
 ### Configuration
 
-This is the layout of the config file used by the `compound.py` bot helper:
+This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 86400)
@@ -166,11 +166,11 @@ Example: (keys are bogus)
 ```
 [settings]
 timezone = Europe/Amsterdam
-timeinterval = 8600
+timeinterval = 86400
 debug = False
 logrotate = 14
 botids = [ 123456 ]
-numberofpairs = 250
+numberofpairs = 200
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 cmc-apikey = 4czrn2yo3la4h4179grp2
