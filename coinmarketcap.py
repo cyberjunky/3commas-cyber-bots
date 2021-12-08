@@ -195,11 +195,11 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
-        "timeinterval": 3600,
+        "timeinterval": 86400,
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "numberofpairs": 100,
+        "numberofpairs": 200,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "cmc-apikey": "Your CoinMarketCap API Key",
@@ -319,7 +319,7 @@ def get_coinmarketcap_data():
     # Construct query for CoinMarketCap data
     parms = {
         "start": 1,
-        "limit": 5000,
+        "limit": config.get("settings", "numberofpairs"),
         "convert": "BTC",
         "aux": "cmc_rank",
     }
@@ -417,14 +417,6 @@ def find_pairs(thebot):
                 continue
 
             handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist)
-
-            # Did we get enough pairs already?
-            if numberofpairs:
-                if len(newpairs) == numberofpairs:
-                    break
-            else:
-                if len(newpairs) == int(thebot["max_active_deals"]):
-                    break
 
         except KeyError as err:
             logger.error(
@@ -581,7 +573,6 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # User settings
-    numberofpairs = int(config.get("settings", "numberofpairs"))
     botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
 
