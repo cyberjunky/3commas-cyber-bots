@@ -373,12 +373,8 @@ def find_pairs(thebot):
     # Gather bot settings
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
-    minvolume = thebot["min_volume_btc_24h"]
-    if not minvolume:
-        minvolume = 0.0
 
     logger.info("Bot base currency: %s" % base)
-    logger.info("Bot minimal 24h BTC volume: %s" % minvolume)
 
     # Start fresh
     newpairs = list()
@@ -398,23 +394,6 @@ def find_pairs(thebot):
         try:
             coin = entry["symbol"]
             pair = base + "_" + coin
-            volbtc = entry["quote"]["BTC"]["volume_24h"]
-
-            # Check for valid data
-            if volbtc is None or minvolume is None:
-                logger.debug(
-                    "Could not check 24h BTC volume for quote '%s', data is missing, skipping"
-                    % coin
-                )
-                continue
-
-            # Check if coin has minimum 24h volume as set in bot
-            if float(volbtc) < float(minvolume):
-                logger.debug(
-                    "Quote currency '%s' does not have enough 24h BTC volume (%s), skipping"
-                    % (coin, str(volbtc))
-                )
-                continue
 
             handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist)
 
