@@ -232,6 +232,7 @@ def get_threecommas_deals(botid):
     error, data = api.request(
         entity="deals",
         action="",
+        additional_headers={"Forced-Mode": "real"},
         payload={
             "scope": "finished",
             "bot_id": str(botid),
