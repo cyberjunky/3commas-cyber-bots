@@ -128,6 +128,70 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ![AltRank](images/altrank.png)
 
 
+## Trailing stoploss bot helper named `trailingstoploss.py`
+Type = stop loss
+
+### What does it do?
+
+It will change the trailing stoploss of a bot when the profit % >= as the activation-percentage setting.
+
+### How does it work?
+
+Every interval the bots specfied in the config are read, their active deals are checked for profit %.
+If the value is above or equal to activation-percentage the SL is recalculated, like so:  
+
+`new_stoploss = stoploss + (last_profit_percentage - actual_profit_percentage)`
+			
+Deals are marked as processed and last SL value of the bot is stored to be used for next iterations.
+
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+NOTES by the creator:  
+
+As 3C doesnt appear to allow any TSL for bots, only TTP. TSL only appears to work on smart trade, so I want the ability to have TSL for my futures bots which dont have any SO.
+
+Not sure how this script would work with bots that make use of many SO's - so please bear this in mind.
+I would suggest a quicker interval for checking, so the config sets this to 90 seconds by default.
+
+You must have a SL set on the deals within the bot you want this script to manage.
+
+The script will keep track of the last profit % the SL was updated, and will compare the lastest profit %, and move the TSL up when required. The script does not move the SL down, as this wouldn't make sense.
+I have also catered for the fact that the user might update the SL manually after activation on the 3C website - in this case the TSL is restarted for the deal that was manually altered.
+
+Appears to work, again this only has limited testing.
+
+I would use this with caution. I am only using this to reduce my liquidation risk on my futures bots - but could be used with spot bots if you know what you're doing.
+
+### Configuration
+
+This is the layout of the config file used by the `compound.py` bot helper:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **activation-percentage** - % of profit at which script becomes active for a bot
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 3600
+debug = False
+logrotate = 14
+botids = [ 123456 ]
+activation-percentage = 3
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
 ## Compound bot helper named `compound.py`
 Type = compounder
 
