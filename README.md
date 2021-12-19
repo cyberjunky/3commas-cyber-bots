@@ -312,6 +312,10 @@ Parse incoming Telegram messages, check the format of message for BTC_xxx or USD
 3Commas blacklist and market are checked for the exchange the bot is connected to.  
 The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as tirgger.  
 It will only react on trigger messages as defined under `[triggers]` in your ini file, it wil ignore any others.
+
+NOTE: You need to relay the 100eyes telegram channel to a non-secure one for the script to be able to subscribe to it.
+You can use a (paid) service like telefeed, still need to see if open-source software is able to do this.
+
 The `watchlist` bot helper config file uses this layout:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
