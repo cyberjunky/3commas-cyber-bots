@@ -128,10 +128,10 @@ class Logger:
 
         date_fmt = "%Y-%m-%d %H:%M:%S"
         formatter = logging.Formatter(
-            "%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
+            u"%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
         )
         console_formatter = logging.Formatter(
-            "%(asctime)s - %(filename)s - %(message)s", date_fmt
+            u"%(asctime)s - %(filename)s - %(message)s", date_fmt
         )
         # Create directory if not exists
         if not os.path.exists(f"{datadir}/logs"):
@@ -232,6 +232,7 @@ def get_threecommas_deals(botid):
     error, data = api.request(
         entity="deals",
         action="",
+        additional_headers={"Forced-Mode": "real"},
         payload={
             "scope": "finished",
             "bot_id": str(botid),
