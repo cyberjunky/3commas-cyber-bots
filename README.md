@@ -213,7 +213,13 @@ You must have a SL set on the deals within the bot you want this script to manag
 The script will keep track of the last profit % the SL was updated, and will compare the lastest profit %, and move the TSL up when required. The script does not move the SL down, as this wouldn't make sense.
 I have also catered for the fact that the user might update the SL manually after activation on the 3C website - in this case the TSL is restarted for the deal that was manually altered.
 
-Appears to work, again this only has limited testing.
+About the initial-stoploss-percentage:  
+
+This will allow the below scenario:  
+Original deal stoploss is 5%, the activation % is triggered at 2% profit.  
+The script can move the stoploss straight to -0.01% to guarantee profit (example initial-stoploss-percentage), the trailingstoploss will then track the price up to ensure more guaranteed profit.  
+
+Walue 0 means the script will continue working as the old revision and a traditional TSL
 
 I would use this with caution. I am only using this to reduce my liquidation risk on my futures bots - but could be used with spot bots if you know what you're doing.
 
@@ -227,6 +233,7 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
 -   **activation-percentage** - % of profit at which script becomes active for a bot
+-   **initial-stoploss-percentage** - % of profit to amend at first activation (0 = disable)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
@@ -241,6 +248,7 @@ debug = False
 logrotate = 14
 botids = [ 123456 ]
 activation-percentage = 3
+initial-stoploss-percentage = 0.01
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 notifications = True
