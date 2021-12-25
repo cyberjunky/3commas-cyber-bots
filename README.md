@@ -219,7 +219,7 @@ This will allow the below scenario:
 Original deal stoploss is 5%, the activation % is triggered at 2% profit.  
 The script can move the stoploss straight to -0.01% to guarantee profit (example initial-stoploss-percentage), the trailingstoploss will then track the price up to ensure more guaranteed profit.  
 
-Walue 0 means the script will continue working as the old revision and a traditional TSL
+Value \[\] means the script will continue working as the old revision and a traditional TSL
 
 I would use this with caution. I am only using this to reduce my liquidation risk on my futures bots - but could be used with spot bots if you know what you're doing.
 
@@ -233,7 +233,7 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
 -   **activation-percentage** - % of profit at which script becomes active for a bot
--   **initial-stoploss-percentage** - % of profit to amend at first activation (0 = disable)
+-   **initial-stoploss-percentage** - % of profit to amend at first activation (\[\] = disable)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
