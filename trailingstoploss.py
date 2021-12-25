@@ -200,7 +200,7 @@ def load_config():
         "logrotate": 7,
         "botids": [12345, 67890],
         "activation-percentage": 0,
-        "initial-stoploss-percentage": 0,
+        "initial-stoploss-percentage": "[]",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
@@ -291,7 +291,7 @@ def process_deals(thebot):
                     or existing_deal["last_stop_loss_percentage"] != stoploss
                     else float(existing_deal["last_profit_percentage"]),
                     2,
-                )  # If user changes SL in 3C then we have to start again
+                ) # If user changes SL in 3C then we have to start again
 
                 logger.debug(f"Pair: {deal['pair']}")
                 logger.debug(f"Deal id: {deal_id}")
@@ -314,7 +314,7 @@ def process_deals(thebot):
                     new_stoploss = round(
                         initial_stoploss_percentage
                         if existing_deal is None
-                        and initial_stoploss_percentage
+                        and initial_stoploss_percentage is not None
                         else stoploss
                         + (last_profit_percentage - actual_profit_percentage),
                         2,
@@ -373,8 +373,8 @@ def upgrade_config(cfg):
 
     try:
         cfg.get("settings", "initial-stoploss-percentage")
-    except configparser.NoOptionError:
-        cfg.set("settings", "initial-stoploss-percentage","0")
+    except (configparser.NoOptionError):
+        cfg.set("settings", "initial-stoploss-percentage", "[]")
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
