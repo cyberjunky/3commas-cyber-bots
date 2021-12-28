@@ -186,12 +186,12 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ![CoinMarketCap](images/coinmarketcap.png)
 
 
-## Trailing stoploss bot helper named `trailingstoploss.py`
+## Futures trailing stoploss bot helper named `trailingstoploss.py`
 Type = stop loss
 
 ### What does it do?
 
-It will change the trailing stoploss of a bot when the profit % >= as the activation-percentage setting.
+It will change the trailing stoploss of a futures bot when the profit % >= as the activation-percentage setting.
 
 ### How does it work?
 
@@ -244,6 +244,74 @@ debug = False
 logrotate = 14
 botids = [ 123456 ]
 activation-percentage = 3
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
+
+## DCA Trailing stoploss and profit bot helper named `tsl_and_tp.py`
+Type = stop loss
+
+### What does it do?
+
+It will change the trailing stoploss (and optionally the profit %) of a DCA bot when the profit % >= as the activation-percentage setting.
+
+### How does it work?
+
+The bot does run on two intervals; a check interval to check the active deals and one for monitoring deals with a stoploss set. For the trailing stoploss a shorter interval is required, in order to keep the deal up to date.
+
+Both intervals perform the same steps. First the config are read, their active deals are checked for profit %.
+If the value is above or equal to activation-percentage, or in next iterations the profit % has increased, the SL is recalculated, like so:  
+
+`new_stoploss = stoploss + (last_profit_percentage - actual_profit_percentage)`
+
+The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
+
+`new_takeprofit = takeprofit + ((last_profit_percentage - actual_profit_percentage) * tp-increment-factor)`
+
+Configuring the `tp-increment-factor` to 0.0 will disable the increment and leave the TP untouched to what is configured in the bot.
+			
+The last profit percentage of the deal is stored to be used for next iterations, so the bot only evaluates deals for which the % profit has increased to avoid unnecessary processing. 
+
+While processing the deals, the script will keep track of:
+- The number of deals with SL activated, which is required to determine which time interval (check or monitor) to use.
+- The active deals. Deals which where monitored before and are not active anymore (closed) are removed from the database in order to prevent an every growing database.
+
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+
+### Configuration
+
+This is the layout of the config file used by the `compound.py` bot helper:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
+-   **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **activation-percentage** - % of profit at which script becomes active for a bot. (default = 3)
+-   **initial-stoploss-percentage** - % of stoploss to start on when activation-percentage is reached. (default = 1)
+-   **tp-increment-factor** - % to increase the TP with based on % profit after activation-percentage. (default = 0.5)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+check-interval = 120
+monitor-interval = 60
+debug = False
+logrotate = 14
+botids = [ 123456 ]
+activation-percentage = 3.0
+initial-stoploss-percentage = 1.0
+tp-increment-factor = 0.5
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 notifications = True
