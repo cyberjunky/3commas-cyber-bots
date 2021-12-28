@@ -137,13 +137,14 @@ It will monitor CoinMarketCap and use the Top X to create pairs for your 3Comma'
 
 ### How does it work?
 
-The CoinMarketCap API is used to request a list, sorted on marketcap and only containing `numberofpairs` coins (Top X coins). The base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending on your exchange) to see if the pairs are valid.
+The CoinMarketCap API is used to request a list, sorted on marketcap and only containing `start-number - end-number` coins (Top X coins). The base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending on your exchange) to see if the pairs are valid.
 
 If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume.
+NOTE: random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded using the start-number.
 
 ### Configuration
 
@@ -154,7 +155,8 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to request from CoinMarketCap. (default is 200)
+-   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
+-   **end-number** - end number for the pairs to request. (default is 200)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **cmc-apikey** - Your CoinMarketCap API key value.
@@ -170,7 +172,8 @@ timeinterval = 86400
 debug = False
 logrotate = 14
 botids = [ 123456 ]
-numberofpairs = 200
+start-number = 1
+end-number = 200
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 cmc-apikey = 4czrn2yo3la4h4179grp2
@@ -246,6 +249,7 @@ activation-percentage = 3
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
+
 
 ## Compound bot helper named `compound.py`
 Type = compounder

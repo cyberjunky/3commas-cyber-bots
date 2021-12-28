@@ -199,7 +199,8 @@ def load_config():
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "numberofpairs": 200,
+        "start-number": 1,
+        "end-number": 200,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "cmc-apikey": "Your CoinMarketCap API Key",
@@ -211,6 +212,20 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+def upgrade_config(cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "start-number")
+    except (configparser.NoOptionError):
+        cfg.set("settings", "start-number", "1")
+        cfg.set("settings", "end-number", cfg.get("settings", "numberofpairs"))
+        cfg.remove_option("settings", "numberofpairs")
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+    return cfg
 
 
 def init_threecommas_api(cfg):
@@ -318,8 +333,8 @@ def get_coinmarketcap_data():
 
     # Construct query for CoinMarketCap data
     parms = {
-        "start": 1,
-        "limit": config.get("settings", "numberofpairs"),
+        "start": config.get("settings", "start-number"),
+        "limit": config.get("settings", "end-number"),
         "convert": "BTC",
         "aux": "cmc_rank",
     }
@@ -512,6 +527,9 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
     # Handle timezone
     if hasattr(time, "tzset"):
         os.environ["TZ"] = config.get(
