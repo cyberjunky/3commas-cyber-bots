@@ -200,6 +200,7 @@ def load_config():
         "logrotate": 7,
         "botids": [12345, 67890],
         "activation-percentage": 0,
+        "initial-stoploss-percentage": "[]",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
@@ -266,6 +267,9 @@ def process_deals(thebot):
     deals_count = 0
     deals = thebot["active_deals"]
 
+    logger.info(f"Activation: {activation_percentage}%")
+    logger.info(f"Set stoploss % value @ activation: {initial_stoploss_percentage}")
+
     if deals:
         for deal in deals:
             deals_count += 1
@@ -287,19 +291,36 @@ def process_deals(thebot):
                     or existing_deal["last_stop_loss_percentage"] != stoploss
                     else float(existing_deal["last_profit_percentage"]),
                     2,
-                )  # If user changes SL in 3C then we have to start again
+                ) # If user changes SL in 3C then we have to start again
+
+                logger.debug(f"Pair: {deal['pair']}")
+                logger.debug(f"Deal id: {deal_id}")
+                logger.debug(f"Bot Strategy: {thebot['strategy']}")
+                logger.debug(f"Actual Profit: {actual_profit_percentage}%")
+                logger.debug(f"Current Stoploss: {stoploss}")
+                logger.debug(f"Last Used Profit: {last_profit_percentage}%")
+                logger.debug(
+                    "Tracking Position: {}".format(
+                        "No" if existing_deal is None else "Yes"
+                    )
+                )
 
                 if (
                     existing_deal is None
                     or actual_profit_percentage >= last_profit_percentage
                 ) and actual_profit_percentage >= activation_percentage:
 
+                    # If the deal has never been tracked before and an inital stoploss value has been configured
                     new_stoploss = round(
-                        stoploss + (last_profit_percentage - actual_profit_percentage),
+                        initial_stoploss_percentage
+                        if existing_deal is None
+                        and initial_stoploss_percentage is not None
+                        else stoploss
+                        + (last_profit_percentage - actual_profit_percentage),
                         2,
                     )
 
-                    if existing_deal is not None and new_stoploss < stoploss:
+                    if new_stoploss < stoploss:
                         update_deal(thebot, deal, new_stoploss)
 
                     if existing_deal is not None:
@@ -347,6 +368,19 @@ def init_tsl_db():
     return dbconnection
 
 
+def upgrade_config(cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "initial-stoploss-percentage")
+    except (configparser.NoOptionError):
+        cfg.set("settings", "initial-stoploss-percentage", "[]")
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+    return cfg
+
+
 # Start application
 program = Path(__file__).stem
 
@@ -371,6 +405,9 @@ if not config:
     )
     sys.exit(0)
 else:
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
     # Handle timezone
     if hasattr(time, "tzset"):
         os.environ["TZ"] = config.get(
@@ -416,6 +453,9 @@ while True:
     botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
     activation_percentage = json.loads(config.get("settings", "activation-percentage"))
+    initial_stoploss_percentage = json.loads(
+        config.get("settings", "initial-stoploss-percentage")
+    )
 
     # Walk through all bots specified
     for bot in botids:
