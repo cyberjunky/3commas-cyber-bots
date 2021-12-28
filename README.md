@@ -271,17 +271,19 @@ It will change the trailing stoploss (and optionally the profit %) of a DCA bot 
 The bot does run on two intervals; a check interval to check the active deals and one for monitoring deals with a stoploss set. For the trailing stoploss a shorter interval is required, in order to keep the deal up to date.
 
 Both intervals perform the same steps. First the config are read, their active deals are checked for profit %.
-If the value is above or equal to activation-percentage, or in next iterations the profit % has increased, the SL is recalculated, like so:  
+If the value is above or equal to activation-percentage, the initial SL is calculated, like so:  
 
-`new_stoploss = stoploss + (last_profit_percentage - actual_profit_percentage)`
+`new_stoploss = initial-stoploss + (actual_profit_percentage - activation_percentage)`
 
 The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
 
-`new_takeprofit = takeprofit + ((last_profit_percentage - actual_profit_percentage) * tp-increment-factor)`
+`new_takeprofit = takeprofit + ((actual_percentage - activation_percentage) * tp-increment-factor)`
 
 Configuring the `tp-increment-factor` to 0.0 will disable the increment and leave the TP untouched to what is configured in the bot.
-			
-The last profit percentage of the deal is stored to be used for next iterations, so the bot only evaluates deals for which the % profit has increased to avoid unnecessary processing. 
+
+Do note that extra profit is directly included! So, for example, when the `activation-percentage` is set to 3.0% and the `actual profit` is 3.2%, this 0.2% is immediately added to the `initial-stoploss`.
+
+The last profit percentage of the deal is stored to be used for next iterations, so the bot only evaluates deals for which the % profit has increased to avoid unnecessary processing. In the calcutions shown above the `current` and `last` profit percentage will then be used.
 
 While processing the deals, the script will keep track of:
 - The number of deals with SL activated, which is required to determine which time interval (check or monitor) to use.
