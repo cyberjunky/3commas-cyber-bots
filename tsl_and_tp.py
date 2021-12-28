@@ -200,7 +200,7 @@ def load_config():
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "activation-percentage": 3,
+        "activation-percentage": 3.0,
         "initial-stoploss-percentage": 1.0,
         "tp-increment-factor": 0.5,
         "3c-apikey": "Your 3Commas API Key",
