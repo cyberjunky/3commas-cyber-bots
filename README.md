@@ -137,13 +137,14 @@ It will monitor CoinMarketCap and use the Top X to create pairs for your 3Comma'
 
 ### How does it work?
 
-The CoinMarketCap API is used to request a list, sorted on marketcap and only containing `numberofpairs` coins (Top X coins). The base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending on your exchange) to see if the pairs are valid.
+The CoinMarketCap API is used to request a list, sorted on marketcap and only containing `start-number - end-number` coins (Top X coins). The base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending on your exchange) to see if the pairs are valid.
 
 If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume.
+NOTE: random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded using the start-number.
 
 ### Configuration
 
@@ -154,7 +155,8 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to request from CoinMarketCap. (default is 200)
+-   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
+-   **end-number** - end number for the pairs to request. (default is 200)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **cmc-apikey** - Your CoinMarketCap API key value.
@@ -170,7 +172,8 @@ timeinterval = 86400
 debug = False
 logrotate = 14
 botids = [ 123456 ]
-numberofpairs = 200
+start-number = 1
+end-number = 200
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 cmc-apikey = 4czrn2yo3la4h4179grp2
@@ -183,12 +186,12 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ![CoinMarketCap](images/coinmarketcap.png)
 
 
-## Trailing stoploss bot helper named `trailingstoploss.py`
+## Futures trailing stoploss bot helper named `trailingstoploss.py`
 Type = stop loss
 
 ### What does it do?
 
-It will change the trailing stoploss of a bot when the profit % >= as the activation-percentage setting.
+It will change the trailing stoploss of a futures bot when the profit % >= as the activation-percentage setting.
 
 ### How does it work?
 
@@ -254,6 +257,77 @@ initial-stoploss-percentage = 0.01
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
+
+
+## DCA Trailing stoploss and profit bot helper named `tsl_and_tp.py`
+Type = stop loss
+
+### What does it do?
+
+It will change the trailing stoploss (and optionally the profit %) of a DCA bot when the profit % >= as the activation-percentage setting.
+
+### How does it work?
+
+The bot does run on two intervals; a check interval to check the active deals and one for monitoring deals with a stoploss set. For the trailing stoploss a shorter interval is required, in order to keep the deal up to date.
+
+Both intervals perform the same steps. First the config are read, their active deals are checked for profit %.
+If the value is above or equal to activation-percentage, the initial SL is calculated, like so:  
+
+`new_stoploss = initial-stoploss + (actual_profit_percentage - activation_percentage)`
+
+The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
+
+`new_takeprofit = takeprofit + ((actual_percentage - activation_percentage) * tp-increment-factor)`
+
+Configuring the `tp-increment-factor` to 0.0 will disable the increment and leave the TP untouched to what is configured in the bot.
+
+Do note that extra profit is directly included! So, for example, when the `activation-percentage` is set to 3.0% and the `actual profit` is 3.2%, this 0.2% is immediately added to the `initial-stoploss`.
+
+The last profit percentage of the deal is stored to be used for next iterations, so the bot only evaluates deals for which the % profit has increased to avoid unnecessary processing. In the calcutions shown above the `current` and `last` profit percentage will then be used.
+
+While processing the deals, the script will keep track of:
+- The number of deals with SL activated, which is required to determine which time interval (check or monitor) to use.
+- The active deals. Deals which where monitored before and are not active anymore (closed) are removed from the database in order to prevent an every growing database.
+
+Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+
+### Configuration
+
+This is the layout of the config file used by the `compound.py` bot helper:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
+-   **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **botids** - a list of bot id's to manage separated with commas
+-   **activation-percentage** - % of profit at which script becomes active for a bot. (default = 3)
+-   **initial-stoploss-percentage** - % of stoploss to start on when activation-percentage is reached. (default = 1)
+-   **tp-increment-factor** - % to increase the TP with based on % profit after activation-percentage. (default = 0.5)
+-   **3c-apikey** - Your 3Commas API key value.
+-   **3c-apisecret** - Your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+check-interval = 120
+monitor-interval = 60
+debug = False
+logrotate = 7
+botids = [ 123456 ]
+activation-percentage = 3.0
+initial-stoploss-percentage = 1.0
+tp-increment-factor = 0.5
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+```
+
 
 ## Compound bot helper named `compound.py`
 Type = compounder

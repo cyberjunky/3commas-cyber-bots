@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import queue
+import sqlite3
 import sys
 import threading
 import time
@@ -13,7 +14,6 @@ from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandl
 from pathlib import Path
 
 import apprise
-import requests
 from py3cw.request import Py3CW
 
 
@@ -195,15 +195,16 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
-        "timeinterval": 86400,
+        "check-interval": 120,
+        "monitor-interval": 60,
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
-        "start-number": 1,
-        "end-number": 200,
+        "activation-percentage": 3.0,
+        "initial-stoploss-percentage": 1.0,
+        "tp-increment-factor": 0.5,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
-        "cmc-apikey": "Your CoinMarketCap API Key",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -212,20 +213,6 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
-
-def upgrade_config(cfg):
-    """Upgrade config file if needed."""
-
-    try:
-        cfg.get("settings", "start-number")
-    except (configparser.NoOptionError):
-        cfg.set("settings", "start-number", "1")
-        cfg.set("settings", "end-number", cfg.get("settings", "numberofpairs"))
-        cfg.remove_option("settings", "numberofpairs")
-        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-            cfg.write(cfgfile)
-
-    return cfg
 
 
 def init_threecommas_api(cfg):
@@ -241,254 +228,158 @@ def init_threecommas_api(cfg):
     )
 
 
-def get_filebased_blacklist():
-    """Get the pair blacklist from local file."""
+def check_deal(dealid):
+    """Check if deal was already logged."""
+    data = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
+    if data is None:
+        return None
 
-    newblacklist = []
-    try:
-        with open(f"{datadir}/{blacklistfile}", "r") as file:
-            newblacklist = file.read().splitlines()
-        if newblacklist:
-            logger.info(
-                "Reading local blacklist file '%s' OK (%s pairs)"
-                % (blacklistfile, len(newblacklist))
-            )
-    except FileNotFoundError:
-        logger.error(
-            "Reading local blacklist file '%s' failed with error: File not found"
-            % blacklistfile
-        )
-
-    return newblacklist
+    return data
 
 
-def get_threecommas_blacklist():
-    """Get the pair blacklist from 3Commas."""
-
-    newblacklist = list()
-    error, data = api.request(
-        entity="bots",
-        action="pairs_black_list",
-    )
-    if data:
-        logger.info(
-            "Fetched 3Commas pairs blacklist OK (%s pairs)" % len(data["pairs"])
-        )
-        newblacklist = data["pairs"]
-    else:
-        logger.error(
-            "Fetching 3Commas pairs blacklist failed with error: %s" % error["msg"]
-        )
-
-    return newblacklist
-
-
-def get_threecommas_account(accountid):
-    """Get account details."""
+def update_deal(thebot, deal, new_stoploss, new_take_profit):
+    """Update bot with new SL."""
+    bot_name = thebot["name"]
+    deal_id = deal["id"]
 
     error, data = api.request(
-        entity="accounts",
-        action="",
-        additional_headers={"Forced-Mode": "real"},
-    )
-    if data:
-        for account in data:
-            if account["id"] == accountid:
-                marketcode = account["market_code"]
-                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
-                return marketcode
-        return "paper_trading"
-
-    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
-    return None
-
-
-def get_threecommas_market(market_code):
-    """Get all the valid pairs for market_code from 3Commas account."""
-
-    tickerlist = []
-    error, data = api.request(
-        entity="accounts",
-        action="market_pairs",
-        payload={"market_code": market_code},
-    )
-    if data:
-        tickerlist = data
-        logger.info(
-            "Fetched 3Commas market data for '%s' OK (%s pairs)"
-            % (market_code, len(tickerlist))
-        )
-    else:
-        logger.error(
-            "Fetching 3Commas market data failed with error: %s" % error["msg"]
-        )
-
-    return tickerlist
-
-
-def get_coinmarketcap_data():
-    """Get the data from CoinMarketCap."""
-
-    cmcdict = {}
-
-    # Construct query for CoinMarketCap data
-    parms = {
-        "start": config.get("settings", "start-number"),
-        "limit": config.get("settings", "end-number"),
-        "convert": "BTC",
-        "aux": "cmc_rank",
-    }
-
-    headrs = {
-        "X-CMC_PRO_API_KEY": config.get("settings", "cmc-apikey"),
-    }
-
-    try:
-        result = requests.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest", params=parms, headers=headrs )
-        result.raise_for_status()
-        data = result.json()
-
-        if "data" in data.keys():
-            cmcdict = data["data"]
-
-    except requests.exceptions.HTTPError as err:
-        logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
-        return cmcdict
-
-    logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
-
-    return cmcdict
-
-
-def load_blacklist():
-    """Return blacklist to be used."""
-
-    if blacklistfile:
-        return get_filebased_blacklist()
-
-    return get_threecommas_blacklist()
-
-
-def handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist):
-    """Check pair conditions."""
-
-    # Check if pair is in tickerlist and on 3Commas blacklist
-    if pair in tickerlist:
-        if pair in blacklist:
-            blackpairs.append(pair)
-        else:
-            newpairs.append(pair)
-    else:
-        badpairs.append(pair)
-
-
-def find_pairs(thebot):
-    """Find new pairs and update the bot."""
-
-    # Gather bot settings
-    base = thebot["pairs"][0].split("_")[0]
-    exchange = thebot["account_name"]
-
-    logger.info("Bot base currency: %s" % base)
-
-    # Start fresh
-    newpairs = list()
-    badpairs = list()
-    blackpairs = list()
-
-    # get marketcode from account and load tickerlist
-    marketcode = get_threecommas_account(thebot["account_id"])
-    if not marketcode:
-        return
-
-    tickerlist = get_threecommas_market(marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
-
-    # Fetch and parse CoinMarketCap data
-    for entry in coinmarketcap:
-        try:
-            coin = entry["symbol"]
-            pair = base + "_" + coin
-
-            handle_pair(pair, blackpairs, badpairs, newpairs, tickerlist)
-
-        except KeyError as err:
-            logger.error(
-                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
-                % err
-            )
-            return
-
-    logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
-
-    logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
-    )
-
-    if not newpairs:
-        logger.info(
-            "None of the by CoinMarketCap suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
-
-    update_bot(thebot, newpairs)
-
-
-def update_bot(thebot, newpairs):
-    """Update bot with new pairs."""
-
-    # Do we already use these pairs?
-    if newpairs == thebot["pairs"]:
-        logger.info(
-            "Bot '%s' with id '%s' is already using the best %s pairs"
-            % (thebot["name"], thebot["id"], len(newpairs)),
-            True,
-        )
-        return
-
-    logger.debug("Current pairs: %s\nNew pairs: %s" % (thebot["pairs"], newpairs))
-
-    error, data = api.request(
-        entity="bots",
-        action="update",
-        action_id=str(thebot["id"]),
+        entity="deals",
+        action="update_deal",
+        action_id=str(deal_id),
         payload={
-            "name": str(thebot["name"]),
-            "pairs": newpairs,
-            "base_order_volume": float(thebot["base_order_volume"]),
-            "take_profit": float(thebot["take_profit"]),
-            "safety_order_volume": float(thebot["safety_order_volume"]),
-            "martingale_volume_coefficient": float(
-                thebot["martingale_volume_coefficient"]
-            ),
-            "martingale_step_coefficient": float(thebot["martingale_step_coefficient"]),
-            "max_safety_orders": int(thebot["max_safety_orders"]),
-            "max_active_deals": int(thebot["max_active_deals"]),
-            "active_safety_orders_count": int(thebot["active_safety_orders_count"]),
-            "safety_order_step_percentage": float(
-                thebot["safety_order_step_percentage"]
-            ),
-            "take_profit_type": thebot["take_profit_type"],
-            "strategy_list": thebot["strategy_list"],
-            "leverage_type": thebot["leverage_type"],
-            "leverage_custom_value": thebot["leverage_custom_value"],
-            "bot_id": int(thebot["id"]),
+            "deal_id": thebot["id"],
+            "stop_loss_percentage": new_stoploss,
+            "take_profit": new_take_profit,
         },
     )
     if data:
-        logger.debug("Bot updated: %s" % data)
         logger.info(
-            "Bot '%s' with id '%s' updated with these %s pairs:\n%s"
-            % (thebot["name"], thebot["id"], len(newpairs), newpairs),
+            f"Changing SL for deal {deal_id}/{deal['pair']} on bot \"{bot_name}\"\n"
+            f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
+            f"Changed TP from {deal['take_profit']}% to {new_take_profit}",
             True,
         )
     else:
         logger.error(
-            "Error occurred while updating bot '%s' error: %s"
-            % (thebot["name"], error["msg"]),
-            True,
+            "Error occurred updating bot with new SL/TP values: %s" % error["msg"]
         )
+
+
+def process_deals(thebot):
+    """Check deals from bot and compare SL agains the database."""
+
+    deals = thebot["active_deals"]
+    monitored_deals = 0
+
+    if deals:
+        botid = thebot['id']
+        current_deals = ""
+
+        for deal in deals:
+            deal_id = deal["id"]
+
+            if current_deals:
+                current_deals += ","
+            current_deals += str(deal_id)
+
+            actual_profit_percentage = float(deal["actual_profit_percentage"])
+            existing_deal = check_deal(deal_id)
+
+            if not existing_deal and actual_profit_percentage >= activation_percentage:
+                monitored_deals = +1
+
+                # New deal which requires TSL
+                activation_diff = actual_profit_percentage - activation_percentage
+                new_stoploss = 0.0 - round(initial_stoploss_percentage + (activation_diff), 2)
+
+                # Increase TP using diff multiplied with the configured factor
+                new_take_profit = round(float(deal["take_profit"]) + (activation_diff * tp_increment_factor), 2)
+
+                update_deal(thebot, deal, new_stoploss, new_take_profit)
+
+                db.execute(
+                    f"INSERT INTO deals (dealid, botid, last_profit_percentage, last_stop_loss_percentage) "
+                    f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {new_stoploss})"
+                )
+                logger.info(
+                    f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}\"; "
+                    f"current profit {actual_profit_percentage}, stoploss set to {new_stoploss} and tp to {new_take_profit}"
+                )
+            elif existing_deal:
+                monitored_deals = +1
+                last_profit_percentage = float(existing_deal["last_profit_percentage"])
+
+                if actual_profit_percentage > last_profit_percentage:
+                    monitored_deals = +1
+
+                    # Existing deal with TSL and profit increased, so move TSL
+                    actual_stoploss = float(deal["stop_loss_percentage"])
+                    actual_take_profit = float(deal["take_profit"])
+                    profit_diff = actual_profit_percentage - last_profit_percentage
+
+                    logger.info(
+                        f"Deal {deal_id} profit increase of {profit_diff}%. Keep on monitoring."
+                    )
+
+                    new_stoploss = round(actual_stoploss - profit_diff, 2)
+                    new_take_profit = round(actual_take_profit + (profit_diff * tp_increment_factor), 2)
+
+                    update_deal(thebot, deal, new_stoploss, new_take_profit)
+
+                    db.execute(
+                        f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
+                        f"last_stop_loss_percentage = {new_stoploss} "
+                        f"WHERE dealid = {deal_id}"
+                    )
+                else:
+                    logger.info(
+                        f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
+                        f"last: {last_profit_percentage}%. Keep on monitoring."
+                    )
+
+        logger.info(
+            f"Finished processing {len(deals)} deals for bot \"{thebot['name']}\""
+        )
+
+        # Housekeeping, clean things up and prevent endless growing database
+        if current_deals:
+            logger.info(f"Deleting old deals from bot {botid} except {current_deals}")
+            db.execute(
+                f"DELETE FROM deals WHERE botid = {botid} AND dealid NOT IN ({current_deals})"
+            )
+
+        db.commit()
+
+        logger.info(
+            f"Bot {botid} has {len(deals)} of which {monitored_deals} deal(s) require monitoring."
+        )
+    # No else, no deals for this bot
+
+    return monitored_deals
+
+
+def init_tsl_db():
+    """Create or open database to store bot and deals data."""
+    try:
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
+        dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
+
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
+    except sqlite3.OperationalError:
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
+
+        dbcursor.execute(
+            "CREATE TABLE deals (dealid INT Primary Key, botid INT, last_profit_percentage FLOAT, last_stop_loss_percentage FLOAT)"
+        )
+        logger.info("Database tables created successfully")
+
+    return dbconnection
 
 
 # Start application
@@ -496,12 +387,7 @@ program = Path(__file__).stem
 
 # Parse and interpret options.
 parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
-parser.add_argument(
-    "-d", "--datadir", help="directory to use for config and logs files", type=str
-)
-parser.add_argument(
-    "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
-)
+parser.add_argument("-d", "--datadir", help="data directory to use", type=str)
 
 args = parser.parse_args()
 if args.datadir:
@@ -509,27 +395,17 @@ if args.datadir:
 else:
     datadir = os.getcwd()
 
-# pylint: disable-msg=C0103
-if args.blacklist:
-    blacklistfile = args.blacklist
-else:
-    blacklistfile = None
-
 # Create or load configuration file
 config = load_config()
-
 if not config:
     logger = Logger(None, 7, False, False)
-    logger.info(f"3Commas bot helper {program}!")
+    logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s." % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(
         f"Created example config file '{datadir}/{program}.ini', edit it and restart the program."
     )
     sys.exit(0)
 else:
-    # Upgrade config file if needed
-    config = upgrade_config(config)
-
     # Handle timezone
     if hasattr(time, "tzset"):
         os.environ["TZ"] = config.get(
@@ -550,7 +426,7 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
-    logger.info(f"3Commas bot helper {program}!")
+    logger.info(f"3Commas bot helper {program}")
     logger.info("Started at %s" % time.strftime("%A %H:%M:%S %d-%m-%Y"))
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
@@ -561,21 +437,25 @@ else:
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+# Initialize or open database
+db = init_tsl_db()
+cursor = db.cursor()
 
-# Lunacrush GalayScore or AltRank pairs
+# TSL %
 while True:
 
-    # Reload config files and refetch data to catch changes
     config = load_config()
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # User settings
     botids = json.loads(config.get("settings", "botids"))
-    timeint = int(config.get("settings", "timeinterval"))
+    check_interval = int(config.get("settings", "check-interval"))
+    monitor_interval = int(config.get("settings", "monitor-interval"))
+    activation_percentage = float(json.loads(config.get("settings", "activation-percentage")))
+    initial_stoploss_percentage = float(json.loads(config.get("settings", "initial-stoploss-percentage")))
+    tp_increment_factor = float(json.loads(config.get("settings", "tp-increment-factor")))
 
-    # Update the blacklist and download coinmarketcap data
-    blacklist = load_blacklist()
-    coinmarketcap = get_coinmarketcap_data()
+    deals_to_monitor = 0
 
     # Walk through all bots specified
     for bot in botids:
@@ -585,15 +465,16 @@ while True:
             action_id=str(bot),
         )
         if botdata:
-            find_pairs(botdata)
+            deals_to_monitor += process_deals(botdata)
         else:
-            logger.error("Error occurred updating bots: %s" % boterror["msg"])
-
-    if timeint > 0:
+            logger.error("Error occurred incrementing deals: %s" % boterror["msg"])
+    
+    time_interval = check_interval if deals_to_monitor == 0 else monitor_interval
+    if time_interval > 0:
         localtime = time.time()
-        nexttime = localtime + int(timeint)
+        nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
-        time.sleep(timeint)
+        logger.info("Next update in %s Seconds at %s" % (time_interval, timeresult), True)
+        time.sleep(time_interval)
     else:
         break
