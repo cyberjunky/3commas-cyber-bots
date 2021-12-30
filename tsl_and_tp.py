@@ -10,7 +10,8 @@ import sqlite3
 import sys
 import threading
 import time
-from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
+from logging.handlers import \
+    TimedRotatingFileHandler as _TimedRotatingFileHandler
 from pathlib import Path
 
 import apprise
@@ -272,7 +273,7 @@ def process_deals(thebot):
     monitored_deals = 0
 
     if deals:
-        botid = thebot['id']
+        botid = thebot["id"]
         current_deals = ""
 
         for deal in deals:
@@ -290,10 +291,16 @@ def process_deals(thebot):
 
                 # New deal which requires TSL
                 activation_diff = actual_profit_percentage - activation_percentage
-                new_stoploss = 0.0 - round(initial_stoploss_percentage + (activation_diff), 2)
+                new_stoploss = 0.0 - round(
+                    initial_stoploss_percentage + (activation_diff), 2
+                )
 
                 # Increase TP using diff multiplied with the configured factor
-                new_take_profit = round(float(deal["take_profit"]) + (activation_diff * tp_increment_factor), 2)
+                new_take_profit = round(
+                    float(deal["take_profit"])
+                    + (activation_diff * tp_increment_factor),
+                    2,
+                )
 
                 update_deal(thebot, deal, new_stoploss, new_take_profit)
 
@@ -322,7 +329,9 @@ def process_deals(thebot):
                     )
 
                     new_stoploss = round(actual_stoploss - profit_diff, 2)
-                    new_take_profit = round(actual_take_profit + (profit_diff * tp_increment_factor), 2)
+                    new_take_profit = round(
+                        actual_take_profit + (profit_diff * tp_increment_factor), 2
+                    )
 
                     update_deal(thebot, deal, new_stoploss, new_take_profit)
 
@@ -451,9 +460,15 @@ while True:
     botids = json.loads(config.get("settings", "botids"))
     check_interval = int(config.get("settings", "check-interval"))
     monitor_interval = int(config.get("settings", "monitor-interval"))
-    activation_percentage = float(json.loads(config.get("settings", "activation-percentage")))
-    initial_stoploss_percentage = float(json.loads(config.get("settings", "initial-stoploss-percentage")))
-    tp_increment_factor = float(json.loads(config.get("settings", "tp-increment-factor")))
+    activation_percentage = float(
+        json.loads(config.get("settings", "activation-percentage"))
+    )
+    initial_stoploss_percentage = float(
+        json.loads(config.get("settings", "initial-stoploss-percentage"))
+    )
+    tp_increment_factor = float(
+        json.loads(config.get("settings", "tp-increment-factor"))
+    )
 
     deals_to_monitor = 0
 
@@ -468,13 +483,15 @@ while True:
             deals_to_monitor += process_deals(botdata)
         else:
             logger.error("Error occurred incrementing deals: %s" % boterror["msg"])
-    
+
     time_interval = check_interval if deals_to_monitor == 0 else monitor_interval
     if time_interval > 0:
         localtime = time.time()
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-        logger.info("Next update in %s Seconds at %s" % (time_interval, timeresult), True)
+        logger.info(
+            "Next update in %s Seconds at %s" % (time_interval, timeresult), True
+        )
         time.sleep(time_interval)
     else:
         break
