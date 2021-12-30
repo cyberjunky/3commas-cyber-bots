@@ -128,10 +128,10 @@ class Logger:
 
         date_fmt = "%Y-%m-%d %H:%M:%S"
         formatter = logging.Formatter(
-            u"%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
+            "%(asctime)s - %(filename)s - %(levelname)s - %(message)s", date_fmt
         )
         console_formatter = logging.Formatter(
-            u"%(asctime)s - %(filename)s - %(message)s", date_fmt
+            "%(asctime)s - %(filename)s - %(message)s", date_fmt
         )
         # Create directory if not exists
         if not os.path.exists(f"{datadir}/logs"):
@@ -225,10 +225,11 @@ def init_threecommas_api(cfg):
         },
     )
 
+
 def get_threecommas_account(accountid):
     """Get account details."""
-    marketcode = "paper_trading"
 
+    # Find account data for accountid, in real mode
     error, data = api.request(
         entity="accounts",
         action="",
@@ -236,15 +237,31 @@ def get_threecommas_account(accountid):
     )
     if data:
         for account in data:
-            if account["id"] == accountid:
+            if account["id"] == 1:
                 marketcode = account["market_code"]
-                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
+                logger.info(
+                    "Fetched 3Commas account market code in real mode OK (%s)"
+                    % marketcode
+                )
                 return marketcode
 
-        logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
-        return marketcode
+    # Didn't find the account data for accountid, retrying in paper mode
+    error, data = api.request(
+        entity="accounts", action="", additional_headers={"Forced-Mode": "paper"}
+    )
+    if data:
+        for account in data:
+            if account["id"] == 1:
+                marketcode = account["market_code"]
+                logger.info(
+                    "Fetched 3Commas account market code in paper mode OK (%s)"
+                    % marketcode
+                )
+                return marketcode
 
-    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
+    logger.error(
+        f"Fetching 3Commas account failed for id {accountid} (real and paper mode)"
+    )
     return None
 
 
@@ -256,7 +273,6 @@ def get_threecommas_deals(botid, accountmode="real"):
     else:
         mode = "real"
 
-    print(mode)
     error, data = api.request(
         entity="deals",
         action="",
@@ -388,10 +404,13 @@ def compound_bot(thebot):
     """Find profit from deals and calculate new SO and BO values."""
 
     bot_name = thebot["name"]
-    account_id = thebot["account_id"]
-    account_mode = get_threecommas_account(account_id)
-    
-    deals = get_threecommas_deals(thebot["id"], account_mode)
+
+    # Get marketcode from account
+    marketcode = get_threecommas_account(thebot["account_id"])
+    if not marketcode:
+        return
+
+    deals = get_threecommas_deals(thebot["id"], marketcode)
 
     if deals:
         deals_count, profit_sum = process_deals(deals)

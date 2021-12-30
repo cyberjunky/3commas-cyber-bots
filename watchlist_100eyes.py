@@ -241,20 +241,39 @@ def init_threecommas_api(cfg):
 def get_threecommas_account(accountid):
     """Get account details."""
 
+    # Find account data for accountid, in real mode
     error, data = api.request(
         entity="accounts",
         action="",
         additional_headers={"Forced-Mode": "real"},
     )
-    if data != {}:
+    if data:
         for account in data:
-            if account["id"] == accountid:
+            if account["id"] == 1:
                 marketcode = account["market_code"]
-                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
+                logger.info(
+                    "Fetched 3Commas account market code in real mode OK (%s)"
+                    % marketcode
+                )
                 return marketcode
-        return "paper_trading"
 
-    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
+    # Didn't find the account data for accountid, retrying in paper mode
+    error, data = api.request(
+        entity="accounts", action="", additional_headers={"Forced-Mode": "paper"}
+    )
+    if data:
+        for account in data:
+            if account["id"] == 1:
+                marketcode = account["market_code"]
+                logger.info(
+                    "Fetched 3Commas account market code in paper mode OK (%s)"
+                    % marketcode
+                )
+                return marketcode
+
+    logger.error(
+        f"Fetching 3Commas account failed for id {accountid} (real and paper mode)"
+    )
     return None
 
 
@@ -339,6 +358,9 @@ def check_pair(thebot, base, coin, trigger):
 
     # Get marketcode from account and load corresponding tickerlist
     marketcode = get_threecommas_account(thebot["account_id"])
+    if not marketcode:
+        return
+
     tickerlist = get_threecommas_market(marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
