@@ -225,14 +225,42 @@ def init_threecommas_api(cfg):
         },
     )
 
+def get_threecommas_account(accountid):
+    """Get account details."""
+    marketcode = "paper_trading"
 
-def get_threecommas_deals(botid):
+    error, data = api.request(
+        entity="accounts",
+        action="",
+        additional_headers={"Forced-Mode": "real"},
+    )
+    if data:
+        for account in data:
+            if account["id"] == accountid:
+                marketcode = account["market_code"]
+                logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
+                return marketcode
+
+        logger.info("Fetched 3Commas account market code OK (%s)" % marketcode)
+        return marketcode
+
+    logger.error("Fetching 3Commas account failed with error: %s" % error["msg"])
+    return None
+
+
+def get_threecommas_deals(botid, accountmode="real"):
     """Get all deals from 3Commas from a bot."""
 
+    if accountmode == "paper_trading":
+        mode = "paper"
+    else:
+        mode = "real"
+
+    print(mode)
     error, data = api.request(
         entity="deals",
         action="",
-        additional_headers={"Forced-Mode": "real"},
+        additional_headers={"Forced-Mode": mode},
         payload={
             "scope": "finished",
             "bot_id": str(botid),
@@ -360,7 +388,10 @@ def compound_bot(thebot):
     """Find profit from deals and calculate new SO and BO values."""
 
     bot_name = thebot["name"]
-    deals = get_threecommas_deals(thebot["id"])
+    account_id = thebot["account_id"]
+    account_mode = get_threecommas_account(account_id)
+    
+    deals = get_threecommas_deals(thebot["id"], account_mode)
 
     if deals:
         deals_count, profit_sum = process_deals(deals)
