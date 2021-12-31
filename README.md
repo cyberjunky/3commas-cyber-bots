@@ -935,7 +935,7 @@ TypeError: object of type 'int' has no len()
 ```
 Make sure usdt-botids and btc-botids are defined within [] in your ini files.
 
-8) I get error ` for account in data: TypeError: 'NoneType' object is not iterable`
+8) I get error `for account in data: TypeError: 'NoneType' object is not iterable`
 ```
   File "./*.py", line 250, in get_threecommas_account
     for account in data:
@@ -943,6 +943,9 @@ TypeError: 'NoneType' object is not iterable
 ```
 Newer versions of the scripts also need AccountRead permissions for the 3Commas API Keys.
 Create new ones, with it and paste them in your ini file(s)
+
+9) I get error `Error occurred updating bots: Other error occurred: signature_invalid Provided signature is invalid None.`
+The secret key specified for the 3Commas API is invalid, check for possible paste error.
 
 ### Debugging
 
