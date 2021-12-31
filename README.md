@@ -336,13 +336,15 @@ Type = compounder
 
 ### What does it do?
 
-It will compound profits made by a bot to the BO and SO of the same bot.
+It will compound profits made by a bot to the BO and SO of the same bot. The compound profits can also be used to increase the number of deals.
 
 ### How does it work?
 
 Every interval the bots specfied in the config are read, their deals are checked for profits.
 If profit has been made, the value will be added to the BO and SO values of the bot.
 Deals are marked as processed and original BO/SO ratio of the bot is stored to be used for next iterations.
+
+When compoundmode 'deals' is chosen, the profit will be added to the BO and SO values as above. Untill the profit exceeds the total used per deal (total of the origional BO and SO's), the max active deals is increased and the BO and SO values are reset to their origional values.
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
@@ -361,7 +363,6 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
-
 Example: (keys are bogus)
 ```
 [settings]
@@ -376,6 +377,24 @@ profittocompound = 1.0
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 ```
+### Bot Specific Configuration
+
+This is the bot specific layout of the config file used by the `compound.py` bot helper:
+
+-   **compoundmode** - How would you like compound? 'boso' to increase BO and SO values of the bot, 'deals' to increase max active deals (default is 'boso')
+-   **profittocompound** - Ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
+-   **usermaxactivedeals** - The maximum number of active deals the compoundscript can increment to
+-   **3c-comment** - Name of the script, used for loggin 
+
+Example: (keys are bogus)
+```
+[bot_123456]
+compoundmode = deals
+profittocompound = 0.8
+usermaxactivedeals = 15
+comment = My first compound bot
+```
+
 
 ### Example output
 
