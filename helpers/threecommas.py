@@ -249,3 +249,30 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
                 "Error occurred while triggering start_new_deal bot '%s'"
                 % thebot["name"],
             )
+
+
+def get_threecommas_deals(logger, api, botid):
+    """Get all deals from 3Commas linked to a bot."""
+
+    data = None
+    error, data = api.request(
+        entity="deals",
+        action="",
+        payload={
+            "scope": "finished",
+            "bot_id": str(botid),
+            "limit": 100,
+        },
+    )
+    if error:
+        if "msg" in error:
+            logger.error(
+                "Error occurred while fetching deals error: %s"
+                % error["msg"],
+            )
+        else:
+            logger.error(
+                "Error occurred while fetching deals")
+    else:
+        logger.info("Fetched the deals for bot OK (%s deals)" % len(data))
+        return data

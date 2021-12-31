@@ -253,7 +253,7 @@ async def callback(event):
 
                 if data:
                     await client.loop.run_in_executor(
-                        None, watchlist_100eyes_deal, data, coin
+                        None, watchlist_100eyes_deal, data, base, coin
                     )
                 else:
                     if error and "msg" in error:

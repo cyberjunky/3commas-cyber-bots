@@ -116,9 +116,5 @@ def get_coinmarketcap_data(logger, config):
 
 def check_deal(cursor, dealid):
     """Check if deal was already logged."""
-    deal = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
-    if deal is None:
-        return None
 
-    return deal
-
+    return cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
