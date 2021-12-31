@@ -65,20 +65,6 @@ def watchlist_deal(thebot, triggerexchange, coin):
     if not marketcode:
         return
 
-    if marketcode == "paper_trading":
-        logger.info(
-            "Trigger is for '%s' exchange while bot is connected to '%s'."
-            " Trading in Paper so skipping check." % (triggerexchange, marketcode),
-            True,
-        )
-    elif marketcode != triggerexchange.lower():
-        logger.info(
-            "Trigger is for '%s' exchange while bot is connected to '%s'. Skipping."
-            % (triggerexchange.lower(), marketcode.lower()),
-            True,
-        )
-        return
-
     # Load tickerlist for this exchange
     tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
@@ -228,7 +214,7 @@ async def callback(event):
         for bot in botids:
             if bot == 0:
                 logger.debug(
-                    "No valid botid defined for '%s' in config, skipping" % base
+                    "No valid botid configured for '%s', skipping" % base
                 )
                 continue
 

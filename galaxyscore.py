@@ -230,6 +230,7 @@ while True:
             action="show",
             action_id=str(bot),
         )
+
         if data:
             lunarcrush_pairs(data)
         else:
