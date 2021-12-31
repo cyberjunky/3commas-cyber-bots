@@ -944,7 +944,7 @@ TypeError: 'NoneType' object is not iterable
 Newer versions of the scripts also need AccountRead permissions for the 3Commas API Keys.
 Create new ones, with it and paste them in your ini file(s)
 
-9) I get error `Error occurred updating bots: Other error occurred: signature_invalid Provided signature is invalid None.`
+9) I get error `Error occurred updating bots: Other error occurred: signature_invalid Provided signature is invalid None.`  
 The secret key specified for the 3Commas API is invalid, check for possible paste error.
 
 ### Debugging
