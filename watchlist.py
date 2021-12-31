@@ -70,6 +70,7 @@ def watchlist_deal(thebot, triggerexchange, coin):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Update the blacklist
+    skipchecks = False
     blacklist = load_blacklist(logger, api, blacklistfile)
     if len(blacklistfile):
         skipchecks = True

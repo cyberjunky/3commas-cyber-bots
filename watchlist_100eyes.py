@@ -81,7 +81,7 @@ def watchlist_100eyes_deal(thebot, base, coin):
     tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
-    # Update the blacklist
+    skipchecks = False
     blacklist = load_blacklist(logger, api, blacklistfile)
     if len(blacklistfile):
         skipchecks = True
