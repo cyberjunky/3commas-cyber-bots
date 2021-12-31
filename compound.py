@@ -237,7 +237,7 @@ def get_threecommas_account(accountid):
     )
     if data:
         for account in data:
-            if account["id"] == 1:
+            if account["id"] == accountid:
                 marketcode = account["market_code"]
                 logger.info(
                     "Fetched 3Commas account market code in real mode OK (%s)"
@@ -251,7 +251,7 @@ def get_threecommas_account(accountid):
     )
     if data:
         for account in data:
-            if account["id"] == 1:
+            if account["id"] == accountid:
                 marketcode = account["market_code"]
                 logger.info(
                     "Fetched 3Commas account market code in paper mode OK (%s)"
