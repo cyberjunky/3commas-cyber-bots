@@ -310,7 +310,8 @@ def process_deals(thebot):
                 )
                 logger.info(
                     f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}\"; "
-                    f"current profit {actual_profit_percentage}, stoploss set to {new_stoploss} and tp to {new_take_profit}"
+                    f"current profit {actual_profit_percentage}, stoploss set to {new_stoploss} "
+                    f"and tp to {new_take_profit}"
                 )
             elif existing_deal:
                 monitored_deals = +1
@@ -325,7 +326,8 @@ def process_deals(thebot):
                     profit_diff = actual_profit_percentage - last_profit_percentage
 
                     logger.info(
-                        f"Deal {deal_id} profit increase of {profit_diff}%. Keep on monitoring."
+                        f"Deal {deal_id} profit change from {last_profit_percentage}% to "
+                        f"{actual_profit_percentage}%. Keep on monitoring."
                     )
 
                     new_stoploss = round(actual_stoploss - profit_diff, 2)

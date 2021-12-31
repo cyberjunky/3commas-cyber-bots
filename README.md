@@ -291,6 +291,8 @@ While processing the deals, the script will keep track of:
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+WARNING: This script is currently being tested and not stable yet! Use with caution.
+
 
 ### Configuration
 
