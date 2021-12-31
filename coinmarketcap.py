@@ -5,6 +5,7 @@ import configparser
 import json
 import os
 import time
+import sys
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
@@ -153,6 +154,7 @@ if not config:
     logger.info(
         f"Created example config file '{datadir}/{program}.ini', edit it and restart the program"
     )
+    sys.exit(0)
 else:
     # Handle timezone
     if hasattr(time, "tzset"):
@@ -203,7 +205,7 @@ while True:
     # Download CoinMarketCap data
     coinmarketcap = get_coinmarketcap_data(logger, config)
 
-    # Walk through all bots specified
+    # Walk through all bots configured
     for bot in botids:
         error, data = api.request(
             entity="bots",
