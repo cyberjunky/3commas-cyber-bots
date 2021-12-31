@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
+import configparser
 import json
 import os
 import sys
 import time
 from pathlib import Path
 
-from helpers.config import load_config
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import get_lunarcrush_data, populate_pair_lists
 from helpers.threecommas import (
@@ -18,6 +18,34 @@ from helpers.threecommas import (
     load_blacklist,
     set_threecommas_bot_pairs,
 )
+
+
+def load_config():
+    """Create default or load existing config file."""
+
+    cfg = configparser.ConfigParser()
+    if cfg.read(f"{datadir}/{program}.ini"):
+        return cfg
+
+    cfg["settings"] = {
+        "timezone": "Europe/Amsterdam",
+        "timeinterval": 3600,
+        "debug": False,
+        "logrotate": 7,
+        "botids": [12345, 67890],
+        "numberofpairs": 10,
+        "maxaltrankscore": 1500,
+        "3c-apikey": "Your 3Commas API Key",
+        "3c-apisecret": "Your 3Commas API Secret",
+        "lc-apikey": "Your LunarCrush API Key",
+        "notifications": False,
+        "notify-urls": ["notify-url1"],
+    }
+
+    with open(f"{datadir}/{program}.ini", "w") as cfgfile:
+        cfg.write(cfgfile)
+
+    return None
 
 
 def lunarcrush_pairs(thebot):
@@ -137,7 +165,7 @@ else:
     blacklistfile = None
 
 # Create or load configuration file
-config = load_config(datadir, program)
+config = load_config()
 if not config:
     # Initialise temp logging
     logger = Logger(datadir, program, None, 7, False, False)
@@ -178,7 +206,7 @@ api = init_threecommas_api(config)
 while True:
 
     # Reload config files and data to catch changes
-    config = load_config(datadir, program)
+    config = load_config()
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
@@ -193,7 +221,7 @@ while True:
 
     # Download LunarCrush data
     usdtbtcprice = get_threecommas_btcusd(logger, api)
-    lunarcrush = get_lunarcrush_data(logger, program, lcapikey, usdtbtcprice)
+    lunarcrush = get_lunarcrush_data(logger, program, config, usdtbtcprice)
 
     # Walk through all bots configured
     for bot in botids:
@@ -205,7 +233,7 @@ while True:
         if data:
             lunarcrush_pairs(data)
         else:
-            if "msg" in error:
+            if error and "msg" in error:
                 logger.error("Error occurred updating bots: %s" % error["msg"])
             else:
                 logger.error("Error occurred updating bots")

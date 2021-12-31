@@ -15,10 +15,12 @@ def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerl
         badpairs.append(pair)
 
 
-def get_lunarcrush_data(logger, program, lcapikey, usdtbtcprice):
+def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     """Get the top x GalaxyScore or AltRank coins from LunarCrush."""
 
     lccoins = {}
+    lcapikey = config.get("settings", "lc-apikey")
+
     # Construct query for LunarCrush data
     if "altrank" in program:
         parms = {
@@ -42,6 +44,7 @@ def get_lunarcrush_data(logger, program, lcapikey, usdtbtcprice):
         result = requests.get("https://api.lunarcrush.com/v2", params=parms)
         result.raise_for_status()
         data = result.json()
+
         if "data" in data.keys():
             for i, crush in enumerate(data["data"], start=1):
                 crush["categories"] = (
@@ -63,3 +66,49 @@ def get_lunarcrush_data(logger, program, lcapikey, usdtbtcprice):
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(lccoins)))
 
     return lccoins
+
+
+def get_coinmarketcap_data(logger, config):
+    """Get the data from CoinMarketCap."""
+
+    cmcdict = {}
+
+    # Construct query for CoinMarketCap data
+    parms = {
+        "start": config.get("settings", "start-number"),
+        "limit": config.get("settings", "end-number"),
+        "convert": "BTC",
+        "aux": "cmc_rank",
+    }
+
+    headrs = {
+        "X-CMC_PRO_API_KEY": config.get("settings", "cmc-apikey"),
+    }
+
+    try:
+        result = requests.get(
+            "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+            params=parms,
+            headers=headrs,
+        )
+        result.raise_for_status()
+        data = result.json()
+
+        if "data" in data.keys():
+            for i, cmc in enumerate(data["data"], start=1):
+                cmc["rank"] = i
+                logger.debug(
+                    f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}  "
+                    f"'{cmc['name']:25}' volume_24h:{cmc['quote']['BTC']['volume_24h']:12.2f}  "
+                    f"volume_change_24h:{cmc['quote']['BTC']['volume_change_24h']:5.2f}  "
+                    f"market_cap:{cmc['quote']['BTC']['market_cap']:12.2f}"
+                )
+            cmcdict = data["data"]
+
+    except requests.exceptions.HTTPError as err:
+        logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
+        return {}
+
+    logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
+
+    return cmcdict

@@ -2,6 +2,32 @@
 from py3cw.request import Py3CW
 
 
+def load_blacklist(logger, api, blacklistfile):
+    """Return blacklist data to be used."""
+
+    # Return file based blacklist
+    if blacklistfile:
+        newblacklist = []
+        try:
+            with open(blacklistfile, "r") as file:
+                newblacklist = file.read().splitlines()
+            if newblacklist:
+                logger.info(
+                    "Reading local blacklist file '%s' OK (%s pairs)"
+                    % (blacklistfile, len(newblacklist))
+                )
+        except FileNotFoundError:
+            logger.error(
+                "Reading local blacklist file '%s' failed with error: File not found"
+                % blacklistfile
+            )
+
+        return newblacklist
+
+    # Return defined blacklist from 3Commaas
+    return get_threecommas_blacklist(logger, api)
+
+
 def init_threecommas_api(cfg):
     """Init the 3commas API."""
     return Py3CW(
@@ -176,6 +202,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
         },
     )
     if data:
+        logger.debug("Bot pairs updated: %s" % data)
         logger.info(
             "Bot '%s' with id '%s' updated with these pairs:\n%s"
             % (thebot["name"], thebot["id"], newpairs),
@@ -190,32 +217,35 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
             )
         else:
             logger.error(
-                "Error occurred while updating bot '%s'" % (thebot["name"]),
+                "Error occurred while updating bot '%s'" % thebot["name"],
                 True,
             )
 
 
-def load_blacklist(logger, api, blacklistfile):
-    """Return blacklist to be used."""
+def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
+    """Trigger bot to start deal asap for pair."""
 
-    # Return file based blacklist
-    if blacklistfile:
-        newblacklist = []
-        try:
-            with open(blacklistfile, "r") as file:
-                newblacklist = file.read().splitlines()
-            if newblacklist:
-                logger.info(
-                    "Reading local blacklist file '%s' OK (%s pairs)"
-                    % (blacklistfile, len(newblacklist))
-                )
-        except FileNotFoundError:
+    error, data = api.request(
+        entity="bots",
+        action="start_new_deal",
+        action_id=str(thebot["id"]),
+        payload={"pair": pair, "skip_signal_checks": skip_checks},
+    )
+    if data:
+        logger.debug("Bot deal triggered: %s" % data)
+        logger.info(
+            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
+            % (thebot["name"], thebot["id"], pair),
+            True,
+        )
+    else:
+        if error and "msg" in error:
             logger.error(
-                "Reading local blacklist file '%s' failed with error: File not found"
-                % blacklistfile
+                "Error occurred while triggering start_new_deal bot '%s' error: %s"
+                % (thebot["name"], error["msg"]),
             )
-
-        return newblacklist
-
-    # Return defined blacklist from 3Commaas
-    return get_threecommas_blacklist(logger, api)
+        else:
+            logger.error(
+                "Error occurred while triggering start_new_deal bot '%s'"
+                % thebot["name"],
+            )
