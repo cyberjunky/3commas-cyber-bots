@@ -11,6 +11,7 @@ from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.threecommas import init_threecommas_api
+from helpers.misc import check_deal
 
 
 def load_config():
@@ -55,17 +56,8 @@ def upgrade_config(cfg):
     return cfg
 
 
-def check_deal(dealid):
-    """Check if deal was already logged."""
-    deal = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
-    if deal is None:
-        return None
-
-    return deal
-
-
 def update_deal(thebot, deal, to_increment, new_percentage):
-    """Update bot with new take profit percentage."""
+    """Update deal with new take profit percentage."""
     bot_name = thebot["name"]
     deal_id = deal["id"]
 
@@ -85,9 +77,14 @@ def update_deal(thebot, deal, to_increment, new_percentage):
             True,
         )
     else:
-        logger.error(
-            "Error occurred updating bot with new take profit values: %s" % error["msg"]
-        )
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred updating bot with new take profit values: %s" % error["msg"]
+            )
+        else:
+            logger.error(
+                "Error occurred updating bot with new take profit values"
+            )
 
 
 def increment_takeprofit(thebot):
@@ -104,7 +101,7 @@ def increment_takeprofit(thebot):
 
             deals_count += 1
 
-            existing_deal = check_deal(deal_id)
+            existing_deal = check_deal(cursor, deal_id)
             if existing_deal is not None:
                 db.execute(
                     f"UPDATE deals SET safety_count = {completed_safety_orders_count} "

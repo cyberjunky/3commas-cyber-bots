@@ -112,3 +112,13 @@ def get_coinmarketcap_data(logger, config):
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
 
     return cmcdict
+
+
+def check_deal(cursor, dealid):
+    """Check if deal was already logged."""
+    deal = cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
+    if deal is None:
+        return None
+
+    return deal
+
