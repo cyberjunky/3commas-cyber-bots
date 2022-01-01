@@ -4,8 +4,8 @@ import argparse
 import configparser
 import json
 import os
-import time
 import sys
+import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
@@ -47,7 +47,7 @@ def load_config():
     return None
 
 
-def upgrade_config(cfg):
+def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
 
     try:
@@ -60,6 +60,8 @@ def upgrade_config(cfg):
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
 
     return cfg
 
@@ -181,7 +183,7 @@ else:
     )
 
     # Upgrade config file if needed
-    config = upgrade_config(config)
+    config = upgrade_config(logger, config)
 
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 

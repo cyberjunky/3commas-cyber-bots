@@ -10,8 +10,9 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.threecommas import init_threecommas_api
 from helpers.misc import check_deal
+from helpers.threecommas import init_threecommas_api
+
 
 def load_config():
     """Create default or load existing config file."""
@@ -40,15 +41,17 @@ def load_config():
     return None
 
 
-def upgrade_config(cfg):
+def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
 
     try:
         cfg.get("settings", "initial-stoploss-percentage")
-    except (configparser.NoOptionError):
+    except configparser.NoOptionError:
         cfg.set("settings", "initial-stoploss-percentage", "[]")
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
 
     return cfg
 
@@ -75,11 +78,12 @@ def update_deal(thebot, deal, new_stoploss):
         )
     else:
         if error and "msg" in error:
-            logger.error("Error occurred updating bot with new take profit values: %s" % error["msg"])
-        else:
             logger.error(
-                "Error occurred updating bot with new take profit values"
+                "Error occurred updating bot with new take profit values: %s"
+                % error["msg"]
             )
+        else:
+            logger.error("Error occurred updating bot with new take profit values")
 
 
 def trailing_stoploss(thebot):
@@ -112,7 +116,7 @@ def trailing_stoploss(thebot):
                     or existing_deal["last_stop_loss_percentage"] != stoploss
                     else float(existing_deal["last_profit_percentage"]),
                     2,
-                ) # If user changes SL in 3C then we have to start again
+                )  # If user changes SL in 3C then we have to start again
 
                 logger.debug(f"Pair: {deal['pair']}")
                 logger.debug(f"Deal id: {deal_id}")
@@ -237,7 +241,7 @@ else:
     )
 
     # Upgrade config file if needed
-    config = upgrade_config(config)
+    config = upgrade_config(logger, config)
 
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 

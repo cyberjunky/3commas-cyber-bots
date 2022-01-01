@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.threecommas import init_threecommas_api
 from helpers.misc import check_deal
+from helpers.threecommas import init_threecommas_api
 
 
 def load_config():
@@ -40,7 +40,7 @@ def load_config():
     return None
 
 
-def upgrade_config(cfg):
+def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
 
     try:
@@ -52,6 +52,8 @@ def upgrade_config(cfg):
         cfg.remove_option("settings", "increment-percentage")
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
 
     return cfg
 
@@ -79,12 +81,11 @@ def update_deal(thebot, deal, to_increment, new_percentage):
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred updating bot with new take profit values: %s" % error["msg"]
+                "Error occurred updating bot with new take profit values: %s"
+                % error["msg"]
             )
         else:
-            logger.error(
-                "Error occurred updating bot with new take profit values"
-            )
+            logger.error("Error occurred updating bot with new take profit values")
 
 
 def increment_takeprofit(thebot):
@@ -216,7 +217,7 @@ else:
     )
 
     # Upgrade config file if needed
-    config = upgrade_config(config)
+    config = upgrade_config(logger, config)
 
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 

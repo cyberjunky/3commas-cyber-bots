@@ -41,36 +41,41 @@ def load_config():
     return None
 
 
-def load_bot_config(thisconfig, thebot):
-    """Create default or load config section for bot."""
+def upgrade_config(thelogger, theapi, cfg):
+    """Upgrade config file if needed."""
 
-    bot_id = thebot["id"]
-    bot_name = thebot["name"]
-    
-    profittocompound = thisconfig.get("settings", "profittocompound")
+    thebotids = json.loads(cfg.get("settings", "botids"))
+    theprofit_percentage = float(config.get("settings", "profittocompound"))
 
-    # Check if config section for bot exists
-    if not thisconfig.has_section(f"bot_{bot_id}"):
+    # Walk through all bots configured
+    for thebot in thebotids:
+        if not cfg.has_section(f"bot_{thebot}"):
 
-        # Create bot config object and read current config
-        botcfg = configparser.ConfigParser()
-        botcfg.read(f"{datadir}/{program}.ini")
+            error, data = theapi.request(
+                entity="bots",
+                action="show",
+                action_id=str(thebot),
+            )
+            if data:
+                # Add new config section
+                cfg[f"bot_{thebot}"] = {
+                    "compoundmode": "boso",
+                    "profittocompound": theprofit_percentage,
+                    "usermaxactivedeals": int(data["max_active_deals"]) + 5,
+                    "comment": data["name"],
+                }
+            else:
+                if error and "msg" in error:
+                    logger.error("Error occurred upgrading config: %s" % error["msg"])
+                else:
+                    logger.error("Error occurred upgrading config")
 
-        # Add new config section
-        botcfg[f"bot_{bot_id}"] = {
-            "compoundmode": "boso",
-            "profittocompound": profittocompound,
-            "usermaxactivedeals": int(thebot["max_active_deals"]) + 5,
-            "comment": bot_name,
-        }
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
 
-        with open(f"{datadir}/{program}.ini", "w") as cfgfile:
-            botcfg.write(cfgfile)
+            thelogger.info("Upgraded the configuration file")
 
-        logger.info(
-            f"Created missing bot config section ['bot_{bot_id}'] with defaults in '{datadir}/{program}.ini', check it."
-        )
-        sys.exit(0)
+    return cfg
 
 
 def get_logged_profit_for_bot(bot_id):
@@ -148,9 +153,8 @@ def update_bot_order_volumes(
                 "Error occurred updating bot with new BO/SO values: %s" % error["msg"]
             )
         else:
-            logger.error(
-                "Error occurred updating bot with new BO/SO values"
-            )
+            logger.error("Error occurred updating bot with new BO/SO values")
+
 
 def process_deals(deals):
     """Check deals from bot."""
@@ -274,7 +278,8 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred updating bot with new max. deals and BO/SO values: %s" % error["msg"]
+                "Error occurred updating bot with new max. deals and BO/SO values: %s"
+                % error["msg"]
             )
         else:
             logger.error(
@@ -282,24 +287,21 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
             )
 
 
-def compound_bot(thisconfig, thebot):
+def compound_bot(cfg, thebot):
     """Find profit from deals and calculate new SO and BO values."""
 
     bot_name = thebot["name"]
     bot_id = thebot["id"]
 
-    # Check for config section for bot, add section if missing.
-    load_bot_config(thisconfig, thebot)
-
     deals = get_threecommas_deals(logger, api, bot_id)
     bot_profit_percentage = float(
-        thisconfig.get(
+        cfg.get(
             f"bot_{bot_id}",
             "profittocompound",
-            fallback=thisconfig.get("settings", "profittocompound"),
+            fallback=cfg.get("settings", "profittocompound"),
         )
     )
-    if thisconfig.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
+    if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
 
         logger.info("Compound mode for this bot is: DEALS")
 
@@ -308,7 +310,7 @@ def compound_bot(thisconfig, thebot):
 
         # Get active deal settings
         user_defined_max_active_deals = int(
-            thisconfig.get(f"bot_{bot_id}", "usermaxactivedeals")
+            cfg.get(f"bot_{bot_id}", "usermaxactivedeals")
         )
 
         # Calculate amount used per deal
@@ -522,11 +524,15 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
-    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+
+# Upgrade config file if needed
+config = upgrade_config(logger, api, config)
+
+logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize or open the database
 db = init_compound_db()
