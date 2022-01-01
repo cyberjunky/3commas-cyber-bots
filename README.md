@@ -989,6 +989,14 @@ Or at least join my Pi mining team, it's free:
 
 <img src="images/pi-icon.png" height="48" align="left"> 1π! Pi is a new digital currency developed by Stanford PhDs, with over 25 million members worldwide. To claim your Pi, follow this link https://minepi.com/cyberjunky and use my username (cyberjunky) as your invitation code. 
 
+My referral links (gives you discount and/or less fees to pay):
+
+- [Binance account](https://accounts.binance.com/en/register?ref=156153717)
+- [FTX account](https://ftx.com/#a=38250549) Get 5.00% fee discount
+- [3Commas account](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
+- [Bybit account](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
+- [Bitvavo account](https://bitvavo.com/?a=90A596F835) No fees over first €1000 trading
+
 ## Disclamer (Reminder)
 ```
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
