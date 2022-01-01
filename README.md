@@ -991,11 +991,13 @@ Or at least join my Pi mining team, it's free:
 
 My referral links (gives you discount and/or less fees to pay):
 
-- [Binance account](https://accounts.binance.com/en/register?ref=156153717)
-- [FTX account](https://ftx.com/#a=38250549) Get 5.00% fee discount
-- [3Commas account](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
-- [Bybit account](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
-- [Bitvavo account](https://bitvavo.com/?a=90A596F835) No fees over first €1000 trading
+- [Binance](https://accounts.binance.com/en/register?ref=156153717)
+- [FTX](https://ftx.com/#a=38250549) Get 5.00% fee discount
+- [3Commas](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
+- [Bybit](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
+- [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over first €1000 trading
+- [Tradingview](https://www.tradingview.com/gopro/?share_your_love=cyberjunkynl) Get upto $30
+
 
 ## Disclamer (Reminder)
 ```
