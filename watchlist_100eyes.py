@@ -265,6 +265,7 @@ async def callback(event):
         else:
             logger.info("Not a crypto trigger line")
 
+    notification.send_notification()
 
 # Start telegram client
 client.start()

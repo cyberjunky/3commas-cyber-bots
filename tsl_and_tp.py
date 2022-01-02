@@ -302,6 +302,9 @@ while True:
         logger.info(
             "Next update in %s Seconds at %s" % (time_interval, timeresult), True
         )
+
+        notification.send_notification()
+
         time.sleep(time_interval)
     else:
         break

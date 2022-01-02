@@ -227,6 +227,9 @@ while True:
         nexttime = localtime + int(timeint)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
+
+        notification.send_notification()
+
         time.sleep(timeint)
     else:
         break

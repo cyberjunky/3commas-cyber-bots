@@ -15,6 +15,7 @@ class NotificationHandler:
 
     def __init__(self, program, enabled=False, notify_urls=None):
         self.program = program
+        self.message = ""
 
         if enabled and notify_urls:
             self.apobj = apprise.Apprise()
@@ -41,11 +42,17 @@ class NotificationHandler:
                 self.apobj.notify(body=message)
             self.queue.task_done()
 
-    def send_notification(self, message, attachments=None):
-        """Send a notification if enabled."""
+    def queue_notification(self, message):
+        """Queue notification messages."""
         if self.enabled:
-            msg = f"[3Commas bots helper {self.program}]\n" + message
-            self.queue.put((msg, attachments or []))
+            self.message += f"{message}\n\n"
+
+    def send_notification(self):
+        """Send the notification messages."""
+        if self.enabled:
+            msg = f"[3C Cyber Bot-Helper {self.program}]\n\n" + self.message
+            self.queue.put((msg, []))
+            self.message = ""
 
 
 class TimedRotatingFileHandler(_TimedRotatingFileHandler):
@@ -156,7 +163,7 @@ class Logger:
         console_handle.setFormatter(console_formatter)
         self.my_logger.addHandler(console_handle)
 
-        self.info(f"3Commas cyber bot-helper {program}!")
+        self.info(f"3C Cyber Bot-Helper {program}")
         self.info("Started on %s" % time.strftime("%A %H:%M:%S %Y-%m-%d"))
 
         if self.notify_enabled:
@@ -179,22 +186,22 @@ class Logger:
         """Info level."""
         self.log(message, "info")
         if self.notify_enabled and notify:
-            self.notificationhandler.send_notification(message)
+            self.notificationhandler.queue_notification(message)
 
     def warning(self, message, notify=True):
         """Warning level."""
         self.log(message, "warning")
         if self.notify_enabled and notify:
-            self.notificationhandler.send_notification(message)
+            self.notificationhandler.queue_notification(message)
 
     def error(self, message, notify=True):
         """Error level."""
         self.log(message, "error")
         if self.notify_enabled and notify:
-            self.notificationhandler.send_notification(message)
+            self.notificationhandler.queue_notification(message)
 
     def debug(self, message, notify=False):
         """Debug level."""
         self.log(message, "debug")
         if self.notify_enabled and notify:
-            self.notificationhandler.send_notification(message)
+            self.notificationhandler.queue_notification(message)
