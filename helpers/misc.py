@@ -1,5 +1,24 @@
 """Cyberjunky's 3Commas bot helpers."""
 import requests
+import time
+
+def wait_time_interval(logger, notification, time_interval):
+    """Wait for time interval."""
+
+    if time_interval > 0:
+        localtime = time.time()
+        nexttime = localtime + int(time_interval)
+        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
+        logger.info(
+            "Next update in %s Seconds at %s" % (time_interval, timeresult), True
+        )
+        notification.send_notification()
+        time.sleep(time_interval)
+        return True
+    else:
+        notification.send_notification()
+        time.sleep(2)
+        return False
 
 
 def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerlist):

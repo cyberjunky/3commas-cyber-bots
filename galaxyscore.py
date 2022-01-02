@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import get_lunarcrush_data, populate_pair_lists
+from helpers.misc import get_lunarcrush_data, populate_pair_lists, wait_time_interval
 from helpers.threecommas import (
     get_threecommas_account,
     get_threecommas_btcusd,
@@ -239,14 +239,6 @@ while True:
             else:
                 logger.error("Error occurred updating bots")
 
-    if timeint > 0:
-        localtime = time.time()
-        nexttime = localtime + int(timeint)
-        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
-
-        notification.send_notification()
-
-        time.sleep(timeint)
-    else:
+    if not wait_time_interval(logger, notification, timeint):
         break
+

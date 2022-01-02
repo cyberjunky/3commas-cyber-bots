@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal
+from helpers.misc import check_deal, wait_time_interval
 from helpers.threecommas import get_threecommas_deals, init_threecommas_api
 
 
@@ -567,14 +567,6 @@ while True:
             else:
                 logger.error("Error occurred updating bots")
 
-    if timeint > 0:
-        localtime = time.time()
-        nexttime = localtime + int(timeint)
-        timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
-        logger.info("Next update in %s Seconds at %s" % (timeint, timeresult), True)
-
-        notification.send_notification()
-
-        time.sleep(timeint)
-    else:
+    if not wait_time_interval(logger, notification, timeint):
         break
+
