@@ -1,6 +1,6 @@
 """Cyberjunky's 3Commas bot helpers."""
-import requests
 import time
+import requests
 
 def wait_time_interval(logger, notification, time_interval):
     """Wait for time interval."""
@@ -92,10 +92,13 @@ def get_coinmarketcap_data(logger, config):
 
     cmcdict = {}
 
+    startnumber = int(config.get("settings", "start-number"))
+    endnumber = 1 + (int(config.get("settings", "end-number")) - startnumber)
+
     # Construct query for CoinMarketCap data
     parms = {
-        "start": config.get("settings", "start-number"),
-        "limit": config.get("settings", "end-number"),
+        "start": startnumber,
+        "limit": endnumber,
         "convert": "BTC",
         "aux": "cmc_rank",
     }
@@ -129,6 +132,7 @@ def get_coinmarketcap_data(logger, config):
         return {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
+    logger.debug(f"CMC data: {cmcdict}")
 
     return cmcdict
 

@@ -224,4 +224,3 @@ while True:
 
     if not wait_time_interval(logger, notification, timeint):
         break
-
