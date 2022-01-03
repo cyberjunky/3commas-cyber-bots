@@ -97,6 +97,10 @@ def process_deals(thebot):
             if not existing_deal and actual_profit_percentage >= activation_percentage:
                 monitored_deals = +1
 
+                logger.info(
+                    f"Found new deal: {deal}"
+                )
+
                 # New deal which requires TSL
                 activation_diff = actual_profit_percentage - activation_percentage
                 new_stoploss = 0.0 - round(
