@@ -2,6 +2,7 @@
 import time
 import requests
 
+
 def wait_time_interval(logger, notification, time_interval):
     """Wait for time interval."""
 
@@ -87,24 +88,21 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     return lccoins
 
 
-def get_coinmarketcap_data(logger, config):
+def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
 
-    startnumber = int(config.get("settings", "start-number"))
-    endnumber = 1 + (int(config.get("settings", "end-number")) - startnumber)
-
     # Construct query for CoinMarketCap data
     parms = {
-        "start": startnumber,
-        "limit": endnumber,
+        "start": start_number,
+        "limit": limit,
         "convert": "BTC",
         "aux": "cmc_rank",
     }
 
     headrs = {
-        "X-CMC_PRO_API_KEY": config.get("settings", "cmc-apikey"),
+        "X-CMC_PRO_API_KEY": cmc_apikey,
     }
 
     try:
@@ -132,7 +130,6 @@ def get_coinmarketcap_data(logger, config):
         return {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
-    logger.debug(f"CMC data: {cmcdict}")
 
     return cmcdict
 
