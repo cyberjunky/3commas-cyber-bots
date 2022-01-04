@@ -58,12 +58,13 @@ class NotificationHandler:
 class TimedRotatingFileHandler(_TimedRotatingFileHandler):
     """Override original code to fix bug with not deleting old logfiles."""
 
-    def __init__(self, filename="", when="midnight", interval=1, backupCount=7):
+    def __init__(self, filename="", when="midnight", interval=1, backupCount=7, encoding='utf-8'):
         super().__init__(
             filename=filename,
             when=when,
             interval=int(interval),
             backupCount=int(backupCount),
+            encoding=encoding
         )
 
     def getFilesToDelete(self):
