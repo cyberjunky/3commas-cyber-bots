@@ -204,8 +204,8 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
     if data:
         logger.debug("Bot pairs updated: %s" % data)
         logger.info(
-            "Bot '%s' with id '%s' updated with these pairs:\n%s"
-            % (thebot["name"], thebot["id"], newpairs),
+            "Bot '%s' with id '%s' updated with %d pairs (%s t/m %s)"
+            % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
             True,
         )
     else:
