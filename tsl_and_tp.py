@@ -30,6 +30,7 @@ def load_config():
         "botids": [12345, 67890],
         "activation-percentage": 3.0,
         "initial-stoploss-percentage": 1.0,
+        "sl-increment-factor": 0.5,
         "tp-increment-factor": 0.5,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
@@ -41,6 +42,23 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(thelogger, cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "sl-increment-factor")
+    except configparser.NoOptionError:
+        logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
+        cfg.set("settings", "sl-increment-factor", "1.0")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
+
+    return cfg
 
 
 def update_deal(thebot, deal, new_stoploss, new_take_profit):
@@ -104,14 +122,16 @@ def process_deals(thebot):
                 # New deal which requires TSL
                 activation_diff = actual_profit_percentage - activation_percentage
                 new_stoploss = 0.0 - round(
-                    initial_stoploss_percentage + (activation_diff), 2
+                    initial_stoploss_percentage 
+                    + (activation_diff * sl_increment_factor), 
+                    2
                 )
 
                 # Increase TP using diff multiplied with the configured factor
                 new_take_profit = round(
                     float(deal["take_profit"])
                     + (activation_diff * tp_increment_factor),
-                    2,
+                    2
                 )
 
                 update_deal(thebot, deal, new_stoploss, new_take_profit)
@@ -129,6 +149,10 @@ def process_deals(thebot):
                 monitored_deals = +1
                 last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
+                logger.info(
+                    f"Data for monitored deal: {deal}"
+                )
+
                 if actual_profit_percentage > last_profit_percentage:
                     monitored_deals = +1
 
@@ -138,11 +162,14 @@ def process_deals(thebot):
                     profit_diff = actual_profit_percentage - last_profit_percentage
 
                     logger.info(
-                        f"Deal {deal_id} profit change from {last_profit_percentage}% to "
-                        f"{actual_profit_percentage}%. Keep on monitoring."
+                        f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
+                        f"{actual_profit_percentage}%. Update and keep on monitoring."
                     )
 
-                    new_stoploss = round(actual_stoploss - profit_diff, 2)
+                    new_stoploss = round(
+                        actual_stoploss - (profit_diff * sl_increment_factor), 2
+                    )
+
                     new_take_profit = round(
                         actual_take_profit + (profit_diff * tp_increment_factor), 2
                     )
@@ -157,7 +184,7 @@ def process_deals(thebot):
                 else:
                     logger.info(
                         f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
-                        f"last: {last_profit_percentage}%. Keep on monitoring."
+                        f"last: {last_profit_percentage}%). Keep on monitoring."
                     )
 
         logger.info(
@@ -252,6 +279,9 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+    # Upgrade config file if needed
+    config = upgrade_config(logger, config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
@@ -276,6 +306,9 @@ while True:
     )
     initial_stoploss_percentage = float(
         json.loads(config.get("settings", "initial-stoploss-percentage"))
+    )
+    sl_increment_factor = float(
+        json.loads(config.get("settings", "sl-increment-factor"))
     )
     tp_increment_factor = float(
         json.loads(config.get("settings", "tp-increment-factor"))
