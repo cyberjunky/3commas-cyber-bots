@@ -204,7 +204,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
     if data:
         logger.debug("Bot pairs updated: %s" % data)
         logger.info(
-            "Bot '%s' with id '%s' updated with %d pairs (%s t/m %s)"
+            "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
             % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
             True,
         )
@@ -251,6 +251,39 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
             )
 
 
+def control_threecommas_bot(logger, api, thebot, cmd):
+    """Start or stop a bot."""
+
+    if cmd == "stop_bot":
+        action = "disable"
+    else:
+        action = "enable"
+
+    error, data = api.request(
+        entity="bots",
+        action=action,
+        action_id=str(thebot["id"]),
+    )
+    if data:
+        logger.debug("Bot enabled or disabled: %s" % data)
+        logger.info(
+            "Bot '%s' is set to '%s'"
+            % (thebot["name"], action),
+            True,
+        )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred while '%s' bot was set to '%s' error: %s"
+                % (thebot["name"], action, error["msg"]),
+            )
+        else:
+            logger.error(
+                "Error occurred while '%s' bot was set to '%s'"
+                % (thebot["name"], action),
+            )
+
+
 def get_threecommas_deals(logger, api, botid):
     """Get all deals from 3Commas linked to a bot."""
 
@@ -275,4 +308,5 @@ def get_threecommas_deals(logger, api, botid):
                 "Error occurred while fetching deals")
     else:
         logger.info("Fetched the deals for bot OK (%s deals)" % len(data))
-        return data
+
+    return data

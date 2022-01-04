@@ -144,7 +144,7 @@ else:
 
 # pylint: disable-msg=C0103
 if args.blacklist:
-    blacklistfile = args.blacklist
+    blacklistfile = f"{datadir}/{args.blacklist}"
 else:
     blacklistfile = None
 
