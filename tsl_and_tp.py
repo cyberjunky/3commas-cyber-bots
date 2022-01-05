@@ -115,23 +115,47 @@ def process_deals(thebot):
             if not existing_deal and actual_profit_percentage >= activation_percentage:
                 monitored_deals = +1
 
-                logger.info(
-                    f"Found new deal: {deal}"
-                )
-
-                # New deal which requires TSL
+                # Take space between trigger and actual profit into account
                 activation_diff = actual_profit_percentage - activation_percentage
-                new_stoploss = 0.0 - round(
-                    initial_stoploss_percentage 
-                    + (activation_diff * sl_increment_factor), 
+
+                # SL is calculated by 3C on base order price. Because of filled SO's,
+                # we must first calculate the SL price based on the current average price
+                current_average_price = float(deal["bought_average_price"])
+                sl_price = round(
+                    current_average_price
+                    + (current_average_price
+                        * (initial_stoploss_percentage
+                            + (activation_diff * sl_increment_factor))
+                       ),
                     2
                 )
 
-                # Increase TP using diff multiplied with the configured factor
+                logger.debug(
+                    f"Deal {deal_id}; SL price {sl_price} calculated based on average "
+                    f"price {current_average_price}, initial SL of {initial_stoploss_percentage}, "
+                    f"activation diff of {activation_diff} and factor {sl_increment_factor}"
+                )
+
+                # Now we know the SL price, let's calculate the percentage from
+                # the base order price so we have the desired SL for 3C
+                initial_bought_price = float(deal["base_order_average_price"])
+                new_stoploss = 100.0 - round(
+                    (sl_price / initial_bought_price)
+                    * 100.0,
+                    2
+                )
+
+                # No magic required for increasing TP if configured
                 new_take_profit = round(
                     float(deal["take_profit"])
                     + (activation_diff * tp_increment_factor),
                     2
+                )
+
+                logger.info(
+                    f"Deal {deal_id} (\"{thebot['name']}\") profit ({actual_profit_percentage}%) above "
+                    f"activation ({activation_percentage}%). Stoploss on {new_stoploss}%, based on "
+                    f"SL price {sl_price} and BO price {initial_bought_price}. Take profit on {new_take_profit}%"
                 )
 
                 update_deal(thebot, deal, new_stoploss, new_take_profit)
@@ -140,31 +164,19 @@ def process_deals(thebot):
                     f"INSERT INTO deals (dealid, botid, last_profit_percentage, last_stop_loss_percentage) "
                     f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {new_stoploss})"
                 )
-                logger.info(
-                    f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}\"; "
-                    f"current profit {actual_profit_percentage}, stoploss set to {new_stoploss} "
-                    f"and tp to {new_take_profit}"
-                )
             elif existing_deal:
                 monitored_deals = +1
                 last_profit_percentage = float(existing_deal["last_profit_percentage"])
-
-                logger.info(
-                    f"Data for monitored deal: {deal}"
-                )
 
                 if actual_profit_percentage > last_profit_percentage:
                     monitored_deals = +1
 
                     # Existing deal with TSL and profit increased, so move TSL
+                    # Because initial SL was calculated correctly, we only have
+                    # to adjust with the profit change
                     actual_stoploss = float(deal["stop_loss_percentage"])
                     actual_take_profit = float(deal["take_profit"])
                     profit_diff = actual_profit_percentage - last_profit_percentage
-
-                    logger.info(
-                        f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
-                        f"{actual_profit_percentage}%. Update and keep on monitoring."
-                    )
 
                     new_stoploss = round(
                         actual_stoploss - (profit_diff * sl_increment_factor), 2
@@ -174,6 +186,10 @@ def process_deals(thebot):
                         actual_take_profit + (profit_diff * tp_increment_factor), 2
                     )
 
+                    logger.info(
+                        f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
+                        f"{actual_profit_percentage}%. Update and keep on monitoring."
+                    )
                     update_deal(thebot, deal, new_stoploss, new_take_profit)
 
                     db.execute(
@@ -334,4 +350,3 @@ while True:
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
     if not wait_time_interval(logger, notification, timeint):
         break
-
