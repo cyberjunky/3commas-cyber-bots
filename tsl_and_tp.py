@@ -115,6 +115,10 @@ def process_deals(thebot):
             if not existing_deal and actual_profit_percentage >= activation_percentage:
                 monitored_deals = +1
 
+                logger.info(
+                    f"New deal data: {deal}"
+                )
+
                 # Take space between trigger and actual profit into account
                 activation_diff = actual_profit_percentage - activation_percentage
 
@@ -124,10 +128,10 @@ def process_deals(thebot):
                 sl_price = round(
                     current_average_price
                     + (current_average_price
-                        * (initial_stoploss_percentage
-                            + (activation_diff * sl_increment_factor))
+                        * ((initial_stoploss_percentage / 100.0)
+                            + ((activation_diff / 100.0) * sl_increment_factor))
                        ),
-                    2
+                    5
                 )
 
                 logger.debug(
@@ -139,9 +143,8 @@ def process_deals(thebot):
                 # Now we know the SL price, let's calculate the percentage from
                 # the base order price so we have the desired SL for 3C
                 initial_bought_price = float(deal["base_order_average_price"])
-                new_stoploss = 100.0 - round(
-                    (sl_price / initial_bought_price)
-                    * 100.0,
+                new_stoploss = round(
+                    100.0 - ((sl_price / initial_bought_price) * 100.0),
                     2
                 )
 
@@ -171,6 +174,10 @@ def process_deals(thebot):
                 if actual_profit_percentage > last_profit_percentage:
                     monitored_deals = +1
 
+                    logger.info(
+                        f"Existing deal data: {deal}"
+                    )
+
                     # Existing deal with TSL and profit increased, so move TSL
                     # Because initial SL was calculated correctly, we only have
                     # to adjust with the profit change
@@ -190,6 +197,7 @@ def process_deals(thebot):
                         f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
                         f"{actual_profit_percentage}%. Update and keep on monitoring."
                     )
+
                     update_deal(thebot, deal, new_stoploss, new_take_profit)
 
                     db.execute(
