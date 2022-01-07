@@ -148,32 +148,35 @@ def process_deals(thebot):
                     2
                 )
 
-                # No magic required for increasing TP if configured
-                new_take_profit = round(
-                    float(deal["take_profit"])
-                    + (activation_diff * tp_increment_factor),
-                    2
-                )
+                if new_stoploss != 0.00:
+                    # No magic required for increasing TP if configured
+                    new_take_profit = round(
+                        float(deal["take_profit"])
+                        + (activation_diff * tp_increment_factor),
+                        2
+                    )
 
-                logger.info(
-                    f"Deal {deal_id} (\"{thebot['name']}\") profit ({actual_profit_percentage}%) above "
-                    f"activation ({activation_percentage}%). Stoploss on {new_stoploss}%, based on "
-                    f"SL price {sl_price} and BO price {initial_bought_price}. Take profit on {new_take_profit}%"
-                )
+                    logger.info(
+                        f"Deal {deal_id} (\"{thebot['name']}\") profit ({actual_profit_percentage}%) above "
+                        f"activation ({activation_percentage}%). Stoploss on {new_stoploss}%, based on "
+                        f"SL price {sl_price} and BO price {initial_bought_price}. Take profit on {new_take_profit}%"
+                    )
 
-                update_deal(thebot, deal, new_stoploss, new_take_profit)
+                    update_deal(thebot, deal, new_stoploss, new_take_profit)
 
-                db.execute(
-                    f"INSERT INTO deals (dealid, botid, last_profit_percentage, last_stop_loss_percentage) "
-                    f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {new_stoploss})"
-                )
+                    db.execute(
+                        f"INSERT INTO deals (dealid, botid, last_profit_percentage, last_stop_loss_percentage) "
+                        f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {new_stoploss})"
+                    )
+                else:
+                    logger.info(
+                        f"Deal {deal_id} calculated SL of {new_stoploss} which will cause 3C not to activate SL. No action taken!"
+                    )
             elif existing_deal:
                 monitored_deals = +1
                 last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
                 if actual_profit_percentage > last_profit_percentage:
-                    monitored_deals = +1
-
                     logger.info(
                         f"Existing deal data: {deal}"
                     )
@@ -189,22 +192,27 @@ def process_deals(thebot):
                         actual_stoploss - (profit_diff * sl_increment_factor), 2
                     )
 
-                    new_take_profit = round(
-                        actual_take_profit + (profit_diff * tp_increment_factor), 2
-                    )
+                    if new_stoploss != 0.00:
+                        new_take_profit = round(
+                            actual_take_profit + (profit_diff * tp_increment_factor), 2
+                        )
 
-                    logger.info(
-                        f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
-                        f"{actual_profit_percentage}%. Update and keep on monitoring."
-                    )
+                        logger.info(
+                            f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
+                            f"{actual_profit_percentage}%. Update and keep on monitoring."
+                        )
 
-                    update_deal(thebot, deal, new_stoploss, new_take_profit)
+                        update_deal(thebot, deal, new_stoploss, new_take_profit)
 
-                    db.execute(
-                        f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
-                        f"last_stop_loss_percentage = {new_stoploss} "
-                        f"WHERE dealid = {deal_id}"
-                    )
+                        db.execute(
+                            f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
+                            f"last_stop_loss_percentage = {new_stoploss} "
+                            f"WHERE dealid = {deal_id}"
+                        )
+                    else:
+                        logger.info(
+                            f"Deal {deal_id} calculated new SL of {new_stoploss} which will cause 3C to deactive SL. No action taken!"
+                        )
                 else:
                     logger.info(
                         f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
