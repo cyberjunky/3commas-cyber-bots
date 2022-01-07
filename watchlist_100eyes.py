@@ -87,7 +87,11 @@ def watchlist_100eyes_deal(thebot, base, coin):
         skipchecks = True
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    pair = base + "_" + coin
+    if marketcode in ['binance_futures_coin', 'binance_futures_usdt']:
+        pair = f"{base}_{base}{coin}"
+    else:
+        pair = f"{base}_{coin}"
+
     logger.debug("New pair constructed: %s" % pair)
 
     # Check if pair is on 3Commas blacklist
@@ -120,7 +124,7 @@ def parse_line(msgline):
         validline = re.search(rf"\[[A-Z]+({coin})\]", msgline)
         if validline:
             logger.debug(f"Validline: {validline}")
-            values = re.split(rf"\[([A-Z]+)({coin})\]\s([A-Za-z0-9. ()]+)", msgline)
+            values = re.split(rf"\[([A-Z]+)({coin})\]\s([A-Za-z0-9+. ()]+)", msgline)
             if values:
                 coin = values[1]
                 base = values[2]
