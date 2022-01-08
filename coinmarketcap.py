@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import get_coinmarketcap_data, populate_pair_lists, wait_time_interval
+from helpers.misc import get_coinmarketcap_data, populate_pair_lists, wait_time_interval, format_pair
 from helpers.threecommas import (
     get_threecommas_account,
     get_threecommas_market,
@@ -93,7 +93,8 @@ def coinmarketcap_pairs(thebot):
     for entry in coinmarketcap:
         try:
             coin = entry["symbol"]
-            pair = base + "_" + coin
+            # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
 
             # Populate lists
             populate_pair_lists(

@@ -9,7 +9,12 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import get_lunarcrush_data, populate_pair_lists, wait_time_interval
+from helpers.misc import (
+    format_pair,
+    get_lunarcrush_data,
+    populate_pair_lists,
+    wait_time_interval,
+)
 from helpers.threecommas import (
     get_threecommas_account,
     get_threecommas_btcusd,
@@ -79,9 +84,10 @@ def lunarcrush_pairs(thebot):
     for entry in lunarcrush:
         try:
             coin = entry["s"]
-            pair = base + "_" + coin
-            acrscore = float(entry["acr"])
+            # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
 
+            acrscore = float(entry["acr"])
             volbtc = float(entry["volbtc"])
             if volbtc is None:
                 logger.debug("No valid 24h BTC volume for quote '%s', skipping" % coin)

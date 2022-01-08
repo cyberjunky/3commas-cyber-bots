@@ -11,6 +11,7 @@ from pathlib import Path
 from telethon import TelegramClient, events
 
 from helpers.logging import Logger, NotificationHandler
+from helpers.misc import format_pair
 from helpers.threecommas import (
     get_threecommas_account,
     get_threecommas_market,
@@ -75,9 +76,8 @@ def watchlist_deal(thebot, triggerexchange, coin):
     if len(blacklistfile):
         skipchecks = True
 
-    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    pair = base + "_" + coin
-    logger.debug("New pair constructed: %s" % pair)
+    # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
+    pair = format_pair(logger, marketcode, base, coin)
 
     # Check if pair is on 3Commas blacklist
     if pair in blacklist:

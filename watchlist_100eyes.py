@@ -12,6 +12,7 @@ from pathlib import Path
 from telethon import TelegramClient, events
 
 from helpers.logging import Logger, NotificationHandler
+from helpers.misc import format_pair
 from helpers.threecommas import (
     get_threecommas_account,
     get_threecommas_market,
@@ -61,8 +62,9 @@ def load_config():
 
 def watchlist_100eyes_deal(thebot, base, coin):
     """Check pair and trigger the bot deal."""
-
-    logger.debug("Trigger base coin: %s" % base)
+    triggerbase = base
+    triggercoin = coin
+    logger.debug("Trigger base coin: %s" % triggerbase)
 
     # Store some bot settings
     base = thebot["pairs"][0].split("_")[0]
@@ -86,13 +88,8 @@ def watchlist_100eyes_deal(thebot, base, coin):
     if len(blacklistfile):
         skipchecks = True
 
-    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    if marketcode in ['binance_futures']:
-        pair = f"{base}_{coin}{base}"
-    else:
-        pair = f"{base}_{coin}"
-
-    logger.debug("New pair constructed: %s" % pair)
+    # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
+    pair = format_pair(logger, marketcode, base, triggercoin)
 
     # Check if pair is on 3Commas blacklist
     if pair in blacklist:
@@ -270,6 +267,7 @@ async def callback(event):
             logger.info("Not a crypto trigger line")
 
     notification.send_notification()
+
 
 # Start telegram client
 client.start()
