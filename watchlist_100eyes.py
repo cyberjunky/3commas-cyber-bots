@@ -87,8 +87,8 @@ def watchlist_100eyes_deal(thebot, base, coin):
         skipchecks = True
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    if marketcode in ['binance_futures_coin', 'binance_futures_usdt']:
-        pair = f"{base}_{base}{coin}"
+    if marketcode in ['binance_futures']:
+        pair = f"{base}_{coin}{base}"
     else:
         pair = f"{base}_{coin}"
 
