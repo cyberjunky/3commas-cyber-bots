@@ -14,8 +14,7 @@ from telethon import TelegramClient, events
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import format_pair
 from helpers.threecommas import (
-    get_threecommas_account,
-    get_threecommas_market,
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -75,12 +74,10 @@ def watchlist_100eyes_deal(thebot, base, coin):
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account(logger, api, thebot["account_id"])
+    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
     if not marketcode:
         return
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     skipchecks = False
@@ -98,12 +95,10 @@ def watchlist_100eyes_deal(thebot, base, coin):
         )
         return
 
-    # TODO: replace with check if pair is in bot's pairlist
-    # Check if pair is on 3Commas market ticker
-    if pair not in tickerlist:
+    # Check if pair is in bot's pairlist
+    if pair not in thebot["pairs"]:
         logger.debug(
-            "This pair is not valid on the '%s' market according to 3Commas and was skipped: %s"
-            % (exchange, pair),
+            "This pair is not in bot's pairlist, and was skipped: %s" % pair,
             True,
         )
         return

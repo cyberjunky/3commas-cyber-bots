@@ -13,8 +13,7 @@ from telethon import TelegramClient, events
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import format_pair
 from helpers.threecommas import (
-    get_threecommas_account,
-    get_threecommas_market,
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -50,7 +49,7 @@ def load_config():
     return None
 
 
-def watchlist_deal(thebot, triggerexchange, coin):
+def watchlist_deal(thebot, coin):
     """Check pair and trigger the bot deal."""
 
     # Gather some bot values
@@ -62,12 +61,10 @@ def watchlist_deal(thebot, triggerexchange, coin):
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account(logger, api, thebot["account_id"])
+    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
     if not marketcode:
         return
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Update the blacklist
@@ -86,12 +83,10 @@ def watchlist_deal(thebot, triggerexchange, coin):
         )
         return
 
-    # TODO: replace with check if pair is in bot's pairlist
-    # Check if pair is on 3Commas market ticker
-    if pair not in tickerlist:
+    # Check if pair is in bot's pairlist
+    if pair not in thebot["pairs"]:
         logger.debug(
-            "This pair is not valid on the '%s' market according to 3Commas and was skipped: %s"
-            % (exchange, pair),
+            "This pair is not in bot's pairlist, and was skipped: %s" % pair,
             True,
         )
         return
@@ -204,9 +199,7 @@ async def callback(event):
         elif base == "BTC":
             botids = json.loads(config.get("settings", "btc-botids"))
             if len(botids) == 0:
-                logger.debug(
-                    "No valid btc-botids configured for '%s', disabled" % base
-                )
+                logger.debug("No valid btc-botids configured for '%s', disabled" % base)
                 return
         else:
             logger.error("Error the base of pair '%s' is not supported yet!" % pair)
@@ -214,9 +207,7 @@ async def callback(event):
 
         for bot in botids:
             if bot == 0:
-                logger.debug(
-                    "No valid botid configured for '%s', skipping" % base
-                )
+                logger.debug("No valid botid configured for '%s', skipping" % base)
                 continue
 
             error, data = api.request(
@@ -225,9 +216,7 @@ async def callback(event):
                 action_id=str(bot),
             )
             if data:
-                await client.loop.run_in_executor(
-                    None, watchlist_deal, data, exchange, coin
-                )
+                await client.loop.run_in_executor(None, watchlist_deal, data, coin)
             else:
                 if error and "msg" in error:
                     logger.error("Error occurred triggering bots: %s" % error["msg"])
@@ -237,6 +226,7 @@ async def callback(event):
         logger.info("Not a crypto trigger message, or exchange not yet supported")
 
     notification.send_notification()
+
 
 # Start telegram client
 client.start()

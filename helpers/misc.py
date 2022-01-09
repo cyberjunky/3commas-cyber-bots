@@ -20,6 +20,7 @@ def wait_time_interval(logger, notification, time_interval):
 
     notification.send_notification()
     time.sleep(2)
+
     return False
 
 
