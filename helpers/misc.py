@@ -42,6 +42,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
 
     lccoins = {}
     lcapikey = config.get("settings", "lc-apikey")
+    lcfetchlimit = config.get("settings", "lc-fetchlimit")
 
     # Construct query for LunarCrush data
     if "altrank" in program:
@@ -49,7 +50,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "data": "market",
             "type": "fast",
             "sort": "acr",
-            "limit": 100,
+            "limit": lcfetchlimit,
             "key": lcapikey,
         }
     else:
@@ -57,7 +58,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "data": "market",
             "type": "fast",
             "sort": "gs",
-            "limit": 100,
+            "limit": lcfetchlimit,
             "key": lcapikey,
             "desc": True,
         }

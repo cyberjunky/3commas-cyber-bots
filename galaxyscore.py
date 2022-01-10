@@ -43,6 +43,7 @@ def load_config():
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "lc-apikey": "Your LunarCrush API Key",
+        "lc-fetchlimit": 150,
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -51,6 +52,23 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(thelogger, cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "lc-fetchlimit")
+    except configparser.NoOptionError:
+        logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
+        cfg.set("settings", "lc-fetchlimit", "150")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
+
+    return cfg
 
 
 def lunarcrush_pairs(thebot):
@@ -204,6 +222,10 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
+
+    # Upgrade config file if needed
+    config = upgrade_config(logger, config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
