@@ -259,7 +259,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ```
 
 
-## DCA Trailing stoploss and profit bot helper named `tsl_and_tp.py`
+## DCA Trailing stoploss and profit bot helper named `trailingstoploss_tp.py`
 Type = stop loss
 
 ### What does it do?
@@ -298,7 +298,7 @@ WARNING: This script is currently being tested and not stable yet! Use with caut
 
 ### Configuration
 
-This is the layout of the config file used by the `tsl_and_tp.py` bot helper:
+This is the layout of the config file used by the `trailingstoploss_tp.py` bot helper:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
