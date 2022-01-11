@@ -1,5 +1,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import time
+
 import requests
 
 
@@ -16,10 +17,11 @@ def wait_time_interval(logger, notification, time_interval):
         notification.send_notification()
         time.sleep(time_interval)
         return True
-    else:
-        notification.send_notification()
-        time.sleep(2)
-        return False
+
+    notification.send_notification()
+    time.sleep(2)
+
+    return False
 
 
 def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerlist):
@@ -40,6 +42,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
 
     lccoins = {}
     lcapikey = config.get("settings", "lc-apikey")
+    lcfetchlimit = config.get("settings", "lc-fetchlimit")
 
     # Construct query for LunarCrush data
     if "altrank" in program:
@@ -47,7 +50,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "data": "market",
             "type": "fast",
             "sort": "acr",
-            "limit": 100,
+            "limit": lcfetchlimit,
             "key": lcapikey,
         }
     else:
@@ -55,7 +58,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "data": "market",
             "type": "fast",
             "sort": "gs",
-            "limit": 100,
+            "limit": lcfetchlimit,
             "key": lcapikey,
             "desc": True,
         }
@@ -138,3 +141,19 @@ def check_deal(cursor, dealid):
     """Check if deal was already logged."""
 
     return cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
+
+
+def format_pair(logger, marketcode, base, coin):
+    """Check if deal was already logged."""
+
+    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
+    if marketcode == "binance_futures":
+        pair = f"{base}_{coin}{base}"
+    elif marketcode == "ftx_futures":
+        pair = f"{base}_{coin}-PERP"
+    else:
+        pair = f"{base}_{coin}"
+
+    logger.debug("New pair constructed: %s" % pair)
+
+    return pair

@@ -9,9 +9,14 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import get_coinmarketcap_data, populate_pair_lists, wait_time_interval
+from helpers.misc import (
+    format_pair,
+    get_coinmarketcap_data,
+    populate_pair_lists,
+    wait_time_interval,
+)
 from helpers.threecommas import (
-    get_threecommas_account,
+    get_threecommas_account_marketcode,
     get_threecommas_market,
     init_threecommas_api,
     load_blacklist,
@@ -107,7 +112,7 @@ def coinmarketcap_pairs(thebot, cmcdata):
     blackpairs = list()
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account(logger, api, thebot["account_id"])
+    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
     if not marketcode:
         return
 
@@ -119,7 +124,9 @@ def coinmarketcap_pairs(thebot, cmcdata):
     for entry in cmcdata:
         try:
             coin = entry["symbol"]
-            pair = base + "_" + coin
+            # Construct pair based on bot settings and marketcode
+            # (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
 
             # Populate lists
             populate_pair_lists(

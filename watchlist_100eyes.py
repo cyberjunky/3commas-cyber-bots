@@ -12,9 +12,9 @@ from pathlib import Path
 from telethon import TelegramClient, events
 
 from helpers.logging import Logger, NotificationHandler
+from helpers.misc import format_pair
 from helpers.threecommas import (
-    get_threecommas_account,
-    get_threecommas_market,
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -61,8 +61,9 @@ def load_config():
 
 def watchlist_100eyes_deal(thebot, base, coin):
     """Check pair and trigger the bot deal."""
-
-    logger.debug("Trigger base coin: %s" % base)
+    triggerbase = base
+    triggercoin = coin
+    logger.debug("Trigger base coin: %s" % triggerbase)
 
     # Store some bot settings
     base = thebot["pairs"][0].split("_")[0]
@@ -73,12 +74,10 @@ def watchlist_100eyes_deal(thebot, base, coin):
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account(logger, api, thebot["account_id"])
+    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
     if not marketcode:
         return
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     skipchecks = False
@@ -86,9 +85,8 @@ def watchlist_100eyes_deal(thebot, base, coin):
     if len(blacklistfile):
         skipchecks = True
 
-    # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
-    pair = base + "_" + coin
-    logger.debug("New pair constructed: %s" % pair)
+    # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
+    pair = format_pair(logger, marketcode, base, triggercoin)
 
     # Check if pair is on 3Commas blacklist
     if pair in blacklist:
@@ -97,12 +95,10 @@ def watchlist_100eyes_deal(thebot, base, coin):
         )
         return
 
-    # TODO: replace with check if pair is in bot's pairlist
-    # Check if pair is on 3Commas market ticker
-    if pair not in tickerlist:
+    # Check if pair is in bot's pairlist
+    if pair not in thebot["pairs"]:
         logger.debug(
-            "This pair is not valid on the '%s' market according to 3Commas and was skipped: %s"
-            % (exchange, pair),
+            "This pair is not in bot's pairlist, and was skipped: %s" % pair,
             True,
         )
         return
@@ -120,7 +116,7 @@ def parse_line(msgline):
         validline = re.search(rf"\[[A-Z]+({coin})\]", msgline)
         if validline:
             logger.debug(f"Validline: {validline}")
-            values = re.split(rf"\[([A-Z]+)({coin})\]\s([A-Za-z0-9. ()]+)", msgline)
+            values = re.split(rf"\[([A-Z]+)({coin})\]\s([A-Za-z0-9+. ()]+)", msgline)
             if values:
                 coin = values[1]
                 base = values[2]
@@ -266,6 +262,7 @@ async def callback(event):
             logger.info("Not a crypto trigger line")
 
     notification.send_notification()
+
 
 # Start telegram client
 client.start()

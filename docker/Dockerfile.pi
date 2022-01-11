@@ -9,6 +9,7 @@ WORKDIR /usr/src/app
 COPY requirements.txt .
 RUN pip install --index-url=https://www.piwheels.org/simple --no-cache-dir -r requirements.txt
 
+COPY helpers/ helpers/
 COPY <SCRIPT_NAME>.py .
 RUN chmod +x <SCRIPT_NAME>.py
 
