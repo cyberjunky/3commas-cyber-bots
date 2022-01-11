@@ -90,46 +90,129 @@ def get_threecommas_btcusd(logger, api):
     return price
 
 
-def get_threecommas_account(logger, api, accountid):
-    """Get account details."""
+def get_threecommas_accounts(logger, api):
+    """Get all data for an account."""
 
-    # Find account data for accountid, in real mode
+    # Fetch all account data, in real mode
     error, data = api.request(
         entity="accounts",
         action="",
         additional_headers={"Forced-Mode": "real"},
     )
     if data:
-        for account in data:
-            if account["id"] == accountid:
-                marketcode = account["market_code"]
-                logger.info(
-                    "Fetched 3Commas account market code in real mode OK (%s)"
-                    % marketcode
-                )
-                return marketcode
+        return data
 
-    # Didn't find the account data for accountid, retrying in paper mode
+    if error and "msg" in error:
+        logger.error("Fetching 3Commas accounts data failed error: %s" % error["msg"])
+    else:
+        logger.error("Fetching 3Commas accounts data failed")
+
+    return None
+
+
+def get_threecommas_account(logger, api, accountid):
+    """Get account details."""
+
+    # Find account data for accountid, in real mode
     error, data = api.request(
-        entity="accounts", action="", additional_headers={"Forced-Mode": "paper"}
+        entity="accounts",
+        action="account_info",
+        action_id=str(accountid),
+        additional_headers={"Forced-Mode": "real"},
     )
     if data:
-        for account in data:
-            if account["id"] == accountid:
-                marketcode = account["market_code"]
-                logger.info(
-                    "Fetched 3Commas account market code in paper mode OK (%s)"
-                    % marketcode
-                )
-                return marketcode
+        return data
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas account data failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
     else:
-        if error and "msg" in error:
-            logger.error(
-                f"Fetching 3Commas account data failed for id {accountid} error: %s"
-                % error["msg"]
-            )
-        else:
-            logger.error(f"Fetching 3Commas account data failed for id {accountid}")
+        logger.error("Fetching 3Commas account data failed for id %s", accountid)
+
+    return None
+
+
+def get_threecommas_account_marketcode(logger, api, accountid):
+    """Get market_code for account."""
+
+    # get account data for accountid, in real mode
+    error, data = api.request(
+        entity="accounts",
+        action="account_info",
+        action_id=str(accountid),
+        additional_headers={"Forced-Mode": "real"},
+    )
+    if data:
+        marketcode = data["market_code"]
+        logger.info(
+            "Fetched 3Commas account market code in real mode OK (%s)" % marketcode
+        )
+        return marketcode
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas account market code failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
+    else:
+        logger.error("Fetching 3Commas account market code failed for id %s", accountid)
+
+    return None
+
+
+def get_threecommas_account_balance(logger, api, accountid):
+    """Get account balances."""
+
+    # Fetch account balance data for accountid, in real mode
+    error, data = api.request(
+        entity="accounts",
+        action="load_balances",
+        action_id=str(accountid),
+        additional_headers={"Forced-Mode": "real"},
+    )
+    if data:
+        return data
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas account balances data failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
+    else:
+        logger.error(
+            "Fetching 3Commas account balances data failed for id %s", accountid
+        )
+
+    return None
+
+
+def get_threecommas_account_balance_chart_data(
+    logger, api, accountid, begindate, enddate
+):
+    """Get account balance chart data."""
+
+    # Fetch account balance chart data for accountid, in real mode
+    error, data = api.request(
+        entity="accounts",
+        action="balance_chart_data",
+        action_id=str(accountid),
+        additional_headers={"Forced-Mode": "real"},
+        payload={"date_from": begindate, "date_to": enddate},
+    )
+    if data:
+        return data
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas account balance chart data failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
+    else:
+        logger.error(
+            "Fetching 3Commas account balance chart data for id %s", accountid
+        )
 
     return None
 
@@ -152,10 +235,13 @@ def get_threecommas_market(logger, api, market_code):
     else:
         if error and "msg" in error:
             logger.error(
-                "Fetching 3Commas market data failed with error: %s" % error["msg"]
+                "Fetching 3Commas market data failed for market code %s with error: %s"
+                % (market_code, error["msg"])
             )
         else:
-            logger.error("Fetching 3Commas market data failed")
+            logger.error(
+                "Fetching 3Commas market data failed for market code %s", market_code
+            )
 
     return tickerlist
 
@@ -267,8 +353,7 @@ def control_threecommas_bot(logger, api, thebot, cmd):
     if data:
         logger.debug("Bot enabled or disabled: %s" % data)
         logger.info(
-            "Bot '%s' is set to '%s'"
-            % (thebot["name"], action),
+            "Bot '%s' is set to '%s'" % (thebot["name"], action),
             True,
         )
     else:
@@ -300,12 +385,10 @@ def get_threecommas_deals(logger, api, botid):
     if error:
         if "msg" in error:
             logger.error(
-                "Error occurred while fetching deals error: %s"
-                % error["msg"],
+                "Error occurred while fetching deals error: %s" % error["msg"],
             )
         else:
-            logger.error(
-                "Error occurred while fetching deals")
+            logger.error("Error occurred while fetching deals")
     else:
         logger.info("Fetched the deals for bot OK (%s deals)" % len(data))
 
