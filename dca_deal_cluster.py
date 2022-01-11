@@ -11,7 +11,7 @@ from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import check_deal, wait_time_interval
-from helpers.threecommas import init_threecommas_api
+from helpers.threecommas import init_threecommas_api, set_threecommas_bot_pairs
 
 
 def load_config():
@@ -66,15 +66,18 @@ def init_coin_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
-            "CREATE TABLE deals (dealid INT Primary Key, pair STRING, clusterid STRING, botid INT, active BIT)"
+            "CREATE TABLE deals (dealid INT Primary Key, pair STRING, clusterid STRING, "
+            "botid INT, active BIT)"
         )
 
         dbcursor.execute(
-            "CREATE TABLE cluster_pairs (clusterid STRING, pair STRING, number_active INT, PRIMARY KEY(clusterid, pair))"
+            "CREATE TABLE cluster_pairs (clusterid STRING, pair STRING, number_active INT, "
+            "PRIMARY KEY(clusterid, pair))"
         )
 
         dbcursor.execute(
-            "CREATE TABLE bot_pairs (botid INT, pair STRING, enabled BIT, PRIMARY KEY(botid, pair))"
+            "CREATE TABLE bot_pairs (clusterid STRING, botid INT, pair STRING, enabled BIT, "
+            "PRIMARY KEY(clusterid, botid, pair))"
         )
 
         logger.info("Database tables created successfully")
@@ -101,12 +104,11 @@ def clean_bot_db_data(thebot):
 def process_bot_deals(cluster_id, thebot):
     """Check deals from bot and update deals in db."""
 
+    bot_id = thebot["id"]
+
+    # Process current deals and deals which have been closed since the last processing time
     deals = thebot["active_deals"]
-
     if deals:
-        bot_id = thebot["id"]
-
-        # Process current deals and deals which have been closed after the last processing time
         current_deals = ""
         for deal in deals:
             deal_id = deal["id"]
@@ -131,39 +133,29 @@ def process_bot_deals(cluster_id, thebot):
                     f"Deal {deal_id} already registered and still active"
                 )
 
-        # Mark all other deals as not active anymore. Required later in the process and will be cleaned
-        # during next processing round
+        # Mark all other deals as not active anymore. Required later in the process and
+        # will be cleaned during next processing round
         if current_deals:
             logger.info(f"Mark all deals from {bot_id} as inactive except {current_deals}")
             db.execute(
-                f"UPDATE deals SET active = {0} WHERE botid = {bot_id} AND dealid NOT IN ({current_deals})"
-            )
-        
-        # Save all pairs used by the bot currently
-        botpairs = thebot["pairs"]
-        if botpairs:
-            logger.info(
-                f"Saving {len(botpairs)} pairs for bot {bot_id}"
+                f"UPDATE deals SET active = {0} "
+                f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals})"
             )
 
-            for pair in botpairs:
-                db.execute(
-                    f"INSERT OR IGNORE INTO bot_pairs (botid, pair, enabled) VALUES ({bot_id}, '{pair}', {1})"
-                )
-
-        db.commit()
-
-    dealsdata = cursor.execute(f"SELECT dealid, pair, clusterid, botid, active FROM deals WHERE clusterid = '{cluster_id}'").fetchall()
-    if dealsdata:
-        logger.info(f"Printing deals for cluster '{cluster_id}':")
-        for entry in dealsdata:
-            logger.info(
-                f"{entry[0]}: {entry[1]} ({entry[4]})"
-            )
-    else:
+    # Save all pairs used by the bot currently
+    botpairs = thebot["pairs"]
+    if botpairs:
         logger.info(
-            f"No deals data for cluster '{cluster_id}'"
+            f"Saving {len(botpairs)} pairs for bot {bot_id}"
         )
+
+        for pair in botpairs:
+            db.execute(
+                f"INSERT OR IGNORE INTO bot_pairs (clusterid, botid, pair, enabled) "
+                f"VALUES ('{cluster_id}', {bot_id}, '{pair}', {1})"
+            )
+
+    db.commit()
 
 
 def aggregrate_cluster(cluster_id):
@@ -171,17 +163,26 @@ def aggregrate_cluster(cluster_id):
 
     logger.info(f"Cleaning and aggregating data for cluster '{cluster_id}'")
 
+    # Remove old data
     db.execute(
         f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
     )
 
+    # Create the cluster data, how many of the same pairs are active within the cluster
     db.execute(
         f"INSERT INTO cluster_pairs (clusterid, pair, number_active) "
         f"SELECT clusterid, pair, COUNT(pair) FROM deals "
         f"WHERE clusterid = '{cluster_id}' GROUP BY pair"
     )
 
-    clusterdata = cursor.execute(f"SELECT clusterid, pair, number_active FROM cluster_pairs WHERE clusterid = '{cluster_id}'").fetchall()
+    db.commit()
+
+    # Some printing for debugging purposes. Remove later
+    clusterdata = cursor.execute(
+        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+        f"WHERE clusterid = '{cluster_id}'"
+    ).fetchall()
+
     if clusterdata:
         logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
         for entry in clusterdata:
@@ -195,26 +196,85 @@ def aggregrate_cluster(cluster_id):
 
 
 def process_cluster_deals(cluster_id):
-    """Process deals within cluster and update bots."""
+    """Process deals within cluster."""
 
-    clusterdata = db.execute(f"SELECT clusterid, pair, number_active FROM cluster_pairs WHERE clusterid = '{cluster_id}'")
-    if clusterdata and clusterdata.rowcount > 0:
+    # Get the cluster data and pair numbers
+    clusterdata = db.execute(
+        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+        f"WHERE clusterid = '{cluster_id}'"
+    ).fetchall()
+
+    if clusterdata:
         logger.info(f"Processing cluster_pairs for cluster '{cluster_id}':")
+
+        enablepairs = ""
+        disablepairs = ""
+
         for entry in clusterdata:
             pair = entry[1]
             numberofdeals = int(entry[2])
 
             logger.info(
-                f"Pair {pair} has {numberofdeals} deals active"
+                f"Pair {pair} has {numberofdeals} deal(s) active"
             )
 
-            #if numberofdeals >= int(cfg.get(cluster_id, "max-same-deals")):
+            if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
                 # Found a pair which should be suspended
-            #else:
+                if disablepairs:
+                    disablepairs += ","
+                disablepairs += str(pair)
+            else:
                 # Found a pair which can be activated again
+                if enablepairs:
+                    enablepairs += ","
+                enablepairs += str(pair)
+
+        # Enable the found pairs (caused by finished deals)
+        if enablepairs:
+            logger.info(
+                f"Enabling for cluster {cluster_id}: {enablepairs}"
+            )
+            db.execute(
+                f"UPDATE bot_pairs SET enabled = {1} "
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ('{enablepairs}')"
+            )
+
+        # Disable the found pairs (caused by new deals)
+        if disablepairs:
+            logger.info(
+                f"Disabling for cluster {cluster_id}: {disablepairs}"
+            )
+            db.execute(
+                f"UPDATE bot_pairs SET enabled = {0} "
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ('{disablepairs}')"
+            )
+
+        db.commit()
     else:
         logger.info(
             f"No cluster_pair data for cluster '{cluster_id}'"
+        )
+
+
+def update_bot_pairs(cluster_id, thebot):
+    """Update bots."""
+
+    bot_id = thebot["id"]
+
+    # Here rowid is used which is not defined in the init() function. Rowid
+    # is a default column in SQLite when using an INT as primary key
+    botpairs = cursor.execute(
+        f"SELECT pair FROM bot_pairs "
+        f"WHERE clusterid = '{cluster_id}' AND botid = {bot_id} AND enabled = {1} "
+        f"ORDER BY rowid ASC"
+    ).fetchall()
+
+    if botpairs:
+        pairlist = [row[0] for row in botpairs]
+        set_threecommas_bot_pairs(logger, api, thebot, pairlist)
+    else:
+        logger.warning(
+            f"Failed to get bot pairs for bot {bot_id}"
         )
 
 
@@ -315,15 +375,30 @@ while True:
                     process_bot_deals(section, botdata)
                 else:
                     if boterror and "msg" in boterror:
-                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                        logger.error("Error occurred reading bots: %s" % boterror["msg"])
                     else:
-                        logger.error("Error occurred updating bots")
-            
+                        logger.error("Error occurred reading bots")
+
             # Aggregate deals to cluster level
             aggregrate_cluster(section)
 
-            # Update the bots in this cluster
+            # Determine which pairs should be allowed
+            process_cluster_deals(section)
 
+            # Update the bots in this cluster
+            for bot in botids:
+                boterror, botdata = api.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(bot),
+                )
+                if botdata:
+                    update_bot_pairs(section, botdata)
+                else:
+                    if boterror and "msg" in boterror:
+                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                    else:
+                        logger.error("Error occurred updating bots")
 
     if not wait_time_interval(logger, notification, timeint):
         break
