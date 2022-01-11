@@ -27,15 +27,18 @@ def load_config():
         "monitor-interval": 60,
         "debug": False,
         "logrotate": 7,
+        "3c-apikey": "Your 3Commas API Key",
+        "3c-apisecret": "Your 3Commas API Secret",
+        "notifications": False,
+        "notify-urls": ["notify-url1"],
+    }
+
+    cfg["tsl_tp_default"] = {
         "botids": [12345, 67890],
         "activation-percentage": 3.0,
         "initial-stoploss-percentage": 1.0,
         "sl-increment-factor": 0.5,
         "tp-increment-factor": 0.5,
-        "3c-apikey": "Your 3Commas API Key",
-        "3c-apisecret": "Your 3Commas API Secret",
-        "notifications": False,
-        "notify-urls": ["notify-url1"],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -46,12 +49,26 @@ def load_config():
 
 def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
+   
+    if len(cfg.sections()) == 1:
+        # Old configuration containing only one section (settings)
+        logger.error(
+            f"Upgrading config file '{datadir}/{program}.ini' to support multiple sections"
+        )
 
-    try:
-        cfg.get("settings", "sl-increment-factor")
-    except configparser.NoOptionError:
-        logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
-        cfg.set("settings", "sl-increment-factor", "1.0")
+        cfg[f"tsl_tp_default"] = {
+            "botids": cfg.get("settings", "botids"),
+            "activation-percentage": cfg.get("settings", "activation-percentage"),
+            "initial-stoploss-percentage": cfg.get("settings", "initial-stoploss-percentage"),
+            "sl-increment-factor": cfg.get("settings", "sl-increment-factor"),
+            "tp-increment-factor": cfg.get("settings", "tp-increment-factor"),
+        }
+
+        cfg.remove_option("settings", "botids")
+        cfg.remove_option("settings", "activation-percentage")
+        cfg.remove_option("settings", "initial-stoploss-percentage")
+        cfg.remove_option("settings", "sl-increment-factor")
+        cfg.remove_option("settings", "tp-increment-factor")
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
@@ -330,38 +347,44 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    botids = json.loads(config.get("settings", "botids"))
     check_interval = int(config.get("settings", "check-interval"))
     monitor_interval = int(config.get("settings", "monitor-interval"))
-    activation_percentage = float(
-        json.loads(config.get("settings", "activation-percentage"))
-    )
-    initial_stoploss_percentage = float(
-        json.loads(config.get("settings", "initial-stoploss-percentage"))
-    )
-    sl_increment_factor = float(
-        json.loads(config.get("settings", "sl-increment-factor"))
-    )
-    tp_increment_factor = float(
-        json.loads(config.get("settings", "tp-increment-factor"))
-    )
 
+    # Used to determine the correct interval
     deals_to_monitor = 0
 
-    # Walk through all bots configured
-    for bot in botids:
-        boterror, botdata = api.request(
-            entity="bots",
-            action="show",
-            action_id=str(bot),
-        )
-        if botdata:
-            deals_to_monitor += process_deals(botdata)
-        else:
-            if boterror and "msg" in boterror:
-                logger.error("Error occurred updating bots: %s" % boterror["msg"])
-            else:
-                logger.error("Error occurred updating bots")
+    for section in config.sections():
+        if section.startswith("tsl_tp_"):
+            # Bot configuration for section
+            botids = json.loads(config.get(section, "botids"))
+
+            activation_percentage = float(
+                json.loads(config.get(section, "activation-percentage"))
+            )
+            initial_stoploss_percentage = float(
+                json.loads(config.get(section, "initial-stoploss-percentage"))
+            )
+            sl_increment_factor = float(
+                json.loads(config.get(section, "sl-increment-factor"))
+            )
+            tp_increment_factor = float(
+                json.loads(config.get(section, "tp-increment-factor"))
+            )
+
+            # Walk through all bots configured
+            for bot in botids:
+                boterror, botdata = api.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(bot),
+                )
+                if botdata:
+                    deals_to_monitor += process_deals(botdata)
+                else:
+                    if boterror and "msg" in boterror:
+                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                    else:
+                        logger.error("Error occurred updating bots")
 
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
     if not wait_time_interval(logger, notification, timeint):
