@@ -49,14 +49,14 @@ def load_config():
 
 def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
-   
+
     if len(cfg.sections()) == 1:
         # Old configuration containing only one section (settings)
         logger.error(
             f"Upgrading config file '{datadir}/{program}.ini' to support multiple sections"
         )
 
-        cfg[f"tsl_tp_default"] = {
+        cfg["tsl_tp_default"] = {
             "botids": cfg.get("settings", "botids"),
             "activation-percentage": cfg.get("settings", "activation-percentage"),
             "initial-stoploss-percentage": cfg.get("settings", "initial-stoploss-percentage"),
