@@ -107,9 +107,9 @@ def process_bot_deals(cluster_id, thebot):
     bot_id = thebot["id"]
 
     # Process current deals and deals which have been closed since the last processing time
+    current_deals = ""
     deals = thebot["active_deals"]
     if deals:
-        current_deals = ""
         for deal in deals:
             deal_id = deal["id"]
 
@@ -142,6 +142,14 @@ def process_bot_deals(cluster_id, thebot):
                 f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals})"
             )
 
+    # No deals for this bot anymore, so mark them (if any) as inactive
+    if not current_deals:
+        logger.info(f"Mark all deals from {bot_id} as inactive")
+        db.execute(
+            f"UPDATE deals SET active = {0} "
+            f"WHERE botid = {bot_id}"
+        )
+
     # Save all pairs used by the bot currently
     botpairs = thebot["pairs"]
     if botpairs:
@@ -168,11 +176,13 @@ def aggregrate_cluster(cluster_id):
         f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
     )
 
-    # Create the cluster data, how many of the same pairs are active within the cluster
+    # Create the cluster data, how many of the same pairs are active within the 
+    # cluster based on the active deals
     db.execute(
-        f"INSERT INTO cluster_pairs (clusterid, pair, number_active) "
+        f"REPLACE INTO cluster_pairs (clusterid, pair, number_active) "
         f"SELECT clusterid, pair, COUNT(pair) FROM deals "
-        f"WHERE clusterid = '{cluster_id}' GROUP BY pair"
+        f"WHERE clusterid = '{cluster_id}' "
+        f"GROUP BY pair"
     )
 
     db.commit()
