@@ -9,9 +9,14 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import get_lunarcrush_data, populate_pair_lists, wait_time_interval
+from helpers.misc import (
+    format_pair,
+    get_lunarcrush_data,
+    populate_pair_lists,
+    wait_time_interval,
+)
 from helpers.threecommas import (
-    get_threecommas_account,
+    get_threecommas_account_marketcode,
     get_threecommas_btcusd,
     get_threecommas_market,
     init_threecommas_api,
@@ -38,6 +43,7 @@ def load_config():
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "lc-apikey": "Your LunarCrush API Key",
+        "lc-fetchlimit": 150,
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -46,6 +52,23 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(thelogger, cfg):
+    """Upgrade config file if needed."""
+
+    try:
+        cfg.get("settings", "lc-fetchlimit")
+    except configparser.NoOptionError:
+        logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
+        cfg.set("settings", "lc-fetchlimit", "150")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
+
+    return cfg
 
 
 def lunarcrush_pairs(thebot):
@@ -67,7 +90,7 @@ def lunarcrush_pairs(thebot):
     blackpairs = list()
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account(logger, api, thebot["account_id"])
+    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
     if not marketcode:
         return
 
@@ -79,9 +102,11 @@ def lunarcrush_pairs(thebot):
     for entry in lunarcrush:
         try:
             coin = entry["s"]
-            pair = base + "_" + coin
-            acrscore = float(entry["acr"])
+            # Construct pair based on bot settings and marketcode
+            # (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
 
+            acrscore = float(entry["acr"])
             volbtc = float(entry["volbtc"])
             if volbtc is None:
                 logger.debug("No valid 24h BTC volume for quote '%s', skipping" % coin)
@@ -197,6 +222,10 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
+
+    # Upgrade config file if needed
+    config = upgrade_config(logger, config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API

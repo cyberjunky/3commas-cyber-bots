@@ -997,7 +997,7 @@ My referral links (gives you discount and/or less fees to pay):
 - [Bybit](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
 - [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over first €1000 trading
 - [Tradingview](https://www.tradingview.com/gopro/?share_your_love=cyberjunkynl) Get upto $30
-
+- [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over €1000 trading in first week
 
 ## Disclamer (Reminder)
 ```
