@@ -617,13 +617,13 @@ NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
 
 ## LunarCrush account Setup
 Support the Project
--   Create a [LunarCrush account](https://lunarcrush.com)
+-   Create a [LunarCrush account](https://lnr.app/s/o3p1V2) (Includes my referral, again I'll be super grateful if you use it).
 -   Create a new API key and enther these key in config.py as well.
 
-NOTE1: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
+This account is needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
-*NOTE2: It seems LunarCrush doesn't check for APIKey validity in their requests anymore (noticed this since around 5-Nov-2021) not sure if this is temporary.
-So you can leave lc-apikey settings the way it is for now.*
+NOTE2: It seems LunarCrush started to check for APIKey validity again since 11-Jan-2022, you need to create your apikey on legacy.lunarcrush.com under settings, API and put in in your altrank and/o galaxyscore.ini file
+
 
 ## Bot helper setup
 
@@ -991,6 +991,7 @@ Or at least join my Pi mining team, it's free:
 
 My referral links (gives you discount and/or less fees to pay):
 
+- [LunarCrush](https://lnr.app/s/o3p1V2) Earn points
 - [Binance](https://accounts.binance.com/en/register?ref=156153717)
 - [FTX](https://ftx.com/#a=38250549) Get 5.00% fee discount
 - [3Commas](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
