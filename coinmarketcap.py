@@ -36,14 +36,16 @@ def load_config():
         "timeinterval": 86400,
         "debug": False,
         "logrotate": 7,
-        "botids": [12345, 67890],
-        "start-number": 1,
-        "end-number": 200,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "cmc-apikey": "Your CoinMarketCap API Key",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+    }
+    cfg["cmc_default"] = {
+        "botids": [12345, 67890],
+        "start-number": 1,
+        "end-number": 200,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -55,10 +57,10 @@ def load_config():
 def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
 
-    try:
-        cfg.get("settings", "start-number")
-    except configparser.NoOptionError:
-        logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
+    if cfg.has_option("settings", "numberofpairs"):
+        logger.error(
+            f"Upgrading config file '{datadir}/{program}.ini' for numberofpairs"
+        )
         cfg.set("settings", "start-number", "1")
         cfg.set("settings", "end-number", cfg.get("settings", "numberofpairs"))
         cfg.remove_option("settings", "numberofpairs")
@@ -68,10 +70,34 @@ def upgrade_config(thelogger, cfg):
 
         thelogger.info("Upgraded the configuration file")
 
+    if len(cfg.sections()) == 1:
+        # Old configuration containing only one section (settings)
+        logger.error(
+            f"Upgrading config file '{datadir}/{program}.ini' to support multiple sections"
+        )
+
+        settings_startnumber = cfg.get("settings", "start-number")
+        settings_endnumber = cfg.get("settings", "end-number")
+
+        cfg[f"cmc_{settings_startnumber}-{settings_endnumber}"] = {
+            "botids": cfg.get("settings", "botids"),
+            "start-number": settings_startnumber,
+            "end-number": settings_endnumber,
+        }
+
+        cfg.remove_option("settings", "botids")
+        cfg.remove_option("settings", "start-number")
+        cfg.remove_option("settings", "end-number")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file")
+
     return cfg
 
 
-def coinmarketcap_pairs(thebot):
+def coinmarketcap_pairs(thebot, cmcdata):
     """Find new pairs and update the bot."""
 
     # Gather bot settings
@@ -95,7 +121,7 @@ def coinmarketcap_pairs(thebot):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Parse CoinMarketCap data
-    for entry in coinmarketcap:
+    for entry in cmcdata:
         try:
             coin = entry["symbol"]
             # Construct pair based on bot settings and marketcode
@@ -197,7 +223,7 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-# Lunacrush GalayScore or AltRank pairs
+# Refresh coin pairs based on CoinMarketCap data
 while True:
 
     # Reload config files and refetch data to catch changes
@@ -205,29 +231,40 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
 
     # Update the blacklist
     blacklist = load_blacklist(logger, api, blacklistfile)
 
-    # Download CoinMarketCap data
-    coinmarketcap = get_coinmarketcap_data(logger, config)
+    for section in config.sections():
+        if section.startswith("cmc_"):
+            # Bot configuration for section
+            botids = json.loads(config.get(section, "botids"))
 
-    # Walk through all bots configured
-    for bot in botids:
-        error, data = api.request(
-            entity="bots",
-            action="show",
-            action_id=str(bot),
-        )
-        if data:
-            coinmarketcap_pairs(data)
-        else:
-            if error and "msg" in error:
-                logger.error("Error occurred updating bots: %s" % error["msg"])
+            # Download CoinMarketCap data
+            startnumber = int(config.get(section, "start-number"))
+            endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
+            coinmarketcap_data = get_coinmarketcap_data(
+                logger, config.get("settings", "cmc-apikey"), startnumber, endnumber
+            )
+
+            if coinmarketcap_data:
+                # Walk through all bots configured
+                for bot in botids:
+                    error, data = api.request(
+                        entity="bots",
+                        action="show",
+                        action_id=str(bot),
+                    )
+                    if data:
+                        coinmarketcap_pairs(data, coinmarketcap_data)
+                    else:
+                        if error and "msg" in error:
+                            logger.error("Error occurred updating bots: %s" % error["msg"])
+                        else:
+                            logger.error("Error occurred updating bots")
             else:
-                logger.error("Error occurred updating bots")
+                logger.error("Error occurred during fetch of CMC data")
 
     if not wait_time_interval(logger, notification, timeint):
         break

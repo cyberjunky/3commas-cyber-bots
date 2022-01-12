@@ -143,25 +143,29 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume.
-NOTE: random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded using the start-number.
+This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+
+NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
 ### Configuration
 
 This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 
+-   *[settings]*
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 86400)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
--   **end-number** - end number for the pairs to request. (default is 200)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **cmc-apikey** - Your CoinMarketCap API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+-   *[cmc_]*
+-   **botids** - a list of bot id's to manage separated with commas
+-   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
+-   **end-number** - end number for the pairs to request. (default is 200)
 
 
 Example: (keys are bogus)
@@ -171,14 +175,16 @@ timezone = Europe/Amsterdam
 timeinterval = 86400
 debug = False
 logrotate = 14
-botids = [ 123456 ]
-start-number = 1
-end-number = 200
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 cmc-apikey = 4czrn2yo3la4h4179grp2
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[cmc_somename]
+botids = [ 123456 ]
+start-number = 1
+end-number = 200
 ```
 
 ### Example output
@@ -617,13 +623,13 @@ NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
 
 ## LunarCrush account Setup
 Support the Project
--   Create a [LunarCrush account](https://lunarcrush.com)
+-   Create a [LunarCrush account](https://lnr.app/s/o3p1V2) (Includes my referral, again I'll be super grateful if you use it).
 -   Create a new API key and enther these key in config.py as well.
 
-NOTE1: Needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
+This account is needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
-*NOTE2: It seems LunarCrush doesn't check for APIKey validity in their requests anymore (noticed this since around 5-Nov-2021) not sure if this is temporary.
-So you can leave lc-apikey settings the way it is for now.*
+NOTE2: It seems LunarCrush started to check for APIKey validity again since 11-Jan-2022, you need to create your apikey on legacy.lunarcrush.com under settings, API and put in in your altrank and/o galaxyscore.ini file
+
 
 ## Bot helper setup
 
@@ -966,6 +972,9 @@ Create new ones, with it and paste them in your ini file(s)
 9) I get error `Error occurred updating bots: Other error occurred: signature_invalid Provided signature is invalid None.`  
 The secret key specified for the 3Commas API is invalid, check for possible paste error.
 
+10) I get error `2022-01-11 00:11:00 - altrank - Fetching LunarCrush data failed with error: 401 Client Error: Unauthorized for url: https://api.lunarcrush.com/v2?data=market&type=fast&sort=acr&limit=150&key=Your+LunarCrush+API+Key`
+LunarCrush now expect a valid apikey again, create an account here [LunarCrush](https://lnr.app/s/o3p1V2) and login to https://legacy.lunarcrash.com, then goto settings and API tab, create key and use this in altrank.ini and/or galaxyscore.ini.
+
 ### Debugging
 
 Set debug to True in config.ini and check the appropriate log file under `logs/` for debug information
@@ -991,6 +1000,7 @@ Or at least join my Pi mining team, it's free:
 
 My referral links (gives you discount and/or less fees to pay):
 
+- [LunarCrush](https://lnr.app/s/o3p1V2) Earn points
 - [Binance](https://accounts.binance.com/en/register?ref=156153717)
 - [FTX](https://ftx.com/#a=38250549) Get 5.00% fee discount
 - [3Commas](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
