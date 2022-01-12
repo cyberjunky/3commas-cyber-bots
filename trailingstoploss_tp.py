@@ -142,14 +142,9 @@ def process_deals(thebot):
                 # SL is calculated by 3C on base order price. Because of filled SO's,
                 # we must first calculate the SL price based on the current average price
                 current_average_price = float(deal["bought_average_price"])
-                sl_price = round(
-                    current_average_price
-                    + (current_average_price
-                        * ((initial_stoploss_percentage / 100.0)
-                            + ((activation_diff / 100.0) * sl_increment_factor))
-                       ),
-                    5
-                )
+                sl_price = current_average_price + (current_average_price * ((initial_stoploss_percentage / 100.0)
+                                                    + ((activation_diff / 100.0) * sl_increment_factor))
+                                                    )
 
                 logger.debug(
                     f"Deal {deal_id}; SL price {sl_price} calculated based on average "
@@ -190,50 +185,64 @@ def process_deals(thebot):
                         f"Deal {deal_id} calculated SL of {new_stoploss} which will cause 3C not to activate SL. No action taken!"
                     )
             elif existing_deal:
-                monitored_deals = +1
-                last_profit_percentage = float(existing_deal["last_profit_percentage"])
+                deal_sl = deal["stop_loss_percentage"]
+                current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
+                if current_stoploss_percentage != 0.0:
+                    monitored_deals = +1
+                    last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
-                if actual_profit_percentage > last_profit_percentage:
-                    logger.info(
-                        f"Existing deal data: {deal}"
-                    )
-
-                    # Existing deal with TSL and profit increased, so move TSL
-                    # Because initial SL was calculated correctly, we only have
-                    # to adjust with the profit change
-                    actual_stoploss = float(deal["stop_loss_percentage"])
-                    actual_take_profit = float(deal["take_profit"])
-                    profit_diff = actual_profit_percentage - last_profit_percentage
-
-                    new_stoploss = round(
-                        actual_stoploss - (profit_diff * sl_increment_factor), 2
-                    )
-
-                    if new_stoploss != 0.00:
-                        new_take_profit = round(
-                            actual_take_profit + (profit_diff * tp_increment_factor), 2
-                        )
-
+                    if actual_profit_percentage > last_profit_percentage:
                         logger.info(
-                            f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
-                            f"{actual_profit_percentage}%. Update and keep on monitoring."
+                            f"Existing deal data: {deal}"
                         )
 
-                        update_deal(thebot, deal, new_stoploss, new_take_profit)
+                        # Existing deal with TSL and profit increased, so move TSL
+                        # Because initial SL was calculated correctly, we only have
+                        # to adjust with the profit change
+                        actual_stoploss = float(deal["stop_loss_percentage"])
+                        actual_take_profit = float(deal["take_profit"])
+                        profit_diff = actual_profit_percentage - last_profit_percentage
 
-                        db.execute(
-                            f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
-                            f"last_stop_loss_percentage = {new_stoploss} "
-                            f"WHERE dealid = {deal_id}"
+                        new_stoploss = round(
+                            actual_stoploss - (profit_diff * sl_increment_factor), 2
                         )
+
+                        if new_stoploss != 0.00:
+                            new_take_profit = round(
+                                actual_take_profit + (profit_diff * tp_increment_factor), 2
+                            )
+
+                            logger.info(
+                                f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
+                                f"{actual_profit_percentage}%. Update and keep on monitoring."
+                            )
+
+                            update_deal(thebot, deal, new_stoploss, new_take_profit)
+
+                            db.execute(
+                                f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
+                                f"last_stop_loss_percentage = {new_stoploss} "
+                                f"WHERE dealid = {deal_id}"
+                            )
+                        else:
+                            logger.info(
+                                f"Deal {deal_id} calculated new SL of {new_stoploss} which will cause 3C "
+                                f"to deactive SL. No action taken!"
+                            )
                     else:
                         logger.info(
-                            f"Deal {deal_id} calculated new SL of {new_stoploss} which will cause 3C to deactive SL. No action taken!"
+                            f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
+                            f"last: {last_profit_percentage}%). Keep on monitoring."
                         )
                 else:
+                    # Existing deal, but stoploss is 0.0 which means it has been reset (by the user?)
                     logger.info(
-                        f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
-                        f"last: {last_profit_percentage}%). Keep on monitoring."
+                        f"Deal {deal_id} stoploss deactivated by somebody else; stop monitoring and start "
+                        f"in the future again if conditions are met."
+                    )
+
+                    db.execute(
+                        f"DELETE FROM deals WHERE dealid = {deal_id}"
                     )
 
         logger.info(
