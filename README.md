@@ -143,25 +143,29 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume.
-NOTE: random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded using the start-number.
+This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+
+NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
 ### Configuration
 
 This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 
+-   *[settings]*
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 86400)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
--   **end-number** - end number for the pairs to request. (default is 200)
 -   **3c-apikey** - Your 3Commas API key value.
 -   **3c-apisecret** - Your 3Commas API key secret value.
 -   **cmc-apikey** - Your CoinMarketCap API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+-   *[cmc_]*
+-   **botids** - a list of bot id's to manage separated with commas
+-   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
+-   **end-number** - end number for the pairs to request. (default is 200)
 
 
 Example: (keys are bogus)
@@ -171,14 +175,16 @@ timezone = Europe/Amsterdam
 timeinterval = 86400
 debug = False
 logrotate = 14
-botids = [ 123456 ]
-start-number = 1
-end-number = 200
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 cmc-apikey = 4czrn2yo3la4h4179grp2
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[cmc_somename]
+botids = [ 123456 ]
+start-number = 1
+end-number = 200
 ```
 
 ### Example output
