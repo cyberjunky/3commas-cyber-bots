@@ -176,11 +176,30 @@ def aggregrate_cluster(cluster_id):
         f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
     )
 
+    # Some printing for debugging purposes. Remove later
+    dealdata = cursor.execute(
+        f"SELECT dealid, pair, botid, active FROM deals "
+        f"WHERE clusterid = '{cluster_id}'"
+    ).fetchall()
+
+    if dealdata:
+        logger.info(f"Printing deals for cluster '{cluster_id}':")
+        for entry in dealdata:
+            logger.info(
+                f"{entry[1]}: {entry[2]}, {entry[3]} => {entry[4]}"
+            )
+    else:
+        logger.info(
+            f"No deals data for cluster '{cluster_id}'"
+        )
+
     # Create the cluster data, how many of the same pairs are active within the 
     # cluster based on the active deals
     db.execute(
-        f"REPLACE INTO cluster_pairs (clusterid, pair, number_active) "
-        f"SELECT clusterid, pair, COUNT(pair) FROM deals "
+        f"INSERT INTO cluster_pairs (clusterid, pair, number_active) "
+        f"SELECT clusterid, pair, "
+        f"SUM ( CASE WHEN active = {1} THEN 1 ELSE 0 END) AS number_active "
+        f"FROM deals "
         f"WHERE clusterid = '{cluster_id}' "
         f"GROUP BY pair"
     )
