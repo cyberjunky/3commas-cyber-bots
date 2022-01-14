@@ -132,10 +132,6 @@ def process_deals(thebot):
             if not existing_deal and actual_profit_percentage >= activation_percentage:
                 monitored_deals = +1
 
-                logger.info(
-                    f"New deal data: {deal}"
-                )
-
                 # Take space between trigger and actual profit into account
                 activation_diff = actual_profit_percentage - activation_percentage
 
@@ -192,10 +188,6 @@ def process_deals(thebot):
                     last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
                     if actual_profit_percentage > last_profit_percentage:
-                        logger.info(
-                            f"Existing deal data: {deal}"
-                        )
-
                         # Existing deal with TSL and profit increased, so move TSL
                         # Because initial SL was calculated correctly, we only have
                         # to adjust with the profit change
