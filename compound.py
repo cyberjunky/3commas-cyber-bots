@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal, wait_time_interval
+from helpers.misc import check_deal, get_round_digits, wait_time_interval
 from helpers.threecommas import get_threecommas_deals, init_threecommas_api
 
 
@@ -130,23 +130,15 @@ def update_bot_order_volumes(
         },
     )
     if data:
-        base = thebot["pairs"][0].split("_")[0]
-        if base == "BTC":
-            logger.info(
-                f"Compounded ₿{round(profit_sum, 8)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, 8)} to "
-                f"₿{round(new_base_order_volume, 8)}\nChanged SO from "
-                f"₿{round(safety_order_volume, 8)} to ₿{round(new_safety_order_volume, 8)}",
-                True,
-            )
-        else:
-            logger.info(
-                f"Compounded ${round(profit_sum, 4)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ${round(base_order_volume, 4)} to "
-                f"${round(new_base_order_volume, 4)}\nChanged SO from "
-                f"${round(safety_order_volume, 4)} to ${round(new_safety_order_volume, 4)}",
-                True,
-            )
+        rounddigits = get_round_digits(thebot["pairs"][0])
+
+        logger.info(
+            f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
+            f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
+            f"₿{round(new_base_order_volume, rounddigits)}\nChanged SO from "
+            f"₿{round(safety_order_volume, rounddigits)} to ₿{round(new_safety_order_volume, rounddigits)}",
+            True,
+        )
     else:
         if error and "msg" in error:
             logger.error(
@@ -214,7 +206,8 @@ def get_bot_values(thebot):
         startso = float(thebot["safety_order_volume"])
         startactivedeals = thebot["max_active_deals"]
         db.execute(
-            f"INSERT INTO bots (botid, startbo, startso, startactivedeals) VALUES ({bot_id}, {startbo}, {startso}, {startactivedeals})"
+            f"INSERT INTO bots (botid, startbo, startso, startactivedeals) "
+            f"VALUES ({bot_id}, {startbo}, {startso}, {startactivedeals})"
         )
 
         logger.info(
@@ -269,10 +262,13 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
         },
     )
     if data:
+        rounddigits = get_round_digits(thebot["pairs"][0])
+
         logger.info(
-            f"Changed max. active deals from: %s to %s for bot\n'{bot_name}'\nChanged BO from ${round(base_order_volume, 4)} to "
-            f"${round(org_base_order, 4)}\nChanged SO from "
-            f"${round(safety_order_volume, 4)} to ${round(org_safety_order, 4)}"
+            f"Changed max. active deals from: %s to %s for bot\n'{bot_name}'\n"
+            f"Changed BO from ${round(base_order_volume, rounddigits)} to "
+            f"${round(org_base_order, rounddigits)}\nChanged SO from "
+            f"${round(safety_order_volume, rounddigits)} to ${round(org_safety_order, rounddigits)}"
             % (max_active_deals, new_max_deals)
         )
     else:
@@ -346,7 +342,8 @@ def compound_bot(cfg, thebot):
 
         if new_max_active_deals > user_defined_max_active_deals:
             logger.info(
-                f"Already reached max set number of deals ({user_defined_max_active_deals}), skipping deal compounding"
+                f"Already reached max set number of deals ({user_defined_max_active_deals}), "
+                f"skipping deal compounding"
             )
         elif (
             new_max_active_deals
@@ -569,4 +566,3 @@ while True:
 
     if not wait_time_interval(logger, notification, timeint):
         break
-
