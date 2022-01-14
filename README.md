@@ -50,9 +50,9 @@ The configuration file for `galaxyscore` has the following settings:
 -   **botids** - a list of bot id's to manage separated with commas
 -   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
 -   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **lc-apikey** - Your LunarCrush API key value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **lc-apikey** - your LunarCrush API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -101,9 +101,9 @@ The configuration file for `altrank` has the following settings:
 -   **botids** - a list of bot id's to manage separated with commas
 -   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
 -   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **lc-apikey** - Your LunarCrush API key value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **lc-apikey** - your LunarCrush API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -156,9 +156,9 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 -   **timeinterval** - update timeinterval in Seconds. (default is 86400)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **cmc-apikey** - Your CoinMarketCap API key value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **cmc-apikey** - your CoinMarketCap API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -234,7 +234,7 @@ I would use this with caution. I am only using this to reduce my liquidation ris
 
 ### Configuration
 
-This is the layout of the config file used by the `compound.py` bot helper:
+This is the layout of the config file used by the `trailingstoploss.py` bot helper:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
@@ -243,8 +243,8 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **botids** - a list of bot id's to manage separated with commas
 -   **activation-percentage** - % of profit at which script becomes active for a bot
 -   **initial-stoploss-percentage** - % of profit to amend at first activation (\[\] = disable)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -302,7 +302,7 @@ WARNING: This script is currently being tested and not stable yet! Use with caut
 
 ### Configuration
 
-This is the layout of the config file used by the `compound.py` bot helper:
+This is the layout of the config file used by the `tsl_and_tp.py` bot helper:
 
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
 -   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
@@ -313,8 +313,8 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **activation-percentage** - % of profit at which script becomes active for a bot. (default = 3)
 -   **initial-stoploss-percentage** - % of stoploss to start on when activation-percentage is reached. (default = 1)
 -   **tp-increment-factor** - % to increase the TP with based on % profit after activation-percentage. (default = 0.5)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -362,12 +362,18 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
+-   **botids** - a list of bot id's to manage separated with commas.
+-   **default-profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc).
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+-   *[bot_id]*
+-   **compoundmode** - how would you like compound? 'boso' to increase BO and SO values of the bot, 'deals' to increase max active deals (default is 'boso')
+-   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc).
+-   **usermaxactivedeals** - the maximum number of active deals the compoundscript can increment to. (default is 5)
+-   **comment** - name of the bot, used for loggin.
 
 Example: (keys are bogus)
 ```
@@ -382,25 +388,13 @@ profittocompound = 1.0
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[bot_12345]
+compoundmode = boso
+profittocompound = 0.9
+usermaxactivedeals = 10
+comment = Example Bot
 ```
-### Bot Specific Configuration
-
-This is the bot specific layout of the config file used by the `compound.py` bot helper:
-
--   **compoundmode** - How would you like compound? 'boso' to increase BO and SO values of the bot, 'deals' to increase max active deals (default is 'boso')
--   **profittocompound** - Ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc)
--   **usermaxactivedeals** - The maximum number of active deals the compoundscript can increment to
--   **3c-comment** - Name of the script, used for loggin 
-
-Example: (keys are bogus)
-```
-[bot_123456]
-compoundmode = deals
-profittocompound = 0.8
-usermaxactivedeals = 15
-comment = My first compound bot
-```
-
 
 ### Example output
 
@@ -430,12 +424,12 @@ The `watchlist` bot helper config file uses this layout:
 -   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
 -   **btc-botids** -  a list of bot (BTC multipair) id's to use.
 -   **numberofpairs** - number of pairs to update your bots with. (default is 10)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
--   **tgram-api-id** - Your telegram API id.
--   **tgram-api-hash** - Your telegram API hash.
--   **tgram-channel** - Name of the chat channel to monitor.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **tgram-phone-number** - your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - your telegram API id.
+-   **tgram-api-hash** - your telegram API hash.
+-   **tgram-channel** - name of the chat channel to monitor.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
@@ -488,12 +482,12 @@ The `watchlist` bot helper config file uses this layout:
 -   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
 -   **btc-botids** -  a list of bot (BTC multipair) id's to use.
 -   **numberofpairs** - number of pairs to update your bots with. (default is 10)
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
--   **tgram-phone-number** - Your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
--   **tgram-api-id** - Your telegram API id.
--   **tgram-api-hash** - Your telegram API hash.
--   **tgram-channel** - Name of the chat channel to monitor.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **tgram-phone-number** - your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - your telegram API id.
+-   **tgram-api-hash** - your telegram API hash.
+-   **tgram-channel** - name of the chat channel to monitor.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 -   **[triggers]** - this sections contains a list of trigger texts to trigger deal on (without the \[PAIR\] in front and everything after (5m) or (15m)
@@ -563,8 +557,8 @@ The configuration file for `tpincrement` contains the following settings:
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **botids** - a list of bot id's to manage separated with commas
 -   **increment-step-scale** - a list of increment percentages for the safety orders
--   **3c-apikey** - Your 3Commas API key value.
--   **3c-apisecret** - Your 3Commas API key secret value.
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
