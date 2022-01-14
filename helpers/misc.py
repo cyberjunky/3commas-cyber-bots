@@ -157,3 +157,17 @@ def format_pair(logger, marketcode, base, coin):
     logger.debug("New pair constructed: %s" % pair)
 
     return pair
+
+
+def get_round_digits(pair):
+    """Get the number of digits for the round function."""
+
+    numberofdigits = 4
+
+    if pair:
+        base = pair.split("_")[0]
+
+        if base in ("BTC", "ETH"):
+            numberofdigits = 8
+
+    return numberofdigits
