@@ -46,6 +46,8 @@ def load_config():
 def upgrade_config(thelogger, cfg):
     """Upgrade config file if needed."""
 
+    thelogger.info("Config does not require any upgrade at this moment")
+
     return cfg
 
 
@@ -142,7 +144,7 @@ def process_bot_deals(cluster_id, thebot):
                 f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals})"
             )
 
-    # No deals for this bot anymore, so mark them (if any) as inactive
+    # No deals for this bot anymore, so mark them all (if any) as inactive
     if not current_deals:
         logger.info(f"Mark all deals from {bot_id} as inactive")
         db.execute(
@@ -150,7 +152,7 @@ def process_bot_deals(cluster_id, thebot):
             f"WHERE botid = {bot_id}"
         )
 
-    # Save all pairs used by the bot currently
+    # Save all pairs used by the bot currently. Make sure not to overwrite disabled pairs
     botpairs = thebot["pairs"]
     if botpairs:
         logger.info(
@@ -166,7 +168,7 @@ def process_bot_deals(cluster_id, thebot):
     db.commit()
 
 
-def aggregrate_cluster(cluster_id):
+def aggregrate_cluster(cluster_id, log_debug):
     """Aggregate deals within cluster."""
 
     logger.info(f"Cleaning and aggregating data for cluster '{cluster_id}'")
@@ -176,24 +178,25 @@ def aggregrate_cluster(cluster_id):
         f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
     )
 
-    # Some printing for debugging purposes. Remove later
-    dealdata = cursor.execute(
-        f"SELECT dealid, pair, botid, active FROM deals "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
+    # Debug data; show all deals for this specific cluster
+    if log_debug:
+        dealdata = cursor.execute(
+            f"SELECT dealid, pair, botid, active FROM deals "
+            f"WHERE clusterid = '{cluster_id}'"
+        ).fetchall()
 
-    if dealdata:
-        logger.info(f"Printing deals for cluster '{cluster_id}':")
-        for entry in dealdata:
+        if dealdata:
+            logger.info(f"Printing deals for cluster '{cluster_id}':")
+            for entry in dealdata:
+                logger.info(
+                    f"{entry[0]}: {entry[1]}, {entry[2]} => {entry[3]}"
+                )
+        else:
             logger.info(
-                f"{entry[1]}: {entry[2]}, {entry[3]} => {entry[4]}"
+                f"No deals data for cluster '{cluster_id}'"
             )
-    else:
-        logger.info(
-            f"No deals data for cluster '{cluster_id}'"
-        )
 
-    # Create the cluster data, how many of the same pairs are active within the 
+    # Create the cluster data, how many of the same pairs are active within the
     # cluster based on the active deals
     db.execute(
         f"INSERT INTO cluster_pairs (clusterid, pair, number_active) "
@@ -206,22 +209,23 @@ def aggregrate_cluster(cluster_id):
 
     db.commit()
 
-    # Some printing for debugging purposes. Remove later
-    clusterdata = cursor.execute(
-        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
+    # Debug data; show the aggregated data based on the deals for this cluster
+    if log_debug:
+        clusterdata = cursor.execute(
+            f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+            f"WHERE clusterid = '{cluster_id}'"
+        ).fetchall()
 
-    if clusterdata:
-        logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
-        for entry in clusterdata:
+        if clusterdata:
+            logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
+            for entry in clusterdata:
+                logger.info(
+                    f"{entry[1]}: {entry[2]}"
+                )
+        else:
             logger.info(
-                f"{entry[1]}: {entry[2]}"
+                f"No cluster_pair data for cluster '{cluster_id}'"
             )
-    else:
-        logger.info(
-            f"No cluster_pair data for cluster '{cluster_id}'"
-        )
 
 
 def process_cluster_deals(cluster_id):
@@ -261,7 +265,7 @@ def process_cluster_deals(cluster_id):
         # Enable the found pairs (caused by finished deals)
         if enablepairs:
             logger.info(
-                f"Enabling for cluster {cluster_id}: {enablepairs}"
+                f"Enabling pairs for cluster {cluster_id}: {enablepairs}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
@@ -271,7 +275,7 @@ def process_cluster_deals(cluster_id):
         # Disable the found pairs (caused by new deals)
         if disablepairs:
             logger.info(
-                f"Disabling for cluster {cluster_id}: {disablepairs}"
+                f"Disabling pairs for cluster {cluster_id}: {disablepairs}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
@@ -386,6 +390,7 @@ while True:
 
     # Configuration settings
     timeint = int(config.get("settings", "timeinterval"))
+    debug = config.getboolean("settings", "debug")
 
     for section in config.sections():
         if section.startswith("cluster_"):
@@ -409,12 +414,12 @@ while True:
                         logger.error("Error occurred reading bots")
 
             # Aggregate deals to cluster level
-            aggregrate_cluster(section)
+            aggregrate_cluster(section, debug)
 
-            # Determine which pairs should be allowed
+            # Enable and disable pairs
             process_cluster_deals(section)
 
-            # Update the bots in this cluster
+            # Update the bots in this cluster with the enabled/disabled pairs
             for bot in botids:
                 boterror, botdata = api.request(
                     entity="bots",
