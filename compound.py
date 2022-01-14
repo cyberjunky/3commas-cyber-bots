@@ -27,12 +27,17 @@ def load_config():
         "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
-        "botids": [12345, 67890],
-        "profittocompound": 1.0,
+        "default-profittocompound": 1.0,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1", "notify-url2"],
+    }
+    cfg["bot_id"] = {
+        "compoundmode": "boso",
+        "profittocompound": 1.0,
+        "usermaxactivedeals": 5,
+        "comment": "put here the name of the bot",
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -44,36 +49,48 @@ def load_config():
 def upgrade_config(thelogger, theapi, cfg):
     """Upgrade config file if needed."""
 
-    thebotids = json.loads(cfg.get("settings", "botids"))
-    theprofit_percentage = float(config.get("settings", "profittocompound"))
+    if cfg.has_option("settings", "profittocompound"):
+        cfg.set("settings", "default-profittocompound", config.get("settings", "profittocompound"))
+        cfg.remove_option("settings", "profittocompound")
 
-    # Walk through all bots configured
-    for thebot in thebotids:
-        if not cfg.has_section(f"bot_{thebot}"):
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
 
-            error, data = theapi.request(
-                entity="bots",
-                action="show",
-                action_id=str(thebot),
-            )
-            if data:
-                # Add new config section
-                cfg[f"bot_{thebot}"] = {
-                    "compoundmode": "boso",
-                    "profittocompound": theprofit_percentage,
-                    "usermaxactivedeals": int(data["max_active_deals"]) + 5,
-                    "comment": data["name"],
-                }
-            else:
-                if error and "msg" in error:
-                    logger.error("Error occurred upgrading config: %s" % error["msg"])
+        thelogger.info("Upgraded the configuration file (default-profittocompound)")
+
+    if cfg.has_option("settings", "botids"):
+        thebotids = json.loads(cfg.get("settings", "botids"))
+        default_profit_percentage = float(config.get("settings", "default-profittocompound"))
+
+        # Walk through all bots configured
+        for thebot in thebotids:
+            if not cfg.has_section(f"bot_{thebot}"):
+
+                error, data = theapi.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(thebot),
+                )
+                if data:
+                    # Add new config section
+                    cfg[f"bot_{thebot}"] = {
+                        "compoundmode": "boso",
+                        "profittocompound": default_profit_percentage,
+                        "usermaxactivedeals": int(data["max_active_deals"]) + 5,
+                        "comment": data["name"],
+                    }
                 else:
-                    logger.error("Error occurred upgrading config")
+                    if error and "msg" in error:
+                        logger.error("Error occurred upgrading config: %s" % error["msg"])
+                    else:
+                        logger.error("Error occurred upgrading config")
 
-            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-                cfg.write(cfgfile)
+        cfg.remove_option("settings", "botids")
 
-            thelogger.info("Upgraded the configuration file")
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file (create sections)")
 
     return cfg
 
@@ -294,7 +311,7 @@ def compound_bot(cfg, thebot):
         cfg.get(
             f"bot_{bot_id}",
             "profittocompound",
-            fallback=cfg.get("settings", "profittocompound"),
+            fallback=cfg.get("settings", "default-profittocompound"),
         )
     )
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
@@ -545,29 +562,33 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
-    profit_percentage = float(config.get("settings", "profittocompound", fallback=1.0))
 
-    # Walk through all bots configured
-    for bot in botids:
-        boterror, botdata = api.request(
-            entity="bots",
-            action="show",
-            action_id=str(bot),
-        )
-        if botdata:
-            compound_bot(config, botdata)
-        else:
-            if boterror and "msg" in boterror:
-                logger.error("Error occurred updating bots: %s" % boterror["msg"])
+    for section in config.sections():
+        # Each section is a bot
+        if section.startswith("bot_"):
+            botid = section.removeprefix("bot_")
+
+            if botid:
+                boterror, botdata = api.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(botid),
+                )
+                if botdata:
+                    compound_bot(config, botdata)
+                else:
+                    if boterror and "msg" in boterror:
+                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                    else:
+                        logger.error("Error occurred updating bots")
             else:
-                logger.error("Error occurred updating bots")
+                logger.error("Invalid botid found: %s" % botid)
 
-        # 3C could return an error code (like 429), however Py3CW does not handle this currently.
-        # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
-        # has been implemented in the Py3CW library
-        time.sleep(0.5)
+            # 3C could return an error code (like 429), however Py3CW does not handle this currently.
+            # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
+            # has been implemented in the Py3CW library
+            time.sleep(0.5)
 
     if not wait_time_interval(logger, notification, timeint):
         break
