@@ -413,6 +413,11 @@ while True:
                     else:
                         logger.error("Error occurred reading bots")
 
+                # 3C could return an error code (like 429), however Py3CW does not handle this currently.
+                # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
+                # has been implemented in the Py3CW library
+                time.sleep(0.5)
+
             # Aggregate deals to cluster level
             aggregrate_cluster(section, debug)
 
