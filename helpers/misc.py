@@ -2,6 +2,7 @@
 import time
 
 import requests
+from bs4 import BeautifulSoup
 
 
 def wait_time_interval(logger, notification, time_interval):
@@ -171,3 +172,46 @@ def get_round_digits(pair):
             numberofdigits = 8
 
     return numberofdigits
+
+
+def remove_prefix(text, prefix):
+    """Get the string without prefix, required for Python < 3.9."""
+
+    if text.startswith(prefix):
+        return text[len(prefix) :]
+    return text
+
+
+def get_botassist_data(logger, botassistlist, start_number, limit):
+    """Get the top pairs from 3c-tools bot-assist explorer."""
+
+    url = f"https://www.3c-tools.com/markets/bot-assist-explorer?list={botassistlist}"
+    pairs = list()
+    try:
+        result = requests.get(url)
+        result.raise_for_status()
+        soup = BeautifulSoup(result.text, features="html.parser")
+        data = soup.find("table", class_="table table-striped table-sm")
+        tablerows = data.find_all("tr")
+
+        for row in tablerows:
+            rowcolums = row.find_all("td")
+            if len(rowcolums) > 0:
+                rank = int(rowcolums[0].text)
+                if rank < start_number:
+                    continue
+
+                pair = rowcolums[1].text
+                logger.debug(f"rank:{rank:3d} pair:{pair:10}")
+                pairs.append(pair)
+
+                if rank > limit:
+                    break
+
+    except requests.exceptions.HTTPError as err:
+        logger.error("Fetching 3c-tools bot-assist data failed with error: %s" % err)
+        return pairs
+
+    logger.info("Fetched 3c-tools bot-assist data OK (%s coins)" % (len(pairs)))
+
+    return pairs

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal, get_round_digits, wait_time_interval
+from helpers.misc import check_deal, get_round_digits, remove_prefix, wait_time_interval
 from helpers.threecommas import get_threecommas_deals, init_threecommas_api
 
 
@@ -567,7 +567,7 @@ while True:
     for section in config.sections():
         # Each section is a bot
         if section.startswith("bot_"):
-            botid = section.removeprefix("bot_")
+            botid = remove_prefix(section, "bot_")
 
             if botid:
                 boterror, botdata = api.request(
@@ -584,11 +584,6 @@ while True:
                         logger.error("Error occurred updating bots")
             else:
                 logger.error("Invalid botid found: %s" % botid)
-
-            # 3C could return an error code (like 429), however Py3CW does not handle this currently.
-            # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
-            # has been implemented in the Py3CW library
-            time.sleep(0.5)
 
     if not wait_time_interval(logger, notification, timeint):
         break
