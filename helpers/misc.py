@@ -171,3 +171,11 @@ def get_round_digits(pair):
             numberofdigits = 8
 
     return numberofdigits
+
+
+def remove_prefix(text, prefix):
+    """Get the string without prefix, required for Python < 3.9."""
+
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
