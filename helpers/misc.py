@@ -168,7 +168,7 @@ def get_round_digits(pair):
     if pair:
         base = pair.split("_")[0]
 
-        if base in ("BTC", "ETH"):
+        if base in ("BTC", "BNB", "ETH"):
             numberofdigits = 8
 
     return numberofdigits
