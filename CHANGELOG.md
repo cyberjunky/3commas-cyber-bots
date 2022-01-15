@@ -6,9 +6,8 @@
 
 **Implemented enhancements:**
 
-- trailingstoploss enhancments [\#50](https://github.com/cyberjunky/3commas-cyber-bots/issues/50)
+- Trailingstoploss enhancements [\#50](https://github.com/cyberjunky/3commas-cyber-bots/issues/50)
 - Stop Compounding if above risk % level [\#46](https://github.com/cyberjunky/3commas-cyber-bots/issues/46)
-- \_ [\#40](https://github.com/cyberjunky/3commas-cyber-bots/issues/40)
 - TSL Helper [\#38](https://github.com/cyberjunky/3commas-cyber-bots/issues/38)
 - TP Increment - further enhancments [\#32](https://github.com/cyberjunky/3commas-cyber-bots/issues/32)
 - TP % Adjustments [\#27](https://github.com/cyberjunky/3commas-cyber-bots/issues/27)
