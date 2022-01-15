@@ -36,7 +36,8 @@ def init_threecommas_api(cfg):
         request_options={
             "request_timeout": 10,
             "nr_of_retries": 3,
-            "retry_status_codes": [502],
+            "retry_status_codes": [502, 429],
+            "retry_backoff_factor": 1,
         },
     )
 
