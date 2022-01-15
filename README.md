@@ -192,6 +192,79 @@ end-number = 200
 ![CoinMarketCap](images/coinmarketcap.png)
 
 
+## 3C-tools BotAssistExplorer bot helper named `botassistexplorer.py`
+Type = trading pair
+
+### What does it do?
+
+It will fetch the specfied 3C-tools Bot-Assist Top X pairs for your 3Comma's composite DCA bots to use.
+
+### How does it work?
+
+The data is gathered from the 3c-tools.com website which is sorted on the type of list requested and the pairs between `start-number` and `end-number` are processed. These pairs are not reconstructed but used as they are, after being checked against your Blacklist on 3Comma's (or your optional local blacklist file) and the market data on 3Comma's (reflecting Binance, FTX  etc. depending on your exchange) to see if the pairs are valid.
+
+If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
+
+After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
+
+This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+
+NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top pairs (like BTC and ETH) can also be excluded by increasing the start-number.
+
+### Configuration
+
+This is the layout of the config file used by the `botassistexplorer.py` bot helper:
+
+-   *[settings]*
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 86400)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+-   *[botassist_]*
+-   **botids** - a list of bot id's to manage separated with commas
+-   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
+-   **end-number** - end number for the pairs to request. (default is 200)
+-   **list** - the part behind the 'list=' parameter in the url of 3c-tools bot-assist-explorer, you can find it here: https://www.3c-tools.com/markets/bot-assist-explorer
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 3600
+debug = False
+logrotate = 14
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[botassist_somename]
+botids = [ 123456 ]
+start-number = 1
+end-number = 200
+list = binance_spot_usdt_winner_60m
+```
+
+Some examples of the lists available:
+- binance_futures_usdt_alt_rank
+- binance_spot_usdt_highest_volatility_day
+- ftx_spot_usdt_galaxy_score_rank
+- paper_trading_spot_usdt_alt_rank_entered_top_ten
+
+
+NOTE: For lists with AltRank and/or GalaxyScore, the first pair doesn't have to be the number 1 AltRank coin because not all pair combinations are available on all exchanges.
+
+### Example output
+
+![BotAssistExplorer](images/botassistexplorer.png)
+
+
 ## Futures trailing stoploss bot helper named `trailingstoploss.py`
 Type = stop loss
 
