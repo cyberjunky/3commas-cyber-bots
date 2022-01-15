@@ -281,10 +281,5 @@ while True:
             else:
                 logger.error("Error occurred updating bots")
 
-        # 3C could return an error code (like 429), however Py3CW does not handle this currently.
-        # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
-        # has been implemented in the Py3CW library
-        time.sleep(1.0)
-
     if not wait_time_interval(logger, notification, timeint):
         break
