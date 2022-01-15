@@ -207,7 +207,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 logger.debug(f"rank:{rank:3d} pair:{pair:10}")
                 pairs.append(pair)
 
-                if rank > limit:
+                if rank == limit:
                     break
 
     except requests.exceptions.HTTPError as err:
