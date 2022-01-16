@@ -359,12 +359,12 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred updating bot with new max. safety orders and BO/SO values: %s"
+                "Error occurred updating bot with new max. deals and BO/SO values: %s"
                 % error["msg"]
             )
         else:
             logger.error(
-                "Error occurred updating bot with new max. safety orders and BO/SO values"
+                "Error occurred updating bot with new max. deals and BO/SO values"
             )
 
 def compound_bot(cfg, thebot):
