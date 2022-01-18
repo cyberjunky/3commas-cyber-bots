@@ -198,7 +198,7 @@ def process_deals(deals):
 
 
 def get_bot_values(thebot):
-    """Load start boso values from database or calcutate and store them."""
+    """Load start boso values from database or calculate and store them."""
 
     startbo = 0.0
     startso = 0.0
