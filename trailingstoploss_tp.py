@@ -115,8 +115,9 @@ def process_deals(thebot):
     deals = thebot["active_deals"]
     monitored_deals = 0
 
+    botid = thebot["id"]
+
     if deals:
-        botid = thebot["id"]
         current_deals = ""
 
         for deal in deals:
@@ -248,12 +249,19 @@ def process_deals(thebot):
                 f"DELETE FROM deals WHERE botid = {botid} AND dealid NOT IN ({current_deals})"
             )
 
-        db.commit()
-
         logger.info(
             f"Bot {botid} has {len(deals)} of which {monitored_deals} deal(s) require monitoring."
         )
-    # No else, no deals for this bot
+    else:
+        db.execute(
+            f"DELETE FROM deals WHERE botid = {botid}"
+        )
+
+        logger.info(
+            f"Bot {botid} has no active deals."
+        )
+
+    db.commit()
 
     return monitored_deals
 
