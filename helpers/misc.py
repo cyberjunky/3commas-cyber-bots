@@ -168,7 +168,7 @@ def get_round_digits(pair):
     if pair:
         base = pair.split("_")[0]
 
-        if base in ("BTC", "ETH"):
+        if base in ("BTC", "BNB", "ETH"):
             numberofdigits = 8
 
     return numberofdigits
@@ -185,10 +185,12 @@ def remove_prefix(text, prefix):
 def get_botassist_data(logger, botassistlist, start_number, limit):
     """Get the top pairs from 3c-tools bot-assist explorer."""
 
-    url = f"https://www.3c-tools.com/markets/bot-assist-explorer?list={botassistlist}"
+    url = "https://www.3c-tools.com/markets/bot-assist-explorer"
+    parms = {"list": botassistlist}
+
     pairs = list()
     try:
-        result = requests.get(url)
+        result = requests.get(url, params=parms)
         result.raise_for_status()
         soup = BeautifulSoup(result.text, features="html.parser")
         data = soup.find("table", class_="table table-striped table-sm")
@@ -205,13 +207,17 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 logger.debug(f"rank:{rank:3d} pair:{pair:10}")
                 pairs.append(pair)
 
-                if rank > limit:
+                if rank == limit:
                     break
 
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching 3c-tools bot-assist data failed with error: %s" % err)
+        if result.status_code == 500:
+            logger.error(f"Check if the list setting '{botassistlist}' is correct")
+
         return pairs
 
-    logger.info("Fetched 3c-tools bot-assist data OK (%s coins)" % (len(pairs)))
+    logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
+

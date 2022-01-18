@@ -145,7 +145,7 @@ class Logger:
             f"%(asctime)s - {program} - %(levelname)s - %(message)s", date_fmt
         )
         console_formatter = logging.Formatter(
-            f"%(asctime)s - {program} - %(message)s", date_fmt
+            f"%(asctime)s - {program} - %(levelname)s - %(message)s", date_fmt
         )
         # Create directory if not exists
         if not os.path.exists(f"{self.datadir}/logs"):
