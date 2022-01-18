@@ -5,7 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def wait_time_interval(logger, notification, time_interval):
+def wait_time_interval(logger, notification, time_interval, notify=True):
     """Wait for time interval."""
 
     if time_interval > 0:
@@ -13,7 +13,7 @@ def wait_time_interval(logger, notification, time_interval):
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info(
-            "Next update in %s Seconds at %s" % (time_interval, timeresult), True
+            "Next update in %s Seconds at %s" % (time_interval, timeresult), notify
         )
         notification.send_notification()
         time.sleep(time_interval)
@@ -178,7 +178,7 @@ def remove_prefix(text, prefix):
     """Get the string without prefix, required for Python < 3.9."""
 
     if text.startswith(prefix):
-        return text[len(prefix) :]
+        return text[len(prefix):]
     return text
 
 
@@ -220,4 +220,3 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
-

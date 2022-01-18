@@ -393,5 +393,5 @@ while True:
                 time.sleep(0.5)
 
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
