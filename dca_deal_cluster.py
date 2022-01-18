@@ -254,12 +254,12 @@ def process_cluster_deals(cluster_id):
             if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
                 # Found a pair which should be suspended
                 if disablepairs:
-                    disablepairs += ","
+                    disablepairs += "\',\'"
                 disablepairs += str(pair)
             else:
                 # Found a pair which can be activated again
                 if enablepairs:
-                    enablepairs += ","
+                    enablepairs += "\',\'"
                 enablepairs += str(pair)
 
         # Enable the found pairs (caused by finished deals)
