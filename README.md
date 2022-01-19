@@ -1122,7 +1122,7 @@ Create new ones, with it and paste them in your ini file(s)
 The secret key specified for the 3Commas API is invalid, check for possible paste error.
 
 10) I get error `2022-01-11 00:11:00 - altrank - Fetching LunarCrush data failed with error: 401 Client Error: Unauthorized for url: https://api.lunarcrush.com/v2?data=market&type=fast&sort=acr&limit=150&key=Your+LunarCrush+API+Key`
-LunarCrush now expect a valid apikey again, create an account here [LunarCrush](https://lnr.app/s/o3p1V2) and login to https://legacy.lunarcrash.com, then goto settings and API tab, create key and use this in altrank.ini and/or galaxyscore.ini.
+LunarCrush now expect a valid apikey again, create an account here [LunarCrush](https://lnr.app/s/o3p1V2) and login to https://legacy.lunarcrush.com/, then goto settings and API tab, create key and use this in altrank.ini and/or galaxyscore.ini.
 
 ### Debugging
 
