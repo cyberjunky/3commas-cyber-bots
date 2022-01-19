@@ -11,8 +11,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import (check_deal, get_round_digits, remove_prefix,
-                          wait_time_interval)
+from helpers.misc import check_deal, get_round_digits, remove_prefix, wait_time_interval
 from helpers.threecommas import get_threecommas_deals, init_threecommas_api
 
 
@@ -38,7 +37,12 @@ def load_config():
         "compoundmode": "boso",
         "profittocompound": 1.0,
         "usermaxactivedeals": 5,
-        "usermaxsafetyorders": 5,
+        "comment": "put here the name of the bot",
+    }
+    cfg["bot_someotherid"] = {
+        "compoundmode": "safetyorders",
+        "profittocompound": 1.0,
+        "usermaxactivesafetyorders": 5,
         "comment": "put here the name of the bot",
     }
 
@@ -79,7 +83,6 @@ def upgrade_config(thelogger, theapi, cfg):
                         "compoundmode": "boso",
                         "profittocompound": default_profit_percentage,
                         "usermaxactivedeals": int(data["max_active_deals"]) + 5,
-                        "usermaxsafetyorders": int(data["max_safety_orders"]) + 5,                        
                         "comment": data["name"],
                     }
                 else:
@@ -111,7 +114,8 @@ def get_logged_profit_for_bot(bot_id):
 
 
 def update_bot_order_volumes(
-    thebot, new_base_order_volume, new_safety_order_volume, profit_sum, deals_count):
+    thebot, new_base_order_volume, new_safety_order_volume, profit_sum, deals_count
+):
     """Update bot with new order volumes."""
 
     bot_name = thebot["name"]
@@ -200,45 +204,42 @@ def process_deals(deals):
 
 
 def get_bot_values(thebot):
-    """Load start boso values from database or calculate and store them."""
+    """Load start boso values from database or calcutate and store them."""
 
     startbo = 0.0
     startso = 0.0
     startactivedeals = thebot["max_active_deals"]
-    startsafetyorders = thebot["max_safety_orders"]   
     bot_id = thebot["id"]
 
     data = cursor.execute(
-        f"SELECT startbo, startso, startactivedeals, startsafetyorders FROM bots WHERE botid = {bot_id}"
+        f"SELECT startbo, startso, startactivedeals FROM bots WHERE botid = {bot_id}"
     ).fetchone()
     if data:
         # Fetch values from database
         startbo = data[0]
         startso = data[1]
         startactivedeals = data[2]
-        startsafetyorders = data[3]
         logger.info(
-            "Fetched bot start BO, SO values, max. active deals and max safety orders: %s %s %s %s "
-            % (startbo, startso, startactivedeals, startsafetyorders)
+            "Fetched bot start BO, SO values and max. active deals: %s %s %s"
+            % (startbo, startso, startactivedeals)
         )
     else:
         # Store values in database
         startbo = float(thebot["base_order_volume"])
         startso = float(thebot["safety_order_volume"])
         startactivedeals = thebot["max_active_deals"]
-        startsafetyorders = thebot["max_safety_orders"]           
         db.execute(
-            f"INSERT INTO bots (botid, startbo, startso, startactivedeals, startsafetyorders) "
-            f"VALUES ({bot_id}, {startbo}, {startso}, {startactivedeals}, {startsafetyorders})"
+            f"INSERT INTO bots (botid, startbo, startso, startactivedeals) "
+            f"VALUES ({bot_id}, {startbo}, {startso}, {startactivedeals})"
         )
 
         logger.info(
-            "Stored  bot start BO, SO values, max. active deals and max safety orders: %s %s %s %s "
-            % (startbo, startso, startactivedeals, startsafetyorders)
+            "Stored bot start BO, SO values and max. active deals: %s %s %s"
+            % (startbo, startso, startactivedeals)
         )
         db.commit()
 
-    return (startbo, startso, startactivedeals, startsafetyorders)
+    return (startbo, startso, startactivedeals)
 
 
 def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals):
@@ -311,11 +312,10 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
     max_safety_orders = thebot["max_safety_orders"]
-    
 
     logger.info(
         "Calculated max. safety orders changed from: %s to %s"
-        % (max_active_deals, new_max_safety_orders)
+        % (max_safety_orders, new_max_safety_orders)
     )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
@@ -339,7 +339,7 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
             "take_profit": thebot["take_profit"],
             "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
             "martingale_step_coefficient": thebot["martingale_step_coefficient"],
-            "max_active_deals": thebot["max_active_deals"],
+            "max_active_deals": thebot["max_safety_orders"],
             "max_safety_orders": new_max_safety_orders,  # new max. safety orders value
             "safety_order_step_percentage": thebot["safety_order_step_percentage"],
             "take_profit_type": thebot["take_profit_type"],
@@ -351,11 +351,11 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
         rounddigits = get_round_digits(thebot["pairs"][0])
 
         logger.info(
-            f"Changed max. active safety orders from: %s to %s for bot\n'{bot_name}'\n"
+            f"Changed max. active safety order from: %s to %s for bot\n'{bot_name}'\n"
             f"Changed BO from ${round(base_order_volume, rounddigits)} to "
             f"${round(org_base_order, rounddigits)}\nChanged SO from "
             f"${round(safety_order_volume, rounddigits)} to ${round(org_safety_order, rounddigits)}"
-            % (max_safety_orders, new_max_safety_orders)
+            % (max_safety_orders, max_safety_orders)
         )
     else:
         if error and "msg" in error:
@@ -382,6 +382,68 @@ def compound_bot(cfg, thebot):
             fallback=cfg.get("settings", "default-profittocompound"),
         )
     )
+    if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":       
+        logger.info("Compound mode for this bot is: Safety Orders")
+
+        # Get starting BO and SO values
+        (startbo, startso, startactivedeals) = get_bot_values(thebot)
+
+        # Get active deal settings
+        user_defined_max_safety_orders = int(
+            cfg.get(f"bot_{bot_id}", "usermaxactivesafetyorders")
+        )
+
+        # Calculate amount used per deal
+        max_safety_orders = float(thebot["max_safety_orders"])
+        martingale_volume_coefficient = float(
+            thebot["martingale_volume_coefficient"]
+        )  # Safety order volume scale
+
+        # Always add start_base_order_size
+        totalusedperdeal = startbo
+
+        isafetyorder = 1
+        while isafetyorder <= max_safety_orders:
+            # For the first Safety order, just use the startso
+            if isafetyorder == 1:
+                total_safety_order_volume = startso
+
+            # After the first SO, multiple the previous SO with the safety order volume scale
+            if isafetyorder > 1:
+                total_safety_order_volume *= martingale_volume_coefficient
+
+            totalusedperdeal += total_safety_order_volume
+
+            # Calculate profit needed to add a SO to all startactivedeals
+            if isafetyorder == max_safety_orders:
+                total_safety_order_volume *= martingale_volume_coefficient #order size van volgende SO
+                profit_needed_to_add_so = total_safety_order_volume * startactivedeals
+            
+            isafetyorder += 1
+
+        # Calculate % to compound (per bot)
+        totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
+        profitusedtocompound = totalprofitforbot * bot_profit_percentage
+
+        #If we have more profitusedtocompound
+        new_max_safety_orders = max_safety_orders
+        if profitusedtocompound > profit_needed_to_add_so:
+                new_max_safety_orders = max_safety_orders + 1
+
+        if new_max_safety_orders > user_defined_max_safety_orders:
+            logger.info(
+                f"Already reached max set number of safety orders ({user_defined_max_safety_orders}), "
+                f"skipping deal compounding"
+            )
+
+        if new_max_safety_orders > max_safety_orders:
+            if new_max_safety_orders <= user_defined_max_safety_orders: 
+                logger.info(
+                    "Enough profit has been made to add a safety order"
+                )
+                # Update the bot
+                update_bot_max_safety_orders(thebot, startbo, startso, new_max_safety_orders)
+
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
 
         logger.info("Compound mode for this bot is: DEALS")
@@ -415,87 +477,6 @@ def compound_bot(cfg, thebot):
 
             totalusedperdeal += total_safety_order_volume
             isafetyorder += 1
-
-        # Calculate % to compound (per bot)
-        totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
-        profitusedtocompound = totalprofitforbot * bot_profit_percentage
-
-        new_max_active_deals = (
-            math.floor(profitusedtocompound / totalusedperdeal) + startactivedeals
-        )
-        current_active_deals = thebot["max_active_deals"]
-
-        if new_max_active_deals > user_defined_max_active_deals:
-            logger.info(
-                f"Already reached max set number of deals ({user_defined_max_active_deals}), "
-                f"skipping deal compounding"
-            )
-        elif (
-            new_max_active_deals
-            > current_active_deals & new_max_active_deals
-            <= user_defined_max_active_deals
-        ):
-            logger.info(
-                "Enough profit has been made to add a deal and lower BO & SO to their orginal values"
-            )
-            # Update the bot
-            update_bot_max_deals(thebot, startbo, startso, new_max_active_deals)
-
-    if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":
-
-        logger.info("Compound mode for this bot is: SAFETYORDERS")
-
-        # Get starting BO and SO values
-        (startbo, startso, startsafetyorders) = get_bot_values(thebot)
-
-        # Get active deal settings
-        user_defined_max_safety_orders = int(
-            cfg.get(f"bot_{bot_id}", "usermaxsafetyorders")
-        )
-
-        # Calculate amount used per deal
-        max_safety_orders = float(thebot["max_safety_orders"])
-        martingale_volume_coefficient = float(
-            thebot["martingale_volume_coefficient"]
-        )  # Safety order volume scale
-
-        # Always add start_base_order_size
-        totalusedperdeal = startbo
-
-        isafetyorder = 1
-        while isafetyorder <= max_safety_orders:
-            # For the first Safety order, just use the startso
-            if isafetyorder == 1:
-                total_safety_order_volume = startso
-
-            # After the first SO, multiple the previous SO with the safety order volume scale
-            if isafetyorder > 1:
-                total_safety_order_volume *= martingale_volume_coefficient
-
-            totalusedperdeal += total_safety_order_volume
-            isafetyorder += 1
-
-        # Calculate amount used per deal with added safety order
-        max_safety_orders_added_so = float(thebot["max_safety_orders"])
-        martingale_volume_coefficient = float(
-            thebot["martingale_volume_coefficient"]
-        )  # Safety order volume scale
-
-        # Always add start_base_order_size
-        totalusedperdeal_added_so = startbo
-
-        isafetyorder_added_so = 1
-        while isafetyorder_added_so <= max_safety_orders_added_so:
-            # For the first Safety order, just use the startso
-            if isafetyorder_added_so == 1:
-                total_safety_order_volume = startso
-
-            # After the first SO, multiple the previous SO with the safety order volume scale
-            if isafetyorder_added_so > 1:
-                total_safety_order_volume *= martingale_volume_coefficient
-
-            totalusedperdeal += total_safety_order_volume
-            isafetyorder_added_so += 1
 
         # Calculate % to compound (per bot)
         totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
