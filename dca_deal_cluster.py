@@ -78,7 +78,7 @@ def init_coin_db():
         )
 
         dbcursor.execute(
-            "CREATE TABLE bot_pairs (clusterid STRING, botid INT, pair STRING, enabled BIT, "
+            "CREATE TABLE bot_pairs (clusterid STRING, botid INT, botname STRING, pair STRING, enabled BIT, "
             "PRIMARY KEY(clusterid, botid, pair))"
         )
 
@@ -156,14 +156,16 @@ def process_bot_deals(cluster_id, thebot):
     # Save all pairs used by the bot currently. Make sure not to overwrite disabled pairs
     botpairs = thebot["pairs"]
     if botpairs:
+        botname = thebot["name"]
+
         logger.info(
-            f"Saving {len(botpairs)} pairs for bot {bot_id}"
+            f"Saving {len(botpairs)} pairs for bot {botname} ({bot_id})"
         )
 
         for pair in botpairs:
             db.execute(
-                f"INSERT OR IGNORE INTO bot_pairs (clusterid, botid, pair, enabled) "
-                f"VALUES ('{cluster_id}', {bot_id}, '{pair}', {1})"
+                f"INSERT OR IGNORE INTO bot_pairs (clusterid, botid, botname, pair, enabled) "
+                f"VALUES ('{cluster_id}', {bot_id},'{botname}', '{pair}', {1})"
             )
 
     db.commit()
@@ -301,7 +303,7 @@ def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
     """Log the pairs which will be enabled or disabled"""
 
     pairdata = cursor.execute(
-        f"SELECT botid, pair, enabled FROM bot_pairs "
+        f"SELECT botid, botname, pair, enabled FROM bot_pairs "
         f"WHERE clusterid = '{cluster_id}' AND pair = '{pair}'"
     ).fetchall()
 
@@ -309,10 +311,10 @@ def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
         changedbots = ""
 
         for entry in pairdata:
-            if entry[2] != new_enabled_value:
+            if entry[3] != new_enabled_value:
                 if changedbots:
                     changedbots += ","
-                changedbots += str(entry[0])
+                changedbots += str(entry[1]) + " (" + str(entry[0]) + ")"
 
         if changedbots:
             if new_enabled_value:
