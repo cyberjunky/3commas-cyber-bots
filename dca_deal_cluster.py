@@ -128,7 +128,8 @@ def process_bot_deals(cluster_id, thebot):
                     f"VALUES ({deal_id}, '{deal_pair}', '{cluster_id}', {bot_id}, {1})"
                 )
                 logger.info(
-                    f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}"
+                    f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}",
+                    True
                 )
             else:
                 logger.info(
@@ -168,7 +169,26 @@ def process_bot_deals(cluster_id, thebot):
     db.commit()
 
 
-def aggregrate_cluster(cluster_id, log_debug):
+def log_deals(cluster_id):
+    """Log the deals within this cluster"""
+    dealdata = cursor.execute(
+        f"SELECT dealid, pair, botid, active FROM deals "
+        f"WHERE clusterid = '{cluster_id}'"
+    ).fetchall()
+
+    if dealdata:
+        logger.info(f"Printing deals for cluster '{cluster_id}':")
+        for entry in dealdata:
+            logger.info(
+                f"{entry[0]}: {entry[1]}, {entry[2]} => {entry[3]}"
+            )
+    else:
+        logger.info(
+            f"No deals data for cluster '{cluster_id}'"
+        )
+
+
+def aggregrate_cluster(cluster_id):
     """Aggregate deals within cluster."""
 
     logger.info(f"Cleaning and aggregating data for cluster '{cluster_id}'")
@@ -177,24 +197,6 @@ def aggregrate_cluster(cluster_id, log_debug):
     db.execute(
         f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
     )
-
-    # Debug data; show all deals for this specific cluster
-    if log_debug:
-        dealdata = cursor.execute(
-            f"SELECT dealid, pair, botid, active FROM deals "
-            f"WHERE clusterid = '{cluster_id}'"
-        ).fetchall()
-
-        if dealdata:
-            logger.info(f"Printing deals for cluster '{cluster_id}':")
-            for entry in dealdata:
-                logger.info(
-                    f"{entry[0]}: {entry[1]}, {entry[2]} => {entry[3]}"
-                )
-        else:
-            logger.info(
-                f"No deals data for cluster '{cluster_id}'"
-            )
 
     # Create the cluster data, how many of the same pairs are active within the
     # cluster based on the active deals
@@ -209,23 +211,25 @@ def aggregrate_cluster(cluster_id, log_debug):
 
     db.commit()
 
-    # Debug data; show the aggregated data based on the deals for this cluster
-    if log_debug:
-        clusterdata = cursor.execute(
-            f"SELECT clusterid, pair, number_active FROM cluster_pairs "
-            f"WHERE clusterid = '{cluster_id}'"
-        ).fetchall()
 
-        if clusterdata:
-            logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
-            for entry in clusterdata:
-                logger.info(
-                    f"{entry[1]}: {entry[2]}"
-                )
-        else:
+def log_cluster_data(cluster_id):
+    """Log the aggregated data based on the deals for this cluster"""
+
+    clusterdata = cursor.execute(
+        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+        f"WHERE clusterid = '{cluster_id}'"
+    ).fetchall()
+
+    if clusterdata:
+        logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
+        for entry in clusterdata:
             logger.info(
-                f"No cluster_pair data for cluster '{cluster_id}'"
+                f"{entry[1]}: {entry[2]}"
             )
+    else:
+        logger.info(
+            f"No cluster_pair data for cluster '{cluster_id}'"
+        )
 
 
 def process_cluster_deals(cluster_id):
@@ -256,11 +260,15 @@ def process_cluster_deals(cluster_id):
                 if disablepairs:
                     disablepairs += "\',\'"
                 disablepairs += str(pair)
+
+                log_disable_enable_pair(cluster_id, pair, 0)
             else:
                 # Found a pair which can be activated again
                 if enablepairs:
                     enablepairs += "\',\'"
                 enablepairs += str(pair)
+
+                log_disable_enable_pair(cluster_id, pair, 1)
 
         # Enable the found pairs (caused by finished deals)
         if enablepairs:
@@ -289,6 +297,36 @@ def process_cluster_deals(cluster_id):
         )
 
 
+def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
+    """Log the pairs which will be enabled or disabled"""
+
+    pairdata = cursor.execute(
+        f"SELECT botid, pair, enabled FROM bot_pairs "
+        f"WHERE clusterid = '{cluster_id}' AND pair = '{pair}'"
+    ).fetchall()
+
+    if pairdata:
+        changedbots = ""
+
+        for entry in pairdata:
+            if entry[2] != new_enabled_value:
+                if changedbots:
+                    changedbots += ","
+                changedbots += str(entry[0])
+
+        if changedbots:
+            if new_enabled_value:
+                logger.info(
+                    f"Enabling pair {pair} for the following bot(s): {changedbots}",
+                    True
+                )
+            else:
+                logger.info(
+                    f"Disabling pair {pair} for the following bot(s): {changedbots}",
+                    True
+                )
+
+
 def update_bot_pairs(cluster_id, thebot):
     """Update bots."""
 
@@ -304,7 +342,7 @@ def update_bot_pairs(cluster_id, thebot):
 
     if botpairs:
         pairlist = [row[0] for row in botpairs]
-        set_threecommas_bot_pairs(logger, api, thebot, pairlist)
+        set_threecommas_bot_pairs(logger, api, thebot, pairlist, False)
     else:
         logger.warning(
             f"Failed to get bot pairs for bot {bot_id}"
@@ -413,13 +451,14 @@ while True:
                     else:
                         logger.error("Error occurred reading bots")
 
-                # 3C could return an error code (like 429), however Py3CW does not handle this currently.
-                # Easiest 'fix' is a short sleep of 0.5 seconds and hope it will be enough until this
-                # has been implemented in the Py3CW library
-                time.sleep(0.5)
-
             # Aggregate deals to cluster level
-            aggregrate_cluster(section, debug)
+            if debug:
+                log_deals(section)
+
+            aggregrate_cluster(section)
+
+            if debug:
+                log_cluster_data(section)
 
             # Enable and disable pairs
             process_cluster_deals(section)
@@ -439,5 +478,5 @@ while True:
                     else:
                         logger.error("Error occurred updating bots")
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
