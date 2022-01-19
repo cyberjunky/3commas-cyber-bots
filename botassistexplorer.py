@@ -78,12 +78,7 @@ def botassist_pairs(thebot, botassistdata):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Parse bot-assist data
-    for entry in botassistdata:
-        base = entry.split("_")[0]
-        coin = entry.split("_")[1]
-
-        # Construct pair based on bot settings and marketcode
-        pair = format_pair(logger, marketcode, base, coin)
+    for pair in botassistdata:
 
         # Populate lists
         populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerlist)
