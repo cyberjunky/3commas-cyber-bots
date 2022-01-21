@@ -313,7 +313,7 @@ def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
         for entry in pairdata:
             if entry[3] != new_enabled_value:
                 if changedbots:
-                    changedbots += ","
+                    changedbots += ", "
                 changedbots += str(entry[1]) + " (" + str(entry[0]) + ")"
 
         if changedbots:
@@ -479,6 +479,10 @@ while True:
                         logger.error("Error occurred updating bots: %s" % boterror["msg"])
                     else:
                         logger.error("Error occurred updating bots")
+
+            # Send notifications for the processed cluster, otherwise the message can
+            # become too long resulting in a bad request
+            notification.send_notification()
 
     if not wait_time_interval(logger, notification, timeint, False):
         break
