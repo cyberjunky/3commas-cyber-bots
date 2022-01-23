@@ -73,6 +73,11 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
       * [What does it do?](#what-does-it-do-9)
       * [Configuration](#configuration-8)
       * [Example output](#example-output-6)
+   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
+      * [What does it do?](#what-does-it-do-10)
+      * [How does it work?](#how-does-it-work-9)
+      * [Configuration](#configuration-10)
+      * [Example output](#example-output-7)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -703,8 +708,8 @@ The configuration file for `tpincrement` contains the following settings:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **increment-step-scale** - a list of increment percentages for the safety orders
+-   **botids** - a list of bot id's to manage separated with commas.
+-   **increment-step-scale** - a list of increment percentages for the safety orders.
 -   **3c-apikey** - your 3Commas API key value.
 -   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
@@ -732,6 +737,62 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ### Example output
 
 ![Tpincrement](images/tpincrement.png)
+
+
+## Deal cluster bot helper named `dealcluster.py`
+Type = deal manager
+
+### What does it do?
+Tired of having multiple deals of the same pair open for a number of bots? This helper will help you out by adjusting the configured pairs in a bot inside a cluster.
+
+### How does it work?
+First, you will need to create a cluster of bots by configuring the `botids`. This script will start to monitor the active deals of these bots and register them in a local database.
+
+The deals inside one cluster will be grouped in order to determine how many deals for a given pair are active. If this number exceeds the `max-same-deal`, the pair will be disabled for all the bots inside the cluster. Disabled means the pair configuration of the bots is updated and the specific pair is removed from them.
+
+Once a deal is gone and the number of deals for this pair is below `max-same-deals`, the pair is enabled and the bots inside the cluster are updated again.
+
+Notice you can create more than one cluster as long as each section starts with 'cluster_'. The example configuration below contains a single 'default' cluster.
+
+Note: sometimes 3C deals can be opened within seconds and there is nothing this script can do to prevent it. Shorter intervals will decrease this possibility, but also beware 3C has a rate limit so do not go that low (the author used a minimum of 120 seconds).
+
+
+### Configuration
+
+The configuration file for `dealcluster` contains the following settings:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   *cluster_default*
+-   **botids** - a list of bot id's to manage separated with commas.
+-   **max-same-deals** - number of deals for the same pair allowed. (default = 1)
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 86400
+debug = False
+logrotate = 7
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[cluster_default]
+botids = [ 12345, 67890]
+max-same-deals = 1
+```
+
+### Example output
+
+![Dealcluster](images/dealcluster.png)
 
 
 ## Binance account Setup
