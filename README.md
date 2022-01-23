@@ -56,23 +56,24 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
       * [What does it do?](#what-does-it-do-5)
       * [How does it work?](#how-does-it-work-5)
       * [Configuration](#configuration-5)
+      * [Example output](#example-output-4)
    * [Compound bot helper named compound.py](#compound-bot-helper-named-compoundpy)
       * [What does it do?](#what-does-it-do-6)
       * [How does it work?](#how-does-it-work-6)
       * [Configuration](#configuration-6)
-      * [Example output](#example-output-4)
+      * [Example output](#example-output-5)
    * [Watchlist bot helper named watchlist.py](#watchlist-bot-helper-named-watchlistpy)
       * [What does it do?](#what-does-it-do-7)
       * [How does it work?](#how-does-it-work-7)
       * [Configuration](#configuration-7)
-      * [Example output](#example-output-5)
+      * [Example output](#example-output-6)
    * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy-)
       * [What does it do?](#what-does-it-do-8)
       * [How does it work?](#how-does-it-work-8)
    * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
       * [What does it do?](#what-does-it-do-9)
       * [Configuration](#configuration-8)
-      * [Example output](#example-output-6)
+      * [Example output](#example-output-7)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -490,6 +491,10 @@ initial-stoploss-percentage = 1.0
 sl-increment-factor = 0.5
 tp-increment-factor = 0.5
 ```
+
+### Example output
+
+![Trailingstoploss_tp](images/trailingstoploss_tp.png)
 
 
 ## Compound bot helper named `compound.py`
