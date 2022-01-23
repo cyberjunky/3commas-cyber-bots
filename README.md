@@ -52,7 +52,7 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
       * [What does it do?](#what-does-it-do-4)
       * [How does it work?](#how-does-it-work-4)
       * [Configuration](#configuration-4)
-   * [DCA Trailing stoploss and profit bot helper named tsl_and_tp.py](#dca-trailing-stoploss-and-profit-bot-helper-named-tsl_and_tppy)
+   * [DCA Trailing stoploss and profit bot helper named trailingstoploss_tp.py](#dca-trailing-stoploss-and-profit-bot-helper-named-trailingstoploss_tppy)
       * [What does it do?](#what-does-it-do-5)
       * [How does it work?](#how-does-it-work-5)
       * [Configuration](#configuration-5)
@@ -447,7 +447,7 @@ Then the bot helper will sleep for the set interval time, after which it will re
 
 This script can be used for multiple bots with different TSL and TP settings by creating multiple tsl_tp_ sections in the configuration file. Each section is processed as described above. Make sure each section starts with tsl_tp_ between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
 
-WARNING: This script is currently being tested and not stable yet! Use with caution.
+Note: the percentages used can be confusing. Please read the following document to understand them better: [in-depth](docs/trailingstoploss_tp-in-depth.pdf)
 
 
 ### Configuration
