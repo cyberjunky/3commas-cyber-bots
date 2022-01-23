@@ -498,7 +498,7 @@ Every interval the bots specfied in the config are read, their deals are checked
 If profit has been made, the value will be added to the BO and SO values of the bot.
 Deals are marked as processed and original BO/SO ratio of the bot is stored to be used for next iterations.
 
-When compoundmode 'deals' is chosen, the profit will be added to the BO and SO values as above. Untill the profit exceeds the total used per deal (total of the origional BO and SO's), the max active deals is increased and the BO and SO values are reset to their origional values.
+When compoundmode 'deals' is chosen, the profit will be added to the BO and SO values as above. Until the profit exceeds the total used per deal (total of the origional BO and SO's), the max active deals is increased and the BO and SO values are reset to their origional values.
 
 Then the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
@@ -518,9 +518,10 @@ This is the layout of the config file used by the `compound.py` bot helper:
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
 -   *[bot_id]*
--   **compoundmode** - how would you like compound? 'boso' to increase BO and SO values of the bot, 'deals' to increase max active deals (default is 'boso')
+-   **compoundmode** - how would you like compound? 'boso' to increase BO and SO values of the bot, 'deals' to increase max active deals (default is 'boso'), 'safetyorders' to increase the max safety orders.
 -   **profittocompound** - ratio of profit to compound (1.0 = 100%, 0.85 = 85% etc).
 -   **usermaxactivedeals** - the maximum number of active deals the compoundscript can increment to. (default is 5)
+-   **usermaxsafetyorders** - the maximum number of safety orders the compoundscript can increment to. (default is 5)
 -   **comment** - name of the bot, used for loggin.
 
 Example: (keys are bogus)
@@ -541,6 +542,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 compoundmode = boso
 profittocompound = 0.9
 usermaxactivedeals = 10
+usermaxsafetyorders = 5
 comment = Example Bot
 ```
 
