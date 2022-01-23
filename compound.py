@@ -213,8 +213,6 @@ def get_bot_values(thebot):
     startbo = 0.0
     startso = 0.0
     startactivedeals = thebot["max_active_deals"]
-    startsafetyorders = thebot["max_safety_orders"]
-
     bot_id = thebot["id"]
 
     data = cursor.execute(
@@ -397,7 +395,7 @@ def compound_bot(cfg, thebot):
         # Get starting BO and SO values
         (startbo, startso, startactivedeals) = get_bot_values(thebot)
 
-        # Get active deal settings
+        # Get active safety order settings
         user_defined_max_safety_orders = int(
             cfg.get(f"bot_{bot_id}", "usermaxactivesafetyorders")
         )
