@@ -37,12 +37,7 @@ def load_config():
         "compoundmode": "boso",
         "profittocompound": 1.0,
         "usermaxactivedeals": 5,
-        "comment": "put here the name of the bot",
-    }
-    cfg["bot_someotherid"] = {
-        "compoundmode": "safetyorders",
-        "profittocompound": 1.0,
-        "usermaxactivesafetyorders": 5,
+        "usermaxsafetyorders": 5,
         "comment": "put here the name of the bot",
     }
 
@@ -83,7 +78,7 @@ def upgrade_config(thelogger, theapi, cfg):
                         "compoundmode": "boso",
                         "profittocompound": default_profit_percentage,
                         "usermaxactivedeals": int(data["max_active_deals"]) + 5,
-                        "usermaxsafetyorders": int(data["max_safety_orders"]) + 5, 
+                        "usermaxsafetyorders": int(data["max_safety_orders"]) + 5,
                         "comment": data["name"],
                     }
                 else:
@@ -210,6 +205,8 @@ def get_bot_values(thebot):
     startbo = 0.0
     startso = 0.0
     startactivedeals = thebot["max_active_deals"]
+    startsafetyorders = thebot["max_safety_orders"]
+  
     bot_id = thebot["id"]
 
     data = cursor.execute(
@@ -340,7 +337,7 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
             "take_profit": thebot["take_profit"],
             "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
             "martingale_step_coefficient": thebot["martingale_step_coefficient"],
-            "max_active_deals": thebot["max_safety_orders"],
+            "max_active_deals": thebot["max_active_deals"],
             "max_safety_orders": new_max_safety_orders,  # new max. safety orders value
             "safety_order_step_percentage": thebot["safety_order_step_percentage"],
             "take_profit_type": thebot["take_profit_type"],
@@ -352,7 +349,7 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
         rounddigits = get_round_digits(thebot["pairs"][0])
 
         logger.info(
-            f"Changed max. active safety order from: %s to %s for bot\n'{bot_name}'\n"
+            f"Changed max. active safety orders from: %s to %s for bot\n'{bot_name}'\n"
             f"Changed BO from ${round(base_order_volume, rounddigits)} to "
             f"${round(org_base_order, rounddigits)}\nChanged SO from "
             f"${round(safety_order_volume, rounddigits)} to ${round(org_safety_order, rounddigits)}"
@@ -385,13 +382,13 @@ def compound_bot(cfg, thebot):
     )
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":       
         logger.info("Compound mode for this bot is: Safety Orders")
-
         # Get starting BO and SO values
         (startbo, startso, startactivedeals) = get_bot_values(thebot)
 
         # Get active deal settings
         user_defined_max_safety_orders = int(
             cfg.get(f"bot_{bot_id}", "usermaxactivesafetyorders")
+            cfg.get(f"bot_{bot_id}", "usermaxactivedeals")
         )
 
         # Calculate amount used per deal
