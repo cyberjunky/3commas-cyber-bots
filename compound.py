@@ -51,7 +51,11 @@ def upgrade_config(thelogger, theapi, cfg):
     """Upgrade config file if needed."""
 
     if cfg.has_option("settings", "profittocompound"):
-        cfg.set("settings", "default-profittocompound", config.get("settings", "profittocompound"))
+        cfg.set(
+            "settings",
+            "default-profittocompound",
+            config.get("settings", "profittocompound"),
+        )
         cfg.remove_option("settings", "profittocompound")
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
@@ -61,7 +65,9 @@ def upgrade_config(thelogger, theapi, cfg):
 
     if cfg.has_option("settings", "botids"):
         thebotids = json.loads(cfg.get("settings", "botids"))
-        default_profit_percentage = float(config.get("settings", "default-profittocompound"))
+        default_profit_percentage = float(
+            config.get("settings", "default-profittocompound")
+        )
 
         # Walk through all bots configured
         for thebot in thebotids:
@@ -83,7 +89,9 @@ def upgrade_config(thelogger, theapi, cfg):
                     }
                 else:
                     if error and "msg" in error:
-                        logger.error("Error occurred upgrading config: %s" % error["msg"])
+                        logger.error(
+                            "Error occurred upgrading config: %s" % error["msg"]
+                        )
                     else:
                         logger.error("Error occurred upgrading config")
 
@@ -200,13 +208,13 @@ def process_deals(deals):
 
 
 def get_bot_values(thebot):
-    """Load start boso values from database or calcutate and store them."""
+    """Load start boso values from database or calculate and store them."""
 
     startbo = 0.0
     startso = 0.0
     startactivedeals = thebot["max_active_deals"]
     startsafetyorders = thebot["max_safety_orders"]
-  
+
     bot_id = thebot["id"]
 
     data = cursor.execute(
@@ -303,7 +311,10 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
                 "Error occurred updating bot with new max. deals and BO/SO values"
             )
 
-def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_max_safety_orders):
+
+def update_bot_max_safety_orders(
+    thebot, org_base_order, org_safety_order, new_max_safety_orders
+):
     """Update bot with new max safety orders and old bo/so values."""
 
     bot_name = thebot["name"]
@@ -366,6 +377,7 @@ def update_bot_max_safety_orders(thebot, org_base_order, org_safety_order, new_m
                 "Error occurred updating bot with new max. safety orders and BO/SO values"
             )
 
+
 def compound_bot(cfg, thebot):
     """Find profit from deals and calculate new SO and BO values."""
 
@@ -380,7 +392,7 @@ def compound_bot(cfg, thebot):
             fallback=cfg.get("settings", "default-profittocompound"),
         )
     )
-    if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":       
+    if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":
         logger.info("Compound mode for this bot is: Safety Orders")
         # Get starting BO and SO values
         (startbo, startso, startactivedeals) = get_bot_values(thebot)
@@ -388,6 +400,10 @@ def compound_bot(cfg, thebot):
         # Get active deal settings
         user_defined_max_safety_orders = int(
             cfg.get(f"bot_{bot_id}", "usermaxactivesafetyorders")
+        )
+
+        # Get active deal settings
+        user_defined_max_active_deals = int(
             cfg.get(f"bot_{bot_id}", "usermaxactivedeals")
         )
 
@@ -414,19 +430,21 @@ def compound_bot(cfg, thebot):
 
             # Calculate profit needed to add a SO to all startactivedeals
             if isafetyorder == max_safety_orders:
-                total_safety_order_volume *= martingale_volume_coefficient #order size van volgende SO
+                total_safety_order_volume *= (
+                    martingale_volume_coefficient  # order size van volgende SO
+                )
                 profit_needed_to_add_so = total_safety_order_volume * startactivedeals
-            
+
             isafetyorder += 1
 
         # Calculate % to compound (per bot)
         totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
         profitusedtocompound = totalprofitforbot * bot_profit_percentage
 
-        #If we have more profitusedtocompound
+        # If we have more profitusedtocompound
         new_max_safety_orders = max_safety_orders
         if profitusedtocompound > profit_needed_to_add_so:
-                new_max_safety_orders = max_safety_orders + 1
+            new_max_safety_orders = max_safety_orders + 1
 
         if new_max_safety_orders > user_defined_max_safety_orders:
             logger.info(
@@ -435,12 +453,12 @@ def compound_bot(cfg, thebot):
             )
 
         if new_max_safety_orders > max_safety_orders:
-            if new_max_safety_orders <= user_defined_max_safety_orders: 
-                logger.info(
-                    "Enough profit has been made to add a safety order"
-                )
+            if new_max_safety_orders <= user_defined_max_safety_orders:
+                logger.info("Enough profit has been made to add a safety order")
                 # Update the bot
-                update_bot_max_safety_orders(thebot, startbo, startso, new_max_safety_orders)
+                update_bot_max_safety_orders(
+                    thebot, startbo, startso, new_max_safety_orders
+                )
 
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
 
@@ -707,7 +725,9 @@ while True:
                     compound_bot(config, botdata)
                 else:
                     if boterror and "msg" in boterror:
-                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                        logger.error(
+                            "Error occurred updating bots: %s" % boterror["msg"]
+                        )
                     else:
                         logger.error("Error occurred updating bots")
             else:
