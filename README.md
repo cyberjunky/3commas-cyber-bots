@@ -227,6 +227,9 @@ This script can be used for multiple bots with different Top X coins by creating
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
+
+Author of this script is [amargedon](https://github.com/amargedon).
+
 ### Configuration
 
 This is the layout of the config file used by the `coinmarketcap.py` bot helper:
@@ -758,6 +761,8 @@ Notice you can create more than one cluster as long as each section starts with 
 
 Note: sometimes 3C deals can be opened within seconds and there is nothing this script can do to prevent it. Shorter intervals will decrease this possibility, but also beware 3C has a rate limit so do not go that low (the author used a minimum of 120 seconds).
 
+
+Author of this script is [amargedon](https://github.com/amargedon).
 
 ### Configuration
 
