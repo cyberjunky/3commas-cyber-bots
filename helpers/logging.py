@@ -49,7 +49,7 @@ class NotificationHandler:
 
     def send_notification(self):
         """Send the notification messages."""
-        if self.enabled:
+        if self.enabled and self.message:
             msg = f"[3C Cyber Bot-Helper {self.program}]\n\n" + self.message
             self.queue.put((msg, []))
             self.message = ""
