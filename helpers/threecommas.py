@@ -247,7 +247,7 @@ def get_threecommas_market(logger, api, market_code):
     return tickerlist
 
 
-def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
+def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
     """Update bot with new pairs."""
 
     # Do we already use these pairs?
@@ -255,7 +255,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
         logger.info(
             "Bot '%s' with id '%s' is already using the best pairs"
             % (thebot["name"], thebot["id"]),
-            True,
+            notify,
         )
         return
 
@@ -293,7 +293,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs):
         logger.info(
             "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
             % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
-            True,
+            notify,
         )
     else:
         if error and "msg" in error:
