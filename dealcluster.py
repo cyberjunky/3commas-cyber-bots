@@ -260,15 +260,15 @@ def process_cluster_deals(cluster_id):
             if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
                 # Found a pair which should be suspended
                 if disablepairs:
-                    disablepairs += "\',\'"
-                disablepairs += str(pair)
+                    disablepairs += ","
+                disablepairs += "\'" + str(pair) + "\'"
 
                 log_disable_enable_pair(cluster_id, pair, 0)
             else:
                 # Found a pair which can be activated again
                 if enablepairs:
-                    enablepairs += "\',\'"
-                enablepairs += str(pair)
+                    enablepairs += ","
+                enablepairs += "\'" + str(pair) + "\'"
 
                 log_disable_enable_pair(cluster_id, pair, 1)
 
@@ -279,7 +279,7 @@ def process_cluster_deals(cluster_id):
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ('{enablepairs}')"
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ({enablepairs})"
             )
 
         # Disable the found pairs (caused by new deals)
@@ -289,7 +289,7 @@ def process_cluster_deals(cluster_id):
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ('{disablepairs}')"
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ({disablepairs})"
             )
 
         db.commit()
