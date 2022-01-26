@@ -97,8 +97,7 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit):
         logger.info(
             f"Changing SL for deal {deal_id}/{deal['pair']} on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
-            f"Changed TP from {deal['take_profit']}% to {new_take_profit}",
-            True,
+            f"Changed TP from {deal['take_profit']}% to {new_take_profit}"
         )
     else:
         if error and "msg" in error:
@@ -122,6 +121,13 @@ def process_deals(thebot):
 
         for deal in deals:
             deal_id = deal["id"]
+
+            deal_strategy = deal["strategy"]
+            if deal_strategy == "short":
+                logger.warning(
+                    f"Deal {deal_id} strategy is short; only long is supported!"
+                )
+                continue
 
             if current_deals:
                 current_deals += ","
@@ -159,16 +165,19 @@ def process_deals(thebot):
 
                 if new_stoploss != 0.00:
                     # No magic required for increasing TP if configured
+                    current_take_profit = float(deal["take_profit"])
                     new_take_profit = round(
-                        float(deal["take_profit"])
+                        current_take_profit
                         + (activation_diff * tp_increment_factor),
                         2
                     )
 
                     logger.info(
                         f"Deal {deal_id} (\"{thebot['name']}\") profit ({actual_profit_percentage}%) above "
-                        f"activation ({activation_percentage}%). Stoploss on {new_stoploss}%, based on "
-                        f"SL price {sl_price} and BO price {initial_bought_price}. Take profit on {new_take_profit}%"
+                        f"activation ({activation_percentage}%). Stoploss set on {new_stoploss}%, based on "
+                        f"SL price {sl_price} and BO price {initial_bought_price}. "
+                        f"Take profit from {current_take_profit}% to {new_take_profit}%",
+                        True
                     )
 
                     update_deal(thebot, deal, new_stoploss, new_take_profit)
@@ -205,9 +214,23 @@ def process_deals(thebot):
                                 actual_take_profit + (profit_diff * tp_increment_factor), 2
                             )
 
+                            # For logging purposes, calculate SO prices
+                            initial_bought_price = float(deal["base_order_average_price"])
+                            old_stoploss_price = initial_bought_price + ((initial_bought_price / 100.0) * actual_stoploss)
+                            new_stoploss_price = initial_bought_price + ((initial_bought_price / 100.0) * new_stoploss)
+
+                            # For logging purposes, calculate TP prices
+                            current_average_price = float(deal["bought_average_price"])
+                            old_take_profit_price = current_average_price + ((current_average_price / 100.0) * actual_take_profit)
+                            new_take_profit_price = current_average_price + ((current_average_price / 100.0) * new_take_profit)
+
                             logger.info(
-                                f"Deal {deal_id} profit increase from {last_profit_percentage}% to "
-                                f"{actual_profit_percentage}%. Update and keep on monitoring."
+                                f"Deal {deal_id} profit increase from {last_profit_percentage}% to {actual_profit_percentage}%. "
+                                f"Moved SL from {old_stoploss_price} ({actual_stoploss}%) to "
+                                f"{new_stoploss_price} ({new_stoploss}%). "
+                                f"Moved TP from {old_take_profit_price} ({actual_take_profit}%) "
+                                f"to {new_take_profit_price} ({new_take_profit}%)",
+                                True
                             )
 
                             update_deal(thebot, deal, new_stoploss, new_take_profit)
