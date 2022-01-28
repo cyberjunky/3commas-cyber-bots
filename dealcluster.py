@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
+from constants.constants import PAIREXCLUDE_EXT
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import check_deal, wait_time_interval
@@ -373,7 +374,7 @@ def update_bot_pairs(cluster_id, thebot):
 def write_bot_exclude_file(bot_id, pairs):
     """Write the exclude file for the specified bot"""
 
-    excludefilename = f"{sharedir}/{bot_id}_exclude.txt"
+    excludefilename = f"{sharedir}/{bot_id}.{PAIREXCLUDE_EXT}"
 
     logger.info(
         f"Writing pairs {pairs} to file {excludefilename}"
