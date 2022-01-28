@@ -341,19 +341,47 @@ def update_bot_pairs(cluster_id, thebot):
 
     # Here rowid is used which is not defined in the init() function. Rowid
     # is a default column in SQLite when using an INT as primary key
-    botpairs = cursor.execute(
+    botenabledpairs = cursor.execute(
         f"SELECT pair FROM bot_pairs "
         f"WHERE clusterid = '{cluster_id}' AND botid = {bot_id} AND enabled = {1} "
         f"ORDER BY rowid ASC"
     ).fetchall()
 
-    if botpairs:
-        pairlist = [row[0] for row in botpairs]
-        set_threecommas_bot_pairs(logger, api, thebot, pairlist, False)
+    if botenabledpairs:
+        enabledpairlist = [row[0] for row in botenabledpairs]
+        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False)
     else:
         logger.warning(
-            f"Failed to get bot pairs for bot {bot_id}"
+            f"Failed to get enabled pairs for bot {bot_id}"
         )
+
+    if sharedir is not None:
+        botdisabledpairs = cursor.execute(
+            f"SELECT pair FROM bot_pairs "
+            f"WHERE clusterid = '{cluster_id}' AND botid = {bot_id} AND enabled = {0}"
+        ).fetchall()
+
+        if botdisabledpairs:
+            disabledpairlist = [row[0] for row in botdisabledpairs]
+            write_bot_exclude_file(bot_id, disabledpairlist)
+        else:
+            logger.warning(
+                f"Failed to get disabled pairs for bot {bot_id}"
+            )
+
+
+def write_bot_exclude_file(bot_id, pairs):
+    """Write the exclude file for the specified bot"""
+
+    excludefilename = f"{sharedir}/{bot_id}_exclude.txt"
+
+    logger.info(
+        f"Writing pairs {pairs} to file {excludefilename}"
+    )
+
+    with open(excludefilename, 'w') as filehandle:
+        for pair in pairs:
+            filehandle.write('%s\n' % pair)
 
 
 # Start application
@@ -365,6 +393,9 @@ parser.add_argument(
     "-d", "--datadir", help="directory to use for config and logs files", type=str
 )
 parser.add_argument(
+    "-s", "--sharedir", help="directory to use for shared files", type=str
+)
+parser.add_argument(
     "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
 )
 
@@ -373,6 +404,12 @@ if args.datadir:
     datadir = args.datadir
 else:
     datadir = os.getcwd()
+
+# pylint: disable-msg=C0103
+if args.sharedir:
+    sharedir = args.sharedir
+else:
+    sharedir = None
 
 # pylint: disable-msg=C0103
 if args.blacklist:

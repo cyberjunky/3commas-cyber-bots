@@ -166,6 +166,9 @@ parser.add_argument(
     "-d", "--datadir", help="directory to use for config and logs files", type=str
 )
 parser.add_argument(
+    "-s", "--sharedir", help="directory to use for shared files", type=str
+)
+parser.add_argument(
     "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
 )
 
@@ -174,6 +177,11 @@ if args.datadir:
     datadir = args.datadir
 else:
     datadir = os.getcwd()
+
+if args.sharedir:
+    sharedir = args.sharedir
+else:
+    sharedir = None
 
 # pylint: disable-msg=C0103
 if args.blacklist:

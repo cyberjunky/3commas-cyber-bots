@@ -950,6 +950,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -d DATADIR, --datadir DATADIR
                         directory to use for config and logs files
+  -s SHAREDIR, --sharedir SHAREDIR
+                        directory to use for shared files
   -b BLACKLIST, --blacklist BLACKLIST
                         local blacklist to use instead of 3Commas's
 ```
