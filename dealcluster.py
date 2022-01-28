@@ -8,7 +8,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from constants.constants import PAIREXCLUDE_EXT
+from constants.pair import PAIREXCLUDE_EXT
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import check_deal, wait_time_interval
