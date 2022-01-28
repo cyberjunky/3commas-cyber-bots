@@ -399,7 +399,7 @@ def compound_bot(cfg, thebot):
 
         # Get active safety order settings
         user_defined_max_safety_orders = int(
-            cfg.get(f"bot_{bot_id}", "usermaxactivesafetyorders")
+            cfg.get(f"bot_{bot_id}", "usermaxsafetyorders")
         )
 
         # Get active deal settings
