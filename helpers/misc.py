@@ -178,7 +178,7 @@ def remove_prefix(text, prefix):
     """Get the string without prefix, required for Python < 3.9."""
 
     if text.startswith(prefix):
-        return text[len(prefix) :]
+        return text[len(prefix):]
     return text
 
 
@@ -220,4 +220,3 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
-

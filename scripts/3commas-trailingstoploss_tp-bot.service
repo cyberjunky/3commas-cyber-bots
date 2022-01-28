@@ -5,7 +5,7 @@ After=multi-user.target
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
 WorkingDirectory=/home/ron/3commas-cyber-bots
-ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/tsl_and_tp.py
+ExecStart=/usr/bin/python3 /home/ron/3commas-cyber-bots/trailingstoploss_tp.py
 User=ron
 Restart=on-failure
 
