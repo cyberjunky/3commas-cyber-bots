@@ -459,6 +459,9 @@ This script can be used for multiple bots with different TSL and TP settings by 
 Note: the percentages used can be confusing. Please read the following document to understand them better: [in-depth](docs/trailingstoploss_tp-in-depth.pdf)
 
 
+Author of this script is [amargedon](https://github.com/amargedon).
+
+
 ### Configuration
 
 This is the layout of the config file used by the `trailingstoploss_tp.py` bot helper:
