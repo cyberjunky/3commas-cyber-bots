@@ -109,15 +109,13 @@ def process_bot_deals(cluster_id, thebot):
     bot_id = thebot["id"]
 
     # Process current deals and deals which have been closed since the last processing time
-    current_deals = ""
+    current_deals = []
     deals = thebot["active_deals"]
     if deals:
         for deal in deals:
             deal_id = deal["id"]
 
-            if current_deals:
-                current_deals += ","
-            current_deals += str(deal_id)
+            current_deals.append(deal_id)
 
             existing_deal = check_deal(cursor, deal_id)
             if not existing_deal:
@@ -139,10 +137,14 @@ def process_bot_deals(cluster_id, thebot):
         # Mark all other deals as not active anymore. Required later in the process and
         # will be cleaned during next processing round
         if current_deals:
-            logger.info(f"Mark all deals from {bot_id} as inactive except {current_deals}")
+            # Remove start and end square bracket so we can properly use it
+            current_deals_str = str(current_deals)[1:-1]
+
+            logger.info(f"Mark all deals from {bot_id} as inactive except {current_deals_str}")
+
             db.execute(
                 f"UPDATE deals SET active = {0} "
-                f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals})"
+                f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals_str})"
             )
 
     # No deals for this bot anymore, so mark them all (if any) as inactive
@@ -173,6 +175,7 @@ def process_bot_deals(cluster_id, thebot):
 
 def log_deals(cluster_id):
     """Log the deals within this cluster"""
+
     dealdata = cursor.execute(
         f"SELECT dealid, pair, botid, active FROM deals "
         f"WHERE clusterid = '{cluster_id}'"
@@ -246,11 +249,11 @@ def process_cluster_deals(cluster_id):
     if clusterdata:
         logger.info(f"Processing cluster_pairs for cluster '{cluster_id}':")
 
-        enablepairs = ""
-        disablepairs = ""
+        enablepairs = []
+        disablepairs = []
 
         for entry in clusterdata:
-            pair = entry[1]
+            pair = str(entry[1])
             numberofdeals = int(entry[2])
 
             logger.info(
@@ -259,37 +262,39 @@ def process_cluster_deals(cluster_id):
 
             if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
                 # Found a pair which should be suspended
-                if disablepairs:
-                    disablepairs += ","
-                disablepairs += "\'" + str(pair) + "\'"
+                disablepairs.append(pair)
 
                 log_disable_enable_pair(cluster_id, pair, 0)
             else:
                 # Found a pair which can be activated again
-                if enablepairs:
-                    enablepairs += ","
-                enablepairs += "\'" + str(pair) + "\'"
+                enablepairs.append(pair)
 
                 log_disable_enable_pair(cluster_id, pair, 1)
 
         # Enable the found pairs (caused by finished deals)
         if enablepairs:
+            # Remove start and end square bracket so we can properly use it
+            enablepairs_str = str(enablepairs)[1:-1]
+
             logger.info(
-                f"Enabling pairs for cluster {cluster_id}: {enablepairs}"
+                f"Enabling pairs for cluster {cluster_id}: {enablepairs_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ({enablepairs})"
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ({enablepairs_str})"
             )
 
         # Disable the found pairs (caused by new deals)
         if disablepairs:
+            # Remove start and end square bracket so we can properly use it
+            disablepairs_str = str(disablepairs)[1:-1]
+
             logger.info(
-                f"Disabling pairs for cluster {cluster_id}: {disablepairs}"
+                f"Disabling pairs for cluster {cluster_id}: {disablepairs_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ({disablepairs})"
+                f"WHERE clusterid = '{cluster_id}' AND pair IN ({disablepairs_str})"
             )
 
         db.commit()
