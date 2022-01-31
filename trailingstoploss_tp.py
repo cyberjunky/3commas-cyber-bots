@@ -284,9 +284,9 @@ def update_long_deal(thebot, deal, existing_deal):
             # Calculate understandable SL percentage based on bought average price
             # First calculate the base prices for current and new SL %
             base_price = float(deal["base_order_average_price"])
-            current_base_sl_price = base_price + ((base_price / 100.0)
+            current_base_sl_price = base_price - ((base_price / 100.0)
                                                   * current_sl_percentage)
-            new_base_sl_price = base_price + ((base_price / 100.0)
+            new_base_sl_price = base_price - ((base_price / 100.0)
                                               * new_base_price_sl_percentage)
 
             logger.debug(
@@ -299,11 +299,11 @@ def update_long_deal(thebot, deal, existing_deal):
             # Then calculate the SL % based on the average price, same axis as TP %
             bought_average_price = float(deal["bought_average_price"])
             current_average_price_sl_percentage = round(
-                100.0 - ((current_base_sl_price / bought_average_price) * 100.0),
+                ((current_base_sl_price / bought_average_price) * 100.0) - 100.0,
                 2
             )
             new_average_price_sl_percentage = round(
-                100.0 - ((new_base_sl_price / bought_average_price) * 100.0),
+                ((new_base_sl_price / bought_average_price) * 100.0) - 100.0,
                 2
             )
 
