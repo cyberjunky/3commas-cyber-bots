@@ -220,3 +220,43 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
+
+
+def get_shared_bot_data(logger, bot_id, bot_secret):
+    """Get the shared bot data from the 3C website"""
+
+    url = "https://3commas.io/bots/%s/shared_show?secret=%s" % (bot_id, bot_secret)
+
+    data = {}
+    try:
+        page = requests.get(url, params={})
+        #page.raise_for_status()
+
+        print(page.content)
+        #soup = BeautifulSoup(page.content, features="html.parser")
+        #print(soup)
+        #maincontent = soup.find("div", id="js-bot_info_container")
+        #print(maincontent.prettify())
+
+        #bodyblock = soup.find_all("div", class_="content-block__body")
+
+        #for body in bodyblock:
+        #    print(body.prettify())
+        #    datatable = body.find("tbody")
+        #    tablerows = datatable.find_all("tr")
+
+        #    for row in tablerows:
+        #        rowcolums = row.find_all("td")
+        #        if len(rowcolums) == 2:
+        #            data[rowcolums[0].text] = rowcolums[1].txt
+
+    except requests.exceptions.HTTPError as err:
+        logger.error("Fetching 3C shared bot data failed with error: %s" % err)
+        if result.status_code == 404:
+            logger.error(f"Check if the bot id '{bot_id}' is correct and still shared")
+
+        return data
+
+    logger.info("Fetched %s 3C shared bot data OK" % (bot_id))
+
+    return data
