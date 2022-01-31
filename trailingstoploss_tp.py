@@ -203,7 +203,7 @@ def new_long_deal(thebot, deal):
     if base_price_sl_percentage != 0.00:
         # Calculate understandable SL percentage based on bought average price
         average_price_sl_percentage = round(
-            100.0 - ((sl_price / bought_average_price) * 100.0),
+            ((sl_price / bought_average_price) * 100.0) - 100.0,
             2
         )
 
@@ -230,7 +230,7 @@ def new_long_deal(thebot, deal):
 
         if new_tp_percentage > current_tp_percentage:
             logger.info(
-                f"Deal {pair} ({deal_id}): TakeProfit increased from {current_tp_percentage}% "
+                f"TakeProfit increased from {current_tp_percentage}% "
                 f"to {new_tp_percentage}%",
                 True
             )
@@ -325,7 +325,7 @@ def update_long_deal(thebot, deal, existing_deal):
 
             if new_tp_percentage > current_tp_percentage:
                 logger.info(
-                    f"Deal {pair} ({deal_id}): TakeProfit increased from {current_tp_percentage}% "
+                    f"TakeProfit increased from {current_tp_percentage}% "
                     f"to {new_tp_percentage}%",
                     True
                 )
