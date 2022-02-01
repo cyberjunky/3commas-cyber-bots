@@ -96,7 +96,7 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit):
     )
     if data:
         logger.info(
-            f"Changing SL for deal {deal_id}/{deal['pair']} on bot \"{bot_name}\"\n"
+            f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
             f"Changed TP from {deal['take_profit']}% to {new_take_profit}"
         )
@@ -168,60 +168,84 @@ def new_long_deal(thebot, deal):
 
     botid = thebot["id"]
     deal_id = deal["id"]
+    pair = deal['pair']
     actual_profit_percentage = float(deal["actual_profit_percentage"])
 
     # Take space between trigger and actual profit into account
     activation_diff = actual_profit_percentage - activation_percentage
 
     # SL is calculated by 3C on base order price. Because of filled SO's,
-    # we must first calculate the SL price based on the current average price
-    current_average_price = float(deal["bought_average_price"])
-    sl_price = current_average_price + (current_average_price * ((initial_stoploss_percentage / 100.0)
-                                        + ((activation_diff / 100.0) * sl_increment_factor))
-                                        )
+    # we must first calculate the SL price based on the bought average price
+    bought_average_price = float(deal["bought_average_price"])
+    sl_price = bought_average_price + (bought_average_price * ((initial_stoploss_percentage / 100.0)
+                                       + ((activation_diff / 100.0) * sl_increment_factor))
+                                       )
 
     logger.debug(
-        f"Deal {deal_id}; SL price {sl_price} calculated based on average "
-        f"price {current_average_price}, initial SL of {initial_stoploss_percentage}, "
-        f"activation diff of {activation_diff} and factor {sl_increment_factor}"
+        f"Deal {pair} ({deal_id}); SL price {sl_price} calculated based on bought "
+        f"price {bought_average_price}, initial SL of {initial_stoploss_percentage}, "
+        f"activation diff of {activation_diff} and sl factor {sl_increment_factor}"
     )
 
     # Now we know the SL price, let's calculate the percentage from
     # the base order price so we have the desired SL for 3C
-    initial_bought_price = float(deal["base_order_average_price"])
-    new_stoploss = round(
-        100.0 - ((sl_price / initial_bought_price) * 100.0),
+    base_price = float(deal["base_order_average_price"])
+    base_price_sl_percentage = round(
+        100.0 - ((sl_price / base_price) * 100.0),
         2
     )
 
-    if new_stoploss != 0.00:
-        # No magic required for increasing TP if configured
-        current_take_profit = float(deal["take_profit"])
-        new_take_profit = round(
-            current_take_profit
+    logger.debug(
+        f"Deal {pair} ({deal_id}); base SL of {base_price_sl_percentage}% calculated "
+        f"based on base price {base_price} and SL price {sl_price}."
+    )
+
+    if base_price_sl_percentage != 0.00:
+        # Calculate understandable SL percentage based on bought average price
+        average_price_sl_percentage = round(
+            ((sl_price / bought_average_price) * 100.0) - 100.0,
+            2
+        )
+
+        logger.debug(
+            f"Deal {pair} ({deal_id}); average SL of {average_price_sl_percentage}% "
+            f"calculated based on average price {bought_average_price} and "
+            f"SL price {sl_price}."
+        )
+
+        # Calculate new TP percentage
+        current_tp_percentage = float(deal["take_profit"])
+        new_tp_percentage = round(
+            current_tp_percentage
             + (activation_diff * tp_increment_factor),
             2
         )
 
         logger.info(
-            f"Deal {deal_id} (\"{thebot['name']}\") profit ({actual_profit_percentage}%) above "
-            f"activation ({activation_percentage}%). Stoploss set on {new_stoploss}%, based on "
-            f"SL price {sl_price} and BO price {initial_bought_price}. "
-            f"Take profit from {current_take_profit}% to {new_take_profit}%",
+            f"Deal {pair} ({deal_id}): actual profit ({actual_profit_percentage}%) above "
+            f"activation ({activation_percentage}%). StopLoss activated "
+            f"on {average_price_sl_percentage}%.",
             True
         )
 
-        update_deal(thebot, deal, new_stoploss, new_take_profit)
+        if new_tp_percentage > current_tp_percentage:
+            logger.info(
+                f"TakeProfit increased from {current_tp_percentage}% "
+                f"to {new_tp_percentage}%",
+                True
+            )
+
+        update_deal(thebot, deal, base_price_sl_percentage, new_tp_percentage)
 
         db.execute(
             f"INSERT INTO deals (dealid, botid, last_profit_percentage, last_stop_loss_percentage) "
-            f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {new_stoploss})"
+            f"VALUES ({deal_id}, {botid}, {actual_profit_percentage}, {base_price_sl_percentage})"
         )
 
         db.commit()
     else:
         logger.info(
-            f"Deal {deal_id} calculated SL of {new_stoploss} which "
+            f"Deal {pair} ({deal_id}) calculated SL of {base_price_sl_percentage} which "
             f"will cause 3C not to activate SL. No action taken!"
         )
 
@@ -230,6 +254,7 @@ def update_long_deal(thebot, deal, existing_deal):
     """Update long deal and increase SL (Trailing SL) if profit has increased."""
 
     deal_id = deal["id"]
+    pair = deal['pair']
     actual_profit_percentage = float(deal["actual_profit_percentage"])
     last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
@@ -237,65 +262,92 @@ def update_long_deal(thebot, deal, existing_deal):
         # Existing deal with TSL and profit increased, so move TSL
         # Because initial SL was calculated correctly, we only have
         # to adjust with the profit change
-        actual_stoploss = float(deal["stop_loss_percentage"])
-        actual_take_profit = float(deal["take_profit"])
+        current_sl_percentage = float(deal["stop_loss_percentage"])
+        current_tp_percentage = float(deal["take_profit"])
         profit_diff = actual_profit_percentage - last_profit_percentage
 
-        new_stoploss = round(
-            actual_stoploss - (profit_diff * sl_increment_factor), 2
+        new_base_price_sl_percentage = round(
+            current_sl_percentage - (profit_diff * sl_increment_factor), 2
         )
 
-        if new_stoploss != 0.00:
-            new_take_profit = round(
-                actual_take_profit + (profit_diff * tp_increment_factor), 2
+        logger.debug(
+            f"Deal {pair} ({deal_id}); new base SL of {new_base_price_sl_percentage}% "
+            f"calculated based on current SL {current_sl_percentage}%, "
+            f"profit diff {profit_diff} and increment {sl_increment_factor}."
+        )
+
+        if new_base_price_sl_percentage != 0.00:
+            new_tp_percentage = round(
+                current_tp_percentage + (profit_diff * tp_increment_factor), 2
             )
 
-            # For logging purposes, calculate SO prices
-            initial_bought_price = float(deal["base_order_average_price"])
-            old_stoploss_price = initial_bought_price + (
-                (initial_bought_price / 100.0) * actual_stoploss
-                )
-            new_stoploss_price = initial_bought_price + (
-                (initial_bought_price / 100.0) * new_stoploss
-                )
+            # Calculate understandable SL percentage based on bought average price
+            # First calculate the base prices for current and new SL %
+            base_price = float(deal["base_order_average_price"])
+            current_base_sl_price = base_price - ((base_price / 100.0)
+                                                  * current_sl_percentage)
+            new_base_sl_price = base_price - ((base_price / 100.0)
+                                              * new_base_price_sl_percentage)
 
-            # For logging purposes, calculate TP prices
-            current_average_price = float(deal["bought_average_price"])
-            old_take_profit_price = current_average_price + (
-                (current_average_price / 100.0) * actual_take_profit
-                )
-            new_take_profit_price = current_average_price + (
-                (current_average_price / 100.0) * new_take_profit
-                )
+            logger.debug(
+                f"Deal {pair} ({deal_id}); current SL price of {current_base_sl_price} "
+                f"on base price {base_price} and {current_sl_percentage}%. New "
+                f"SL price {new_base_sl_price} on base price {base_price} "
+                f"and {new_base_price_sl_percentage}%."
+            )
+
+            # Then calculate the SL % based on the average price, same axis as TP %
+            bought_average_price = float(deal["bought_average_price"])
+            current_average_price_sl_percentage = round(
+                ((current_base_sl_price / bought_average_price) * 100.0) - 100.0,
+                2
+            )
+            new_average_price_sl_percentage = round(
+                ((new_base_sl_price / bought_average_price) * 100.0) - 100.0,
+                2
+            )
+
+            logger.debug(
+                f"Deal {pair} ({deal_id}); average SL {current_average_price_sl_percentage}% "
+                f"based on base sl price {current_base_sl_price} and bought price "
+                f"{bought_average_price}. New average SL {new_average_price_sl_percentage}% "
+                f"based on new base sl price {new_base_sl_price} and bought price "
+                f"{bought_average_price}."
+            )
 
             logger.info(
-                f"Deal {deal_id} profit increase from {last_profit_percentage}% "
+                f"Deal {pair} ({deal_id}) profit increased from {last_profit_percentage}% "
                 f"to {actual_profit_percentage}%. "
-                f"Moved SL from {old_stoploss_price} ({actual_stoploss}%) to "
-                f"{new_stoploss_price} ({new_stoploss}%). "
-                f"Moved TP from {old_take_profit_price} ({actual_take_profit}%) "
-                f"to {new_take_profit_price} ({new_take_profit}%)",
+                f"StopLoss increased from {current_average_price_sl_percentage}% to "
+                f"{new_average_price_sl_percentage}%. ",
                 True
             )
 
-            update_deal(thebot, deal, new_stoploss, new_take_profit)
+            if new_tp_percentage > current_tp_percentage:
+                logger.info(
+                    f"TakeProfit increased from {current_tp_percentage}% "
+                    f"to {new_tp_percentage}%",
+                    True
+                )
+
+            update_deal(thebot, deal, new_base_price_sl_percentage, new_tp_percentage)
 
             db.execute(
                 f"UPDATE deals SET last_profit_percentage = {actual_profit_percentage}, "
-                f"last_stop_loss_percentage = {new_stoploss} "
+                f"last_stop_loss_percentage = {new_base_price_sl_percentage} "
                 f"WHERE dealid = {deal_id}"
             )
 
             db.commit()
         else:
             logger.info(
-                f"Deal {deal_id} calculated new SL of {new_stoploss} which will cause 3C "
-                f"to deactive SL. No action taken!"
+                f"Deal {pair} ({deal_id}) calculated SL of 0.0 which will cause 3C "
+                f"to deactive SL; no update this round!"
             )
     else:
         logger.info(
-            f"Deal {deal_id} no profit increase (current: {actual_profit_percentage}%, "
-            f"last: {last_profit_percentage}%). Keep on monitoring."
+            f"Deal {pair} ({deal_id}) no profit increase (current: {actual_profit_percentage}%, "
+            f"previous: {last_profit_percentage}%). Keep on monitoring."
         )
 
 
