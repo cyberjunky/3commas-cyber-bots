@@ -151,8 +151,8 @@ def process_deals(thebot):
         remove_closed_deals(botid, current_deals)
 
         logger.info(
-            f"Bot \"{thebot['name']}\" ({botid}) has {len(deals)} "
-            f"of which {monitored_deals} deal(s) require monitoring."
+            f"Bot \"{thebot['name']}\" ({botid}) has {len(deals)} deal(s) "
+            f"of which {monitored_deals} require monitoring."
         )
     else:
         logger.info(
