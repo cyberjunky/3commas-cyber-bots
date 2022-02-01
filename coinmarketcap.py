@@ -7,13 +7,13 @@ import os
 import sys
 import time
 from pathlib import Path
-from constants.pair import PAIREXCLUDE_EXT
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
     format_pair,
     get_coinmarketcap_data,
     populate_pair_lists,
+    remove_excluded_pairs,
     wait_time_interval,
 )
 from helpers.threecommas import (
@@ -149,7 +149,7 @@ def coinmarketcap_pairs(thebot, cmcdata):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        process_excluded_pairs(thebot['id'], newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot['id'], newpairs)
 
     if not newpairs:
         logger.info(
@@ -160,43 +160,6 @@ def coinmarketcap_pairs(thebot, cmcdata):
 
     # Update the bot with the new pairs
     set_threecommas_bot_pairs(logger, api, thebot, newpairs)
-
-
-def process_excluded_pairs(bot_id, newpairs):
-    """Remove pairs which are excluded by other script(s)."""
-
-    excludedpairs = load_bot_excluded_pairs(bot_id)
-    if excludedpairs:
-        logger.info(
-            f"Removing the following pair(s) for bot {bot_id}: {excludedpairs}"
-        )
-
-        for pair in excludedpairs:
-            if newpairs.count(pair) > 0:
-                newpairs.remove(pair)
-
-
-def load_bot_excluded_pairs(bot_id):
-    """Load excluded pairs from file, for the specified bot"""
-
-    excludedlist = []
-    excludefilename = f"{sharedir}/{bot_id}.{PAIREXCLUDE_EXT}"
-
-    try:
-        with open(excludefilename, "r") as file:
-            excludedlist = file.read().splitlines()
-        if excludedlist:
-            logger.info(
-                "Reading exclude file '%s' OK (%s pairs)"
-                % (excludefilename, len(excludedlist))
-            )
-    except FileNotFoundError:
-        logger.info(
-            "Exclude file (%s) not found for bot '%s'; no pairs to exclude."
-            % (excludefilename, bot_id)
-        )
-
-    return excludedlist
 
 
 # Start application
