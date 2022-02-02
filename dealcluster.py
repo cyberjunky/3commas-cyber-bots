@@ -182,21 +182,21 @@ def log_deals(cluster_id):
     ).fetchall()
 
     if dealdata:
-        logger.info(f"Printing deals for cluster '{cluster_id}':")
+        logger.info(f"Printing deals for '{cluster_id}':")
         for entry in dealdata:
             logger.info(
                 f"{entry[0]}: {entry[1]}, {entry[2]} => {entry[3]}"
             )
     else:
         logger.info(
-            f"No deals data for cluster '{cluster_id}'"
+            f"No deals data for '{cluster_id}'"
         )
 
 
 def aggregrate_cluster(cluster_id):
     """Aggregate deals within cluster."""
 
-    logger.info(f"Cleaning and aggregating data for cluster '{cluster_id}'")
+    logger.info(f"Cleaning and aggregating data for '{cluster_id}'")
 
     # Remove old data
     db.execute(
@@ -226,14 +226,14 @@ def log_cluster_data(cluster_id):
     ).fetchall()
 
     if clusterdata:
-        logger.info(f"Printing cluster_pairs for cluster '{cluster_id}':")
+        logger.info(f"Printing cluster_pairs for '{cluster_id}':")
         for entry in clusterdata:
             logger.info(
                 f"{entry[1]}: {entry[2]}"
             )
     else:
         logger.info(
-            f"No cluster_pair data for cluster '{cluster_id}'"
+            f"No cluster_pair data for '{cluster_id}'"
         )
 
 
@@ -247,7 +247,7 @@ def process_cluster_deals(cluster_id):
     ).fetchall()
 
     if clusterdata:
-        logger.info(f"Processing cluster_pairs for cluster '{cluster_id}':")
+        logger.info(f"Processing cluster_pairs for '{cluster_id}':")
 
         enablepairs = []
         disablepairs = []
@@ -277,7 +277,7 @@ def process_cluster_deals(cluster_id):
             enablepairs_str = str(enablepairs)[1:-1]
 
             logger.info(
-                f"Enabling pairs for cluster {cluster_id}: {enablepairs_str}"
+                f"Enabling pairs for {cluster_id}: {enablepairs_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
@@ -290,7 +290,7 @@ def process_cluster_deals(cluster_id):
             disablepairs_str = str(disablepairs)[1:-1]
 
             logger.info(
-                f"Disabling pairs for cluster {cluster_id}: {disablepairs_str}"
+                f"Disabling pairs for {cluster_id}: {disablepairs_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
@@ -300,7 +300,7 @@ def process_cluster_deals(cluster_id):
         db.commit()
     else:
         logger.info(
-            f"No cluster_pair data for cluster '{cluster_id}'"
+            f"No cluster_pair data for '{cluster_id}'"
         )
 
 
