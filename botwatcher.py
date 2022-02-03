@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import os
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -27,8 +28,6 @@ def load_config():
         "timeinterval": 86400,
         "debug": False,
         "logrotate": 7,
-        "3c-apikey": "your 3Commas API Key",
-        "3c-apisecret": "your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -42,76 +41,148 @@ def load_config():
     return None
 
 
+def get_fields_and_types():
+    """Get the data fields and there type"""
+
+    datafields = {}
+    datafields["bot_id"] = "INT"
+    datafields["active_safety_orders_count"] = "INT"
+    datafields["allowed_deals_on_same_pair"] = "INT"
+    datafields["bot_pair_or_pairs"] = "STRING"
+    datafields["enabled"] = "BIT"
+    datafields["martingale_step_coefficient"] = "FLOAT"
+    datafields["martingale_volume_coefficient"] = "FLOAT"
+    datafields["max_active_deals"] = "INT"
+    datafields["max_safety_orders"] = "INT"
+    datafields["min_volume_btc_24h"] = "INT"
+    datafields["profit_currency"] = "STRING"
+    datafields["safety_order_step_percentage"] = "FLOAT"
+    datafields["strategy"] = "STRING"
+    datafields["strategy_list"] = "STRING"
+    datafields["take_profit"] = "FLOAT"
+    datafields["take_profit_type"] = "STRING"
+
+    return datafields
+
+
+def get_db_data(bot_id):
+    """Get the saved dataset for the specified bot."""
+
+    record = cursor.execute(
+        f"SELECT * FROM bot_data "
+        f"WHERE bot_id = {bot_id}"
+    ).fetchone()
+
+    return record
+
+
+def store_bot_data(bot_data):
+    """Store the latest data for the specified bot."""
+
+    datadef = get_fields_and_types()
+
+    values = []
+    for field, fieldtype in datadef.items():
+        # Some fields require specific handling, others can be added directly
+        if field in ("bot_pair_or_pairs", "strategy_list"):
+            values.append(str(bot_data[field])[1:-1])
+        else:
+            if fieldtype == "STRING":
+                values.append(str(bot_data[field]))
+            elif fieldtype == "FLOAT":
+                values.append(float(bot_data[field]))
+            else:
+                values.append(bot_data[field])
+
+    db.execute(
+        f"INSERT OR REPLACE INTO bot_data ({str(datadef.keys())[11:-2]}) "
+        f"VALUES ({str(values)[1:-1]})"
+    )
+
+    db.commit()
+
+    logger.info(
+        f"Stored latest data for bot {bot_data['bot_id']} in database"
+    )
+
+
 def process_shared_bot_data(data, bot_id):
     """Process the downloaded data."""
 
     botinfo = data['bot_info']
 
-    if botinfo:
-        #Max active safety trades count
-        active_safety_orders_count = botinfo['active_safety_orders_count']
-
-        #Simultaneous deals per same pair
-        allowed_deals_on_same_pair = botinfo['allowed_deals_on_same_pair']
-
-        #Pairs
-        botpairlist = botinfo['bot_pair_or_pairs']
-
-        enabled = botinfo['enabled']
-
-        #Safety order step scale
-        martingale_step_coefficient = botinfo['martingale_step_coefficient']
-
-        #Safety order volume scale
-        martingale_volume_coefficient = botinfo['martingale_volume_coefficient']
-
-        #Max active deals
-        max_active_deals = botinfo['max_active_deals']
-
-        #Max safety trades count
-        max_safety_orders = botinfo['max_safety_orders']
-
-        #Trading 24h minimal volume
-        min_volume_btc_24h = botinfo['min_volume_btc_24h']
-
-        #quote or base currency
-        profit_currency = botinfo['profit_currency']
-
-        # Price deviation to open safety orders (% from initial order)
-        safety_order_step_percentage = botinfo['safety_order_step_percentage']
-
-        strategy = botinfo['strategy']
-
-        #Deal start condition
-        strategy_list = botinfo['strategy_list']
-
-        # Target profit (%)
-        take_profit = botinfo['take_profit']
-
-        take_profit_type = botinfo['take_profit_type']
-
+    dbdata = get_db_data(bot_id)
+    if dbdata:
+        # Compare the latest data with the saved data for changes
         logger.info(
-            f"Bot {bot_id}: \n"
-            f"Max active safety trades count: {active_safety_orders_count}\n"
-            f"Simultaneous deals per same pair: {allowed_deals_on_same_pair}\n"
-            f"Bot pair(s): {botpairlist}\n"
-            f"Enabled: {enabled}\n"
-            f"Safety order step scale: {martingale_step_coefficient}\n"
-            f"Safety order volume scale: {martingale_volume_coefficient}\n"
-            f"Max active deals: {max_active_deals}\n"
-            f"Max safety trades count: {max_safety_orders}\n"
-            f"Min 24h volume: {min_volume_btc_24h}\n"
-            f"Profit in: {profit_currency}\n"
-            f"Price deviation to open safety orders: {safety_order_step_percentage}%\n"
-            f"Strategy: {strategy}\n"
-            f"Deal start conditions: {strategy_list}\n"
-            f"TP: {take_profit}%\n"
-            f"TP type: {take_profit_type}\n"
+            f"Comparing old and new data for bot \'{botinfo['bot_name']}\' ({bot_id})"
         )
-    else:
-        logger.info(
-            f"No bot_info data for bot {bot_id}"
+
+        index = 0
+        datadef = get_fields_and_types()
+        for field, fieldtype in datadef.items():
+            old = None
+            new = None
+
+            if field in ("bot_pair_or_pairs", "strategy_list"):
+                old = str(dbdata[index])
+                new = str(botinfo[field])[1:-1]
+            elif fieldtype == "FLOAT":
+                old = float(dbdata[index])
+                new = float(botinfo[field])
+            else:
+                old = dbdata[index]
+                new = botinfo[field]
+
+            if old != new:
+                logger.info(
+                    f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed from {old} to {new}",
+                    True
+                )
+
+            index += 1
+
+    # Save the data anyway for the next round
+    store_bot_data(botinfo)
+
+
+def init_botwatcher_db():
+    """Create or open database to store bot data."""
+
+    try:
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
+        dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
+
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
+    except sqlite3.OperationalError:
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
+
+        datadef = get_fields_and_types()
+
+        tablestructure = ""
+        for field, fieldtype in datadef.items():
+            if tablestructure:
+                tablestructure += ", "
+
+            tablestructure += field + " " + fieldtype
+
+            if field == "bot_id":
+                tablestructure += " PRIMARY KEY"
+
+        dbcursor.execute(
+            f"CREATE TABLE bot_data ("
+            f"{tablestructure}"
+            f")"
         )
+        logger.info("Database tables created successfully")
+
+    return dbconnection
 
 
 # Start application
@@ -166,6 +237,10 @@ else:
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # No 3Commas API required
+
+# Initialize or open the database
+db = init_botwatcher_db()
+cursor = db.cursor()
 
 # Bot monitor watching for configuration changes
 while True:
