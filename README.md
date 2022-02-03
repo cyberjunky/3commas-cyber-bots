@@ -118,6 +118,8 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
+
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
 ### Configuration
@@ -168,6 +170,8 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 ### How does it work?
 
 Same as galaxyscore bot helper except with AltRank data.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
@@ -224,7 +228,9 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
@@ -291,7 +297,9 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top pairs (like BTC and ETH) can also be excluded by increasing the start-number.
 
@@ -774,6 +782,8 @@ Once a deal is gone and the number of deals for this pair is below `max-same-dea
 
 Notice you can create more than one cluster as long as each section starts with 'cluster_'. The example configuration below contains a single 'default' cluster.
 
+When the SHAREDIR option is used, this script will create a `.pairexclude` file for each bot within a configured cluster. This file contains the pairs which have been disabled and can be used by other scripts to prevent enabling these pairs and triggering new deals, making this script ineffective.
+
 Note: sometimes 3C deals can be opened within seconds and there is nothing this script can do to prevent it. Shorter intervals will decrease this possibility, but also beware 3C has a rate limit so do not go that low (the author used a minimum of 120 seconds).
 
 
@@ -957,7 +967,7 @@ They also have some command-line options:
 
 ```
 ./galaxyscore.py -h
-usage: galaxyscore.py [-h] [-d DATADIR] [-b BLACKLIST]
+usage: galaxyscore.py [-h] [-d DATADIR] [-s SHAREDIR] [-b BLACKLIST]
 
 Cyberjunky's 3Commas bot helper.
 
@@ -965,6 +975,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -d DATADIR, --datadir DATADIR
                         directory to use for config and logs files
+  -s SHAREDIR, --sharedir SHAREDIR
+                        directory to use for shared files between scripts
   -b BLACKLIST, --blacklist BLACKLIST
                         local blacklist to use instead of 3Commas's
 ```
