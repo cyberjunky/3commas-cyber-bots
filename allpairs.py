@@ -68,12 +68,13 @@ def all_pairs(thebot):
     if not tickerlist:
         return
 
-    for coin in tickerlist:
-        if coin.split("_")[0] == base:
-            newpairs.append(coin)
+    for pair in tickerlist:
+        if pair.split("_")[0] == base:
+            newpairs.append(pair)
 
     newpairs.sort()
 
+    # Show changes if any
     show_pair_diffs(thebot["pairs"], newpairs)
 
     # Update the bot with the all pairs
