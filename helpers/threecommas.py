@@ -381,6 +381,7 @@ def get_threecommas_deals(logger, api, botid):
             "scope": "finished",
             "bot_id": str(botid),
             "limit": 100,
+            "order": "closed_at",
         },
     )
     if error:
