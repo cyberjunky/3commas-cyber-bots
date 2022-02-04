@@ -44,14 +44,14 @@ def load_config():
 
 
 def all_pairs(thebot):
-    """Find new pairs and update the bot."""
+    """Find all pairs and update the bot."""
 
     # Gather some bot values
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
 
     logger.info("Bot base currency: %s" % base)
-    logger.info("Configured pair: %s_ALL" % base)
+    logger.info("Using pairs: %s_ALL" % base)
 
     # Start from scratch
     newpairs = list()
@@ -61,13 +61,17 @@ def all_pairs(thebot):
     if not marketcode:
         return
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
+    # Load tickerlist for this exchange
+    tickerlist = get_threecommas_market(logger, api, marketcode)
+    if not tickerlist:
+        return
+
     for coin in tickerlist:
-        if coin.split("_")[0] == base.split("_")[0]:
+        if coin.split("_")[0] == base:
             newpairs.append(coin)
+
     newpairs.sort()
 
     # Update the bot with the all pairs
