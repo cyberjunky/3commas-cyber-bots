@@ -74,8 +74,20 @@ def all_pairs(thebot):
 
     newpairs.sort()
 
+    show_pair_diffs(thebot["pairs"], newpairs)
+
     # Update the bot with the all pairs
     set_threecommas_bot_pairs(logger, api, thebot, newpairs)
+
+
+def show_pair_diffs(currentpairs, newpairs):
+    """Show differences between pair lists."""
+    removed = list(set(currentpairs) - set(newpairs))
+    if removed:
+        logger.info("Pairs removed: %s" % removed)
+    added = list(set(newpairs) - set(currentpairs))
+    if added:
+        logger.info("Pairs added: %s" % added)
 
 
 # Start application
