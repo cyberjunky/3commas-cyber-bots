@@ -51,7 +51,7 @@ def all_pairs(thebot):
     exchange = thebot["account_name"]
 
     logger.info("Bot base currency: %s" % base)
-    logger.info("Using pairs: %s_ALL" % base)
+    logger.info("Finding pairs: %s_ALL" % base)
 
     # Start from scratch
     newpairs = list()
