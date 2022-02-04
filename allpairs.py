@@ -34,11 +34,7 @@ def load_config():
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1"],
-    }
-
-    cfg["allpairs_example"] = {
         "botids": [12345, 67890],
-        "pair": "BTC_ALL",
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -47,7 +43,7 @@ def load_config():
     return None
 
 
-def all_pairs(thebot, allpair):
+def all_pairs(thebot):
     """Find new pairs and update the bot."""
 
     # Gather some bot values
@@ -55,11 +51,7 @@ def all_pairs(thebot, allpair):
     exchange = thebot["account_name"]
 
     logger.info("Bot base currency: %s" % base)
-    logger.info("Configured pair: %s" % allpair)
-
-    if base != allpair.split("_")[0]:
-        logger.error("Bot uses other base than pair specified: %s" % base)
-        return
+    logger.info("Configured pair: %s_ALL" % base)
 
     # Start from scratch
     newpairs = list()
@@ -74,7 +66,7 @@ def all_pairs(thebot, allpair):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     for coin in tickerlist:
-        if coin.split("_")[0] == allpair.split("_")[0]:
+        if coin.split("_")[0] == base.split("_")[0]:
             newpairs.append(coin)
     newpairs.sort()
 
@@ -145,26 +137,21 @@ while True:
 
     # Configuration settings
     timeint = int(config.get("settings", "timeinterval"))
+    botids = json.loads(config.get("settings", "botids"))
 
-    for section in config.sections():
-        if section.startswith("allpairs_"):
-            # Bot configuration for section
-            botids = json.loads(config.get(section, "botids"))
-            pair = config.get(section, "pair")
-
-            # Walk through all bots configured
-            for bot in botids:
-                boterror, botdata = api.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(bot),
-                )
-                if botdata:
-                    all_pairs(botdata, pair)
-                elif boterror and "msg" in boterror:
-                    logger.error("Error occurred updating bots: %s" % boterror["msg"])
-                else:
-                    logger.error("Error occurred updating bots")
+    # Walk through all bots configured
+    for bot in botids:
+        boterror, botdata = api.request(
+            entity="bots",
+            action="show",
+            action_id=str(bot),
+        )
+        if botdata:
+            all_pairs(botdata)
+        elif boterror and "msg" in boterror:
+            logger.error("Error occurred updating bots: %s" % boterror["msg"])
+        else:
+            logger.error("Error occurred updating bots")
 
     if not wait_time_interval(logger, notification, timeint):
         break
