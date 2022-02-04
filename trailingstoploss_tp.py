@@ -182,7 +182,7 @@ def new_long_deal(thebot, deal):
                                        )
 
     logger.debug(
-        f"Deal {pair} ({deal_id}); SL price {sl_price} calculated based on bought "
+        f"{pair}/{deal_id}: SL price {sl_price} calculated based on bought "
         f"price {bought_average_price}, initial SL of {initial_stoploss_percentage}, "
         f"activation diff of {activation_diff} and sl factor {sl_increment_factor}"
     )
@@ -196,7 +196,7 @@ def new_long_deal(thebot, deal):
     )
 
     logger.debug(
-        f"Deal {pair} ({deal_id}); base SL of {base_price_sl_percentage}% calculated "
+        f"{pair}/{deal_id}: base SL of {base_price_sl_percentage}% calculated "
         f"based on base price {base_price} and SL price {sl_price}."
     )
 
@@ -208,7 +208,7 @@ def new_long_deal(thebot, deal):
         )
 
         logger.debug(
-            f"Deal {pair} ({deal_id}); average SL of {average_price_sl_percentage}% "
+            f"{pair}/{deal_id}: average SL of {average_price_sl_percentage}% "
             f"calculated based on average price {bought_average_price} and "
             f"SL price {sl_price}."
         )
@@ -222,7 +222,7 @@ def new_long_deal(thebot, deal):
         )
 
         logger.info(
-            f"Deal {pair} ({deal_id}): actual profit ({actual_profit_percentage}%) above "
+            f"\"{thebot['name']}\": {pair}/{deal_id} profit ({actual_profit_percentage}%) above "
             f"activation ({activation_percentage}%). StopLoss activated "
             f"on {average_price_sl_percentage}%.",
             True
@@ -245,7 +245,7 @@ def new_long_deal(thebot, deal):
         db.commit()
     else:
         logger.info(
-            f"Deal {pair} ({deal_id}) calculated SL of {base_price_sl_percentage} which "
+            f"{pair}/{deal_id}: calculated SL of {base_price_sl_percentage} which "
             f"will cause 3C not to activate SL. No action taken!"
         )
 
@@ -271,7 +271,7 @@ def update_long_deal(thebot, deal, existing_deal):
         )
 
         logger.debug(
-            f"Deal {pair} ({deal_id}); new base SL of {new_base_price_sl_percentage}% "
+            f"{pair}/{deal_id}: new base SL of {new_base_price_sl_percentage}% "
             f"calculated based on current SL {current_sl_percentage}%, "
             f"profit diff {profit_diff} and increment {sl_increment_factor}."
         )
@@ -290,7 +290,7 @@ def update_long_deal(thebot, deal, existing_deal):
                                               * new_base_price_sl_percentage)
 
             logger.debug(
-                f"Deal {pair} ({deal_id}); current SL price of {current_base_sl_price} "
+                f"{pair}/{deal_id}: current SL price of {current_base_sl_price} "
                 f"on base price {base_price} and {current_sl_percentage}%. New "
                 f"SL price {new_base_sl_price} on base price {base_price} "
                 f"and {new_base_price_sl_percentage}%."
@@ -308,7 +308,7 @@ def update_long_deal(thebot, deal, existing_deal):
             )
 
             logger.debug(
-                f"Deal {pair} ({deal_id}); average SL {current_average_price_sl_percentage}% "
+                f"{pair}/{deal_id}: average SL {current_average_price_sl_percentage}% "
                 f"based on base sl price {current_base_sl_price} and bought price "
                 f"{bought_average_price}. New average SL {new_average_price_sl_percentage}% "
                 f"based on new base sl price {new_base_sl_price} and bought price "
@@ -316,8 +316,8 @@ def update_long_deal(thebot, deal, existing_deal):
             )
 
             logger.info(
-                f"Deal {pair} ({deal_id}) profit increased from {last_profit_percentage}% "
-                f"to {actual_profit_percentage}%. "
+                f"\"{thebot['name']}\": {pair}/{deal_id} profit increased "
+                f"from {last_profit_percentage}% to {actual_profit_percentage}%. "
                 f"StopLoss increased from {current_average_price_sl_percentage}% to "
                 f"{new_average_price_sl_percentage}%. ",
                 True
@@ -341,12 +341,12 @@ def update_long_deal(thebot, deal, existing_deal):
             db.commit()
         else:
             logger.info(
-                f"Deal {pair} ({deal_id}) calculated SL of 0.0 which will cause 3C "
+                f"{pair}/{deal_id}: calculated SL of 0.0 which will cause 3C "
                 f"to deactive SL; no update this round!"
             )
     else:
         logger.info(
-            f"Deal {pair} ({deal_id}) no profit increase (current: {actual_profit_percentage}%, "
+            f"{pair}/{deal_id}: no profit increase (current: {actual_profit_percentage}%, "
             f"previous: {last_profit_percentage}%). Keep on monitoring."
         )
 
@@ -413,7 +413,12 @@ def init_tsl_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
-            "CREATE TABLE deals (dealid INT Primary Key, botid INT, last_profit_percentage FLOAT, last_stop_loss_percentage FLOAT)"
+            "CREATE TABLE deals ("
+            "dealid INT Primary Key, "
+            "botid INT, "
+            "last_profit_percentage FLOAT, "
+            "last_stop_loss_percentage FLOAT"
+            ")"
         )
         logger.info("Database tables created successfully")
 
