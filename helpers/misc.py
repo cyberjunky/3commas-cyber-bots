@@ -4,6 +4,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
+from constants.pair import PAIREXCLUDE_EXT
+
 
 def wait_time_interval(logger, notification, time_interval, notify=True):
     """Wait for time interval."""
@@ -220,3 +222,40 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
+
+
+def remove_excluded_pairs(logger, share_dir, bot_id, newpairs):
+    """Remove pairs which are excluded by other script(s)."""
+
+    excludedpairs = load_bot_excluded_pairs(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
+    if excludedpairs:
+        logger.info(
+            f"Removing the following pair(s) for bot {bot_id}: {excludedpairs}"
+        )
+
+        for pair in excludedpairs:
+            if newpairs.count(pair) > 0:
+                newpairs.remove(pair)
+
+
+def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
+    """Load excluded pairs from file, for the specified bot"""
+
+    excludedlist = []
+    excludefilename = f"{share_dir}/{bot_id}.{extension}"
+
+    try:
+        with open(excludefilename, "r") as file:
+            excludedlist = file.read().splitlines()
+        if excludedlist:
+            logger.info(
+                "Reading exclude file '%s' OK (%s pairs)"
+                % (excludefilename, len(excludedlist))
+            )
+    except FileNotFoundError:
+        logger.info(
+            "Exclude file (%s) not found for bot '%s'; no pairs to exclude."
+            % (excludefilename, bot_id)
+        )
+
+    return excludedlist
