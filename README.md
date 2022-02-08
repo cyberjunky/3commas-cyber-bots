@@ -851,7 +851,7 @@ NOTE2: When you connect your FTX account to 3Comma's you get free use to trade o
 -   Create a [3Commas account](https://3commas.io/?c=tc587527) (Includes my referral, again I'll be super grateful if you use it).
 -   Enable Two-factor Authentication.
 -   Connect your 3Commas account with the Binance or FTX exchange using the key values created above.
--   Create a new API key with Bot Read and Bot Write permissions, enther these key in config.py
+-   Create a new API key with Bot Read, Bot Write and Account Read permissions, enther these key in config.py
 -   Setup a DCA Bot (details will follow)
 
 NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
@@ -895,7 +895,10 @@ Look at the helper sections above for each layout and description of the setting
 
 
 ### 3Commas API key permissions needed
-The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.
+The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.  
+BotsRead: Required to get a list of all bots.  
+BotsWrite: Required to update bot pairs.  
+AccountsRead: Required to get connected exchanges to ensure that pairs are valid.  
 
 ### Telegram ID, Hash and Secrets explained
 There are two sets of Telegram related settings.
