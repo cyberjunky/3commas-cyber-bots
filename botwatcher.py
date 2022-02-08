@@ -266,5 +266,5 @@ while True:
                 else:
                     logger.error("Error occurred, no shared bot data to process")
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
