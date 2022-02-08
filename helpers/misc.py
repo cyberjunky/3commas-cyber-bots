@@ -41,7 +41,7 @@ def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerl
 
 
 def get_lunarcrush_data(logger, program, config, usdtbtcprice):
-    """Get the top x GalaxyScore or AltRank coins from LunarCrush."""
+    """Get the top x GalaxyScore, AltRank or Volatile coins from LunarCrush."""
 
     lccoins = {}
     lcapikey = config.get("settings", "lc-apikey")
@@ -56,11 +56,19 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "limit": lcfetchlimit,
             "key": lcapikey,
         }
-    else:
+    elif "galaxyscore" in program:
         parms = {
             "data": "market",
             "type": "fast",
             "sort": "gs",
+            "limit": lcfetchlimit,
+            "key": lcapikey,
+        }
+    elif "volatility" in program:
+        parms = {
+            "data": "market",
+            "type": "fast",
+            "sort": "vt",
             "limit": lcfetchlimit,
             "key": lcapikey,
             "desc": True,
@@ -79,7 +87,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtcprice)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   vt:{crush['vt']:8f}   "
                     f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
