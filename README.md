@@ -123,6 +123,8 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
+
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
 ### Configuration
@@ -173,6 +175,8 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 ### How does it work?
 
 Same as galaxyscore bot helper except with AltRank data.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
@@ -229,7 +233,9 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+This script can be used for multiple bots with different Top X coins by creating multiple `cmc_` sections in the configuration file. For each section CMC data is fetched and processed as described above. Make sure each section starts with `cmc_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
@@ -296,7 +302,9 @@ If this is the case -and the current pairs are different than the current ones- 
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
-This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself. 
+This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
+
+When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top pairs (like BTC and ETH) can also be excluded by increasing the start-number.
 
@@ -779,6 +787,8 @@ Once a deal is gone and the number of deals for this pair is below `max-same-dea
 
 Notice you can create more than one cluster as long as each section starts with 'cluster_'. The example configuration below contains a single 'default' cluster.
 
+When the SHAREDIR option is used, this script will create a `.pairexclude` file for each bot within a configured cluster. This file contains the pairs which have been disabled and can be used by other scripts to prevent enabling these pairs and triggering new deals, making this script ineffective.
+
 Note: sometimes 3C deals can be opened within seconds and there is nothing this script can do to prevent it. Shorter intervals will decrease this possibility, but also beware 3C has a rate limit so do not go that low (the author used a minimum of 120 seconds).
 
 
@@ -844,6 +854,8 @@ The configuration file for `botwatcher` contains the following settings:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 -   *botwatch_12345*
@@ -856,6 +868,8 @@ timezone = Europe/Amsterdam
 timeinterval = 86400
 debug = False
 logrotate = 7
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 
@@ -892,7 +906,7 @@ NOTE2: When you connect your FTX account to 3Comma's you get free use to trade o
 -   Create a [3Commas account](https://3commas.io/?c=tc587527) (Includes my referral, again I'll be super grateful if you use it).
 -   Enable Two-factor Authentication.
 -   Connect your 3Commas account with the Binance or FTX exchange using the key values created above.
--   Create a new API key with Bot Read and Bot Write permissions, enther these key in config.py
+-   Create a new API key with Bot Read, Bot Write and Account Read permissions, enther these key in config.py
 -   Setup a DCA Bot (details will follow)
 
 NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
@@ -936,7 +950,10 @@ Look at the helper sections above for each layout and description of the setting
 
 
 ### 3Commas API key permissions needed
-The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.
+The 3Commas API need to have 'BotsRead, BotsWrite and AccountsRead' permissions, don't give it more than that to be safe.  
+BotsRead: Required to get a list of all bots.  
+BotsWrite: Required to update bot pairs.  
+AccountsRead: Required to get connected exchanges to ensure that pairs are valid.  
 
 ### Telegram ID, Hash and Secrets explained
 There are two sets of Telegram related settings.
@@ -1008,7 +1025,7 @@ They also have some command-line options:
 
 ```
 ./galaxyscore.py -h
-usage: galaxyscore.py [-h] [-d DATADIR] [-b BLACKLIST]
+usage: galaxyscore.py [-h] [-d DATADIR] [-s SHAREDIR] [-b BLACKLIST]
 
 Cyberjunky's 3Commas bot helper.
 
@@ -1016,6 +1033,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -d DATADIR, --datadir DATADIR
                         directory to use for config and logs files
+  -s SHAREDIR, --sharedir SHAREDIR
+                        directory to use for shared files between scripts
   -b BLACKLIST, --blacklist BLACKLIST
                         local blacklist to use instead of 3Commas's
 ```

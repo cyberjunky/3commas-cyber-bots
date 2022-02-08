@@ -4,6 +4,8 @@ import json
 import requests
 from bs4 import BeautifulSoup
 
+from constants.pair import PAIREXCLUDE_EXT
+
 
 def wait_time_interval(logger, notification, time_interval, notify=True):
     """Wait for time interval."""
@@ -39,7 +41,7 @@ def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerl
 
 
 def get_lunarcrush_data(logger, program, config, usdtbtcprice):
-    """Get the top x GalaxyScore or AltRank coins from LunarCrush."""
+    """Get the top x GalaxyScore, AltRank or Volatile coins from LunarCrush."""
 
     lccoins = {}
     lcapikey = config.get("settings", "lc-apikey")
@@ -54,11 +56,19 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "limit": lcfetchlimit,
             "key": lcapikey,
         }
-    else:
+    elif "galaxyscore" in program:
         parms = {
             "data": "market",
             "type": "fast",
             "sort": "gs",
+            "limit": lcfetchlimit,
+            "key": lcapikey,
+        }
+    elif "volatility" in program:
+        parms = {
+            "data": "market",
+            "type": "fast",
+            "sort": "vt",
             "limit": lcfetchlimit,
             "key": lcapikey,
             "desc": True,
@@ -77,7 +87,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtcprice)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   vt:{crush['vt']:8f}   "
                     f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
@@ -241,3 +251,41 @@ def get_shared_bot_data(logger, bot_id, bot_secret):
     logger.info("Fetched %s 3C shared bot data OK" % (bot_id))
 
     return data
+
+
+def remove_excluded_pairs(logger, share_dir, bot_id, newpairs):
+    """Remove pairs which are excluded by other script(s)."""
+
+    excludedpairs = load_bot_excluded_pairs(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
+    if excludedpairs:
+        logger.info(
+            f"Removing the following pair(s) for bot {bot_id}: {excludedpairs}"
+        )
+
+        for pair in excludedpairs:
+            if newpairs.count(pair) > 0:
+                newpairs.remove(pair)
+
+
+def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
+    """Load excluded pairs from file, for the specified bot"""
+
+    excludedlist = []
+    excludefilename = f"{share_dir}/{bot_id}.{extension}"
+
+    try:
+        with open(excludefilename, "r") as file:
+            excludedlist = file.read().splitlines()
+        if excludedlist:
+            logger.info(
+                "Reading exclude file '%s' OK (%s pairs)"
+                % (excludefilename, len(excludedlist))
+            )
+    except FileNotFoundError:
+        logger.info(
+            "Exclude file (%s) not found for bot '%s'; no pairs to exclude."
+            % (excludefilename, bot_id)
+        )
+
+    return excludedlist
+

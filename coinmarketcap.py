@@ -13,6 +13,7 @@ from helpers.misc import (
     format_pair,
     get_coinmarketcap_data,
     populate_pair_lists,
+    remove_excluded_pairs,
     wait_time_interval,
 )
 from helpers.threecommas import (
@@ -146,6 +147,10 @@ def coinmarketcap_pairs(thebot, cmcdata):
         "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
     )
 
+    # If sharedir is set, other scripts could provide a file with pairs to exclude
+    if sharedir is not None:
+        remove_excluded_pairs(logger, sharedir, thebot['id'], newpairs)
+
     if not newpairs:
         logger.info(
             "None of the by CoinMarketCap suggested pairs have been found on the %s (%s) exchange!"
@@ -166,6 +171,9 @@ parser.add_argument(
     "-d", "--datadir", help="directory to use for config and logs files", type=str
 )
 parser.add_argument(
+    "-s", "--sharedir", help="directory to use for shared files", type=str
+)
+parser.add_argument(
     "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
 )
 
@@ -174,6 +182,12 @@ if args.datadir:
     datadir = args.datadir
 else:
     datadir = os.getcwd()
+
+# pylint: disable-msg=C0103
+if args.sharedir:
+    sharedir = args.sharedir
+else:
+    sharedir = None
 
 # pylint: disable-msg=C0103
 if args.blacklist:
