@@ -109,6 +109,42 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit):
             logger.error("Error occurred updating bot with new SL/TP valuess")
 
 
+def calculate_slpercentage_base_price_short(sl_price, base_price):
+    """Calculate the SL percentage of the base price for a short deal"""
+
+    return round(
+        ((sl_price / base_price) * 100.0) - 100.0,
+        2
+    )
+
+
+def calculate_slpercentage_base_price_long(sl_price, base_price):
+    """Calculate the SL percentage of the base price for a long deal"""
+
+    return round(
+        100.0 - ((sl_price / base_price) * 100.0),
+        2
+    )
+
+
+def calculate_average_price_sl_percentage_short(sl_price, average_price):
+    """Calculate the SL percentage based on the average price for a short deal"""
+
+    return round(
+        100.0 - ((sl_price / average_price) * 100.0),
+        2
+    )
+
+
+def calculate_average_price_sl_percentage_long(sl_price, average_price):
+    """Calculate the SL percentage based on the average price for a long deal"""
+
+    return round(
+        ((sl_price / average_price) * 100.0) - 100.0,
+        2
+    )
+
+
 def process_deals(thebot):
     """Check deals from bot, compare against the database and handle them."""
 
@@ -124,28 +160,29 @@ def process_deals(thebot):
             deal_id = deal["id"]
             deal_strategy = deal["strategy"]
 
-            if deal_strategy == "short":
-                logger.warning(
-                    f"Deal {deal_id} strategy is short; only long is supported for now!"
-                )
-            elif deal_strategy == "long":
+            if deal_strategy in ("short", "long"):
                 current_deals.append(deal_id)
 
                 existing_deal = check_deal(cursor, deal_id)
+
                 if not existing_deal and float(deal["actual_profit_percentage"]) >= activation_percentage:
                     monitored_deals = +1
 
-                    new_long_deal(thebot, deal)
+                    handle_new_deal(thebot, deal, deal_strategy)
                 elif existing_deal:
                     deal_sl = deal["stop_loss_percentage"]
                     current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
                     if current_stoploss_percentage != 0.0:
                         monitored_deals = +1
 
-                        update_long_deal(thebot, deal, existing_deal)
+                        handle_update_deal(thebot, deal, existing_deal, deal_strategy)
                     else:
                         # Existing deal, but stoploss is 0.0 which means it has been reset
                         remove_active_deal(deal_id)
+            else:
+                logger.warning(
+                    f"Unknown strategy {deal_strategy} for deal {deal_id}"
+                )
 
         # Housekeeping, clean things up and prevent endless growing database
         remove_closed_deals(botid, current_deals)
@@ -163,8 +200,8 @@ def process_deals(thebot):
     return monitored_deals
 
 
-def new_long_deal(thebot, deal):
-    """New long deal to activate SL on"""
+def handle_new_deal(thebot, deal, strategy):
+    """New deal (short or long) to activate SL on"""
 
     botid = thebot["id"]
     deal_id = deal["id"]
@@ -175,25 +212,43 @@ def new_long_deal(thebot, deal):
     activation_diff = actual_profit_percentage - activation_percentage
 
     # SL is calculated by 3C on base order price. Because of filled SO's,
-    # we must first calculate the SL price based on the bought average price
-    bought_average_price = float(deal["bought_average_price"])
-    sl_price = bought_average_price + (bought_average_price * ((initial_stoploss_percentage / 100.0)
-                                       + ((activation_diff / 100.0) * sl_increment_factor))
-                                       )
+    # we must first calculate the SL price based on the average price
+    average_price = 0.0
+    if strategy == "short":
+        average_price = float(deal["sold_average_price"])
+    else:
+        average_price = float(deal["bought_average_price"])
+
+    # Calculate the amount we need to substract or add to the average price based
+    # on the configured increments and activation
+    percentage_price = average_price * ((initial_stoploss_percentage / 100.0)
+                                        + ((activation_diff / 100.0) * sl_increment_factor))
+
+    sl_price = average_price
+    if strategy == "short":
+        sl_price -= percentage_price
+    else:
+        sl_price += percentage_price
 
     logger.debug(
-        f"{pair}/{deal_id}: SL price {sl_price} calculated based on bought "
-        f"price {bought_average_price}, initial SL of {initial_stoploss_percentage}, "
+        f"{pair}/{deal_id}: SL price {sl_price} calculated based on average "
+        f"price {average_price}, initial SL of {initial_stoploss_percentage}, "
         f"activation diff of {activation_diff} and sl factor {sl_increment_factor}"
     )
 
     # Now we know the SL price, let's calculate the percentage from
     # the base order price so we have the desired SL for 3C
     base_price = float(deal["base_order_average_price"])
-    base_price_sl_percentage = round(
-        100.0 - ((sl_price / base_price) * 100.0),
-        2
-    )
+    base_price_sl_percentage = 0.0
+
+    if strategy == "short":
+        base_price_sl_percentage = calculate_slpercentage_base_price_short(
+                sl_price, base_price
+            )
+    else:
+        base_price_sl_percentage = calculate_slpercentage_base_price_long(
+                sl_price, base_price
+            )
 
     logger.debug(
         f"{pair}/{deal_id}: base SL of {base_price_sl_percentage}% calculated "
@@ -201,15 +256,21 @@ def new_long_deal(thebot, deal):
     )
 
     if base_price_sl_percentage != 0.00:
-        # Calculate understandable SL percentage based on bought average price
-        average_price_sl_percentage = round(
-            ((sl_price / bought_average_price) * 100.0) - 100.0,
-            2
-        )
+        # Calculate understandable SL percentage based on average price
+        average_price_sl_percentage = 0.0
+
+        if strategy == "short":
+            average_price_sl_percentage = calculate_average_price_sl_percentage_short(
+                    sl_price, average_price
+                )
+        else:
+            average_price_sl_percentage = calculate_average_price_sl_percentage_long(
+                    sl_price, average_price
+                )
 
         logger.debug(
             f"{pair}/{deal_id}: average SL of {average_price_sl_percentage}% "
-            f"calculated based on average price {bought_average_price} and "
+            f"calculated based on average price {average_price} and "
             f"SL price {sl_price}."
         )
 
@@ -250,8 +311,8 @@ def new_long_deal(thebot, deal):
         )
 
 
-def update_long_deal(thebot, deal, existing_deal):
-    """Update long deal and increase SL (Trailing SL) if profit has increased."""
+def handle_update_deal(thebot, deal, existing_deal, strategy):
+    """Update deal (short or long) and increase SL (Trailing SL) when profit has increased."""
 
     deal_id = deal["id"]
     pair = deal['pair']
@@ -284,10 +345,19 @@ def update_long_deal(thebot, deal, existing_deal):
             # Calculate understandable SL percentage based on bought average price
             # First calculate the base prices for current and new SL %
             base_price = float(deal["base_order_average_price"])
-            current_base_sl_price = base_price - ((base_price / 100.0)
-                                                  * current_sl_percentage)
-            new_base_sl_price = base_price - ((base_price / 100.0)
-                                              * new_base_price_sl_percentage)
+
+            percentage_current_price = ((base_price / 100.0) * current_sl_percentage)
+            percentage_new_price = ((base_price / 100.0) * new_base_price_sl_percentage)
+
+            current_base_sl_price = base_price
+            new_base_sl_price = base_price
+
+            if strategy == "short":
+                current_base_sl_price += percentage_current_price
+                new_base_sl_price += percentage_new_price
+            else:
+                current_base_sl_price -= percentage_current_price
+                new_base_sl_price -= percentage_new_price
 
             logger.debug(
                 f"{pair}/{deal_id}: current SL price of {current_base_sl_price} "
@@ -297,22 +367,35 @@ def update_long_deal(thebot, deal, existing_deal):
             )
 
             # Then calculate the SL % based on the average price, same axis as TP %
-            bought_average_price = float(deal["bought_average_price"])
-            current_average_price_sl_percentage = round(
-                ((current_base_sl_price / bought_average_price) * 100.0) - 100.0,
-                2
-            )
-            new_average_price_sl_percentage = round(
-                ((new_base_sl_price / bought_average_price) * 100.0) - 100.0,
-                2
-            )
+            average_price = 0.0
+            current_average_price_sl_percentage = 0.0
+            new_average_price_sl_percentage = 0.0
+
+            if strategy == "short":
+                average_price = float(deal["sold_average_price"])
+
+                current_average_price_sl_percentage = calculate_average_price_sl_percentage_short(
+                        current_base_sl_price, average_price
+                    )
+                new_average_price_sl_percentage = calculate_average_price_sl_percentage_short(
+                        new_base_sl_price, average_price
+                    )
+            else:
+                average_price = float(deal["bought_average_price"])
+
+                current_average_price_sl_percentage = calculate_average_price_sl_percentage_long(
+                        current_base_sl_price, average_price
+                    )
+                new_average_price_sl_percentage = calculate_average_price_sl_percentage_long(
+                        new_base_sl_price, average_price
+                    )
 
             logger.debug(
                 f"{pair}/{deal_id}: average SL {current_average_price_sl_percentage}% "
-                f"based on base sl price {current_base_sl_price} and bought price "
-                f"{bought_average_price}. New average SL {new_average_price_sl_percentage}% "
-                f"based on new base sl price {new_base_sl_price} and bought price "
-                f"{bought_average_price}."
+                f"based on base sl price {current_base_sl_price} and average price "
+                f"{average_price}. New average SL {new_average_price_sl_percentage}% "
+                f"based on new base sl price {new_base_sl_price} and average price "
+                f"{average_price}."
             )
 
             logger.info(

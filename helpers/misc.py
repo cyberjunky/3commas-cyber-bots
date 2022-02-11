@@ -63,6 +63,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "sort": "gs",
             "limit": lcfetchlimit,
             "key": lcapikey,
+            "desc": True,
         }
     elif "volatility" in program:
         parms = {

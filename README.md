@@ -440,7 +440,7 @@ Type = stop loss
 
 ### What does it do?
 
-It will change the trailing stoploss (and optionally the profit %) of a DCA bot when the profit % >= as the activation-percentage setting.
+It will change the trailing stoploss (and optionally the profit %) of a DCA deal when the profit % is above the activation-percentage setting. Works for both long and short deals.
 
 ### How does it work?
 
