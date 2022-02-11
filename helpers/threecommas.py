@@ -253,13 +253,13 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
     # Do we already use these pairs?
     if newpairs == thebot["pairs"]:
         logger.info(
-            "Bot '%s' with id '%s' is already using the new pairs"
+            "Bot '%s' with id '%s' is already using the new pair(s)"
             % (thebot["name"], thebot["id"]),
             notify,
         )
         return
 
-    logger.debug("Current pairs: %s\nNew pairs: %s" % (thebot["pairs"], newpairs))
+    logger.debug("Current pair(s): %s\nNew pair(s): %s" % (thebot["pairs"], newpairs))
 
     error, data = api.request(
         entity="bots",
@@ -289,12 +289,19 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
         },
     )
     if data:
-        logger.debug("Bot pairs updated: %s" % data)
-        logger.info(
-            "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
-            % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
-            notify,
-        )
+        logger.debug("Bot pair(s) updated: %s" % data)
+        if len(newpairs) == 1:
+            logger.info(
+                "Bot '%s' with id '%s' updated with pair '%s'"
+                % (thebot["name"], thebot["id"], newpairs[0]),
+                notify,
+            )
+        else:
+            logger.info(
+                "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
+                % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
+                notify,
+            )
     else:
         if error and "msg" in error:
             logger.error(
