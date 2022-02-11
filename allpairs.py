@@ -15,6 +15,7 @@ from helpers.threecommas import (
     get_threecommas_market,
     init_threecommas_api,
     set_threecommas_bot_pairs,
+    load_blacklist
 )
 
 
@@ -55,6 +56,7 @@ def all_pairs(thebot):
 
     # Start from scratch
     newpairs = list()
+    blackpairs = list()
 
     # Get marketcode (exchange) from account
     marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
@@ -70,9 +72,14 @@ def all_pairs(thebot):
 
     for pair in tickerlist:
         if pair.split("_")[0] == base:
+            if pair in blacklist:
+                blackpairs.append(pair)
+                continue
             newpairs.append(pair)
 
     newpairs.sort()
+
+    logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
     # Show changes if any
     show_pair_diffs(thebot["pairs"], newpairs)
@@ -99,12 +106,21 @@ parser = argparse.ArgumentParser(description="Cyberjunky's 3Commas bot helper.")
 parser.add_argument(
     "-d", "--datadir", help="directory to use for config and logs files", type=str
 )
+parser.add_argument(
+    "-b", "--blacklist", help="local blacklist to use instead of 3Commas's", type=str
+)
 
 args = parser.parse_args()
 if args.datadir:
     datadir = args.datadir
 else:
     datadir = os.getcwd()
+
+# pylint: disable-msg=C0103
+if args.blacklist:
+    blacklistfile = f"{datadir}/{args.blacklist}"
+else:
+    blacklistfile = None
 
 # Create or load configuration file
 config = load_config()
@@ -151,6 +167,9 @@ while True:
     # Reload config files and data to catch changes
     config = load_config()
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
+
+    # Update the blacklist
+    blacklist = load_blacklist(logger, api, blacklistfile)
 
     # Configuration settings
     timeint = int(config.get("settings", "timeinterval"))
