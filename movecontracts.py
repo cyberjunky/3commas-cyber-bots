@@ -102,7 +102,7 @@ def movecontract_pairs(thebot):
                     for i in range(0, 7):
                         newday = datetime.date.today() + datetime.timedelta(i)
                         newpair = (
-                            f"{coin}_{base}-MOVE-{newday.month:02d}{newday.day:02d}"
+                            f"{coin}_{base}-MOVE-WK-{newday.month:02d}{newday.day:02d}"
                         )
                         if newpair in tickerlist:
                             break
