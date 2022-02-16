@@ -1243,7 +1243,7 @@ Claim free crypto (Hi Dollars) every day by answering a simple daily question. h
 
 My referral links: (gives you discount and/or less fees to pay):
 
-- [Prosum Solutions Indicators](https://prosum-solutions.store/ref/ron.klinkien/?campaign=cyberbothelpers) Excellent TradingView indicators QFL Base Breaking, Price Change Scalper, 3Commas DCA, and more.. have a look and try them! Featured in TheTradingParot video's. Use coupon: DJWNGFHXTI for 15% discount!
+- [Prosum Solutions Indicators](https://prosum-solutions.store/ref/ron.klinkien/?campaign=cyberbothelpers) Excellent TradingView indicators QFL Base Breaking, Price Change Scalper, 3Commas DCA, and more.. have a look and try them! Featured in TheTradingParot video's. Use above link and coupon code: DJWNGFHXTI for 15% discount!
 
   Look here for instruction video(s): [Prosum Solutions YouTube Channel](https://www.youtube.com/channel/UCUoCoHjp67pQwYJQgpsrz1w/videos)
 
