@@ -87,8 +87,6 @@ def upgrade_config(thelogger, cfg):
 
     for cfgsection in cfg.sections():
         if cfgsection.startswith("tsl_tp_") and not cfg.has_option(cfgsection, "config"):
-            thelogger.info(f"Section {cfgsection} needs an upgrade for config!")
-
             cfgsectionconfig = list()
             cfgsectionconfig.append({
                 "activation-percentage": cfg.get(cfgsection, "activation-percentage"),
