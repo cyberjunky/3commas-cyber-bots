@@ -79,8 +79,14 @@ def init_coin_db():
         )
 
         dbcursor.execute(
-            "CREATE TABLE bot_pairs (clusterid STRING, botid INT, botname STRING, pair STRING, enabled BIT, "
-            "PRIMARY KEY(clusterid, botid, pair))"
+            "CREATE TABLE bot_pairs ("
+            "clusterid STRING, "
+            "botid INT, "
+            "botname STRING, "
+            "pair STRING, "
+            "enabled BIT, "
+            "PRIMARY KEY(clusterid, botid, pair)"
+            ")"
         )
 
         logger.info("Database tables created successfully")
@@ -365,10 +371,6 @@ def update_bot_pairs(cluster_id, thebot):
         if botdisabledpairs:
             disabledpairlist = [row[0] for row in botdisabledpairs]
             write_bot_exclude_file(bot_id, disabledpairlist)
-        else:
-            logger.warning(
-                f"Failed to get disabled pairs for bot {bot_id}"
-            )
 
 
 def write_bot_exclude_file(bot_id, pairs):
