@@ -434,6 +434,6 @@ def close_threecommas_deal(logger, api, dealid, pair):
         else:
             logger.error("Error occurred while closing deal")
     else:
-        logger.info("Closed deal (panic_sell) for deal with id '%s' and pair: '%s'" % (dealid, pair))
+        logger.info("Closed deal (panic_sell) for deal with id '%s' and pair: '%s'" % (dealid, pair), True)
 
     return data
