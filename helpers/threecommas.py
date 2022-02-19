@@ -211,9 +211,7 @@ def get_threecommas_account_balance_chart_data(
             % (accountid, error["msg"])
         )
     else:
-        logger.error(
-            "Fetching 3Commas account balance chart data for id %s", accountid
-        )
+        logger.error("Fetching 3Commas account balance chart data for id %s", accountid)
 
     return None
 
@@ -299,7 +297,13 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
         else:
             logger.info(
                 "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
-                % (thebot["name"], thebot["id"], len(newpairs), newpairs[0], newpairs[-1]),
+                % (
+                    thebot["name"],
+                    thebot["id"],
+                    len(newpairs),
+                    newpairs[0],
+                    newpairs[-1],
+                ),
                 notify,
             )
     else:
@@ -317,7 +321,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
 
 
 def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
-    """Trigger bot to start deal asap for pair."""
+    """Trigger bot to start deal asap."""
 
     error, data = api.request(
         entity="bots",
@@ -377,19 +381,28 @@ def control_threecommas_bot(logger, api, thebot, cmd):
             )
 
 
-def get_threecommas_deals(logger, api, botid):
+def get_threecommas_deals(logger, api, botid, actiontype="finished"):
     """Get all deals from 3Commas linked to a bot."""
 
     data = None
-    error, data = api.request(
-        entity="deals",
-        action="",
-        payload={
+    if actiontype == "finished":
+        payload = {
             "scope": "finished",
             "bot_id": str(botid),
             "limit": 100,
             "order": "closed_at",
-        },
+        }
+    else:
+        payload = {
+            "scope": "active",
+            "bot_id": str(botid),
+            "limit": 100,
+        }
+
+    error, data = api.request(
+        entity="deals",
+        action="",
+        payload=payload,
     )
     if error:
         if "msg" in error:
@@ -400,5 +413,27 @@ def get_threecommas_deals(logger, api, botid):
             logger.error("Error occurred while fetching deals")
     else:
         logger.info("Fetched the deals for bot OK (%s deals)" % len(data))
+
+    return data
+
+
+def close_threecommas_deal(logger, api, dealid, pair):
+    """Close deal with certain id."""
+
+    data = None
+    error, data = api.request(
+        entity="deals",
+        action="panic_sell",
+        action_id=str(dealid),
+    )
+    if error:
+        if "msg" in error:
+            logger.error(
+                "Error occurred while closing deal error: %s" % error["msg"],
+            )
+        else:
+            logger.error("Error occurred while closing deal")
+    else:
+        logger.info("Closed deal (panic_sell) for deal with id '%s' and pair: '%s'" % (dealid, pair))
 
     return data
