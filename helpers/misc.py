@@ -28,7 +28,7 @@ def wait_time_interval(logger, notification, time_interval, notify=True):
 
 
 def populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerlist):
-    """Check pair conditions."""
+    """Create pair lists."""
 
     # Check if pair is in tickerlist and on 3Commas blacklist
     if pair in tickerlist:
@@ -156,7 +156,7 @@ def check_deal(cursor, dealid):
 
 
 def format_pair(logger, marketcode, base, coin):
-    """Check if deal was already logged."""
+    """Format pair depending on exchange."""
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
     if marketcode == "binance_futures":

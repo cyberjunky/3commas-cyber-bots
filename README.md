@@ -591,7 +591,7 @@ Type = start deal trigger
 
 ### What does it do?
 
-It will monitor a specific Telegram chat channel and sent a 'start new deal' trigger to the linked bot for that pair.
+It will monitor a specific Telegram chat channel (https://t.me/wiseanalize) and sent a 'start new deal' trigger to the linked bot for that pair.
 
 ### How does it work?
 
@@ -641,6 +641,34 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 ### Example output
 
 ![Watchlist](images/watchlist.png)
+
+### Format
+
+Format of the telegram messages support are:  
+
+Trigger bot(s) with start deal asap for this pair
+```
+BINANCE
+#USDT_BTC
+LONG
+```
+
+Close any active deals for the bot(s) configured for this pair:
+```
+BINANCE
+#USDT_BTC
+CLOSE
+```
+Or
+```
+BINANCE
+#USDT_BTC
+LONG
+CLOSE
+```
+
+Exchange can be 'BINANCE', 'KUCOIN' or 'FTX'
+
 
 ## Watchlist bot helper named `watchlist_100eyes.py `
 Type = start deal trigger
@@ -1307,8 +1335,6 @@ My referral links: (gives you discount and/or less fees to pay):
 - [FTX](https://ftx.com/#a=38250549) Get 5.00% fee discount
 - [3Commas](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
 - [Bybit](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
-- [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over first €1000 trading
-- [Tradingview](https://www.tradingview.com/gopro/?share_your_love=cyberjunkynl) Get upto $30
 - [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over €1000 trading in first week
 - [TradingView](https://www.tradingview.com/gopro/?share_your_love=cyberjunkynl) Get up to $30 each after they upgrade to a paid plan
 
