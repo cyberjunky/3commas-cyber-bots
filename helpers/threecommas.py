@@ -349,35 +349,29 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
             )
 
 
-def control_threecommas_bot(logger, api, thebot, cmd):
-    """Start or stop a bot."""
-
-    if cmd == "stop_bot":
-        action = "disable"
-    else:
-        action = "enable"
+def control_threecommas_bots(logger, api, thebot, cmd):
+    """Enable or disable a bot."""
 
     error, data = api.request(
         entity="bots",
-        action=action,
+        action=cmd,
         action_id=str(thebot["id"]),
     )
     if data:
-        logger.debug("Bot enabled or disabled: %s" % data)
+        logger.debug(f"Bot {cmd}: {data}")
         logger.info(
-            "Bot '%s' is set to '%s'" % (thebot["name"], action),
+            "Bot '%s' is %sd" % (thebot["name"], cmd),
             True,
         )
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while '%s' bot was set to '%s' error: %s"
-                % (thebot["name"], action, error["msg"]),
+                "Error occurred while '%s' bot was %sd error: %s"
+                % (thebot["name"], cmd, error["msg"]),
             )
         else:
             logger.error(
-                "Error occurred while '%s' bot was set to '%s'"
-                % (thebot["name"], action),
+                "Error occurred while '%s' bot was %sd" % (thebot["name"], cmd),
             )
 
 
@@ -434,6 +428,10 @@ def close_threecommas_deal(logger, api, dealid, pair):
         else:
             logger.error("Error occurred while closing deal")
     else:
-        logger.info("Closed deal (panic_sell) for deal with id '%s' and pair: '%s'" % (dealid, pair), True)
+        logger.info(
+            "Closed deal (panic_sell) for deal with id '%s' and pair '%s'"
+            % (dealid, pair),
+            True,
+        )
 
     return data
