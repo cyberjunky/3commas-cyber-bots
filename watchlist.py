@@ -13,7 +13,9 @@ from telethon import TelegramClient, events
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import format_pair
 from helpers.threecommas import (
+    close_threecommas_deal,
     get_threecommas_account_marketcode,
+    get_threecommas_deals,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -49,7 +51,7 @@ def load_config():
     return None
 
 
-def watchlist_deal(thebot, coin):
+def watchlist_deal(thebot, coin, trade):
     """Check pair and trigger the bot deal."""
 
     # Gather some bot values
@@ -91,9 +93,22 @@ def watchlist_deal(thebot, coin):
         )
         return
 
-    # We have valid pair for our bot so we trigger a deal
-    logger.info("Triggering your 3Commas bot")
-    trigger_threecommas_bot_deal(logger, api, thebot, pair, skipchecks)
+    if trade == "LONG":
+        # We have valid pair for our bot so we trigger an open asap action
+        logger.info("Triggering your 3Commas bot for buy")
+        trigger_threecommas_bot_deal(logger, api, thebot, pair, skipchecks)
+    else:
+        # Find active deal(s) for this bot so we can close deal(s) for pair
+        deals = get_threecommas_deals(logger, api, thebot["id"], "active")
+        if deals:
+            for deal in deals:
+                if deal["pair"] == pair:
+                    close_threecommas_deal(logger, api, deal["id"], pair)
+                    return
+
+            logger.info("No active deal(s) found for bot '%s' and pair '%s'" % (thebot["name"], pair))
+        else:
+            logger.info("No active deal(s) found for bot '%s'" % thebot["name"])
 
 
 # Start application
@@ -176,6 +191,8 @@ async def callback(event):
             base = pair.split("_")[0].replace("#", "").replace("\n", "")
             coin = pair.split("_")[1].replace("\n", "")
             trade = trigger[2].replace("\n", "")
+            if trade == "LONG" and len(trigger) == 4 and trigger[3] == "CLOSE":
+                trade = "CLOSE"
         except IndexError:
             logger.debug("Invalid trigger message format!")
             return
@@ -186,7 +203,7 @@ async def callback(event):
         logger.debug("Coin: %s" % coin)
         logger.debug("Trade type: %s" % trade)
 
-        if trade != "LONG":
+        if trade != "LONG" and trade != "CLOSE":
             logger.debug(f"Trade type '{trade}' is not supported yet!")
             return
         if base == "USDT":
@@ -216,7 +233,9 @@ async def callback(event):
                 action_id=str(bot),
             )
             if data:
-                await client.loop.run_in_executor(None, watchlist_deal, data, coin)
+                await client.loop.run_in_executor(
+                    None, watchlist_deal, data, coin, trade
+                )
             else:
                 if error and "msg" in error:
                     logger.error("Error occurred triggering bots: %s" % error["msg"])

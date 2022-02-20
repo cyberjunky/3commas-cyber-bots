@@ -38,7 +38,7 @@ def load_config():
         "profittocompound": 1.0,
         "usermaxactivedeals": 5,
         "usermaxsafetyorders": 5,
-        "comment": "put here the name of the bot",
+        "comment": "Just a description of the bot(s)",
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
