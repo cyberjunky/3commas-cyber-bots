@@ -14,6 +14,7 @@ from helpers.misc import (
     get_lunarcrush_data,
     populate_pair_lists,
     remove_excluded_pairs,
+    remove_prefix,
     wait_time_interval,
 )
 from helpers.threecommas import (
@@ -38,9 +39,6 @@ def load_config():
         "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
-        "botids": [12345, 67890],
-        "numberofpairs": 10,
-        "maxaltrankscore": 1500,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "lc-apikey": "Your LunarCrush API Key",
@@ -49,13 +47,21 @@ def load_config():
         "notify-urls": ["notify-url1"],
     }
 
+    cfg["bot_12345"] = {
+        "maxaltrankscore": 1500,
+        "numberofpairs": 10,
+        "originalmaxdeals": 4,
+        "allowmaxdealchange": False,
+        "comment": "Just a description of the bot(s)",
+    }
+
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
 
 
-def upgrade_config(thelogger, cfg):
+def upgrade_config(thelogger, theapi, cfg):
     """Upgrade config file if needed."""
 
     try:
@@ -64,26 +70,78 @@ def upgrade_config(thelogger, cfg):
         logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
         cfg.set("settings", "lc-fetchlimit", "150")
 
+    if cfg.has_option("settings", "botids"):
+        thebotids = json.loads(cfg.get("settings", "botids"))
+
+        default_numberofpairs = int(config.get("settings", "numberofpairs"))
+        default_maxaltrankscore = int(
+            config.get("settings", "maxaltrankscore", fallback=1500)
+        )
+
+        # Walk through all bots configured
+        for thebot in thebotids:
+            if not cfg.has_section(f"bot_{thebot}"):
+
+                error, data = theapi.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(thebot),
+                )
+                if data:
+                    # Add new config section
+                    cfg[f"bot_{thebot}"] = {
+                        "maxaltrankscore": default_maxaltrankscore,
+                        "numberofpairs": default_numberofpairs,
+                        "originalmaxdeals": int(data["max_active_deals"]),
+                        "allowmaxdealchange": False,
+                        "comment": data["name"],
+                    }
+                else:
+                    if error and "msg" in error:
+                        logger.error(
+                            "Error occurred upgrading config: %s" % error["msg"]
+                        )
+                    else:
+                        logger.error("Error occurred upgrading config")
+
+        cfg.remove_option("settings", "botids")
+
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
-        thelogger.info("Upgraded the configuration file")
+        thelogger.info("Upgraded the configuration file (create sections)")
 
     return cfg
 
 
-def lunarcrush_pairs(thebot):
+def lunarcrush_pairs(cfg, thebot):
     """Find new pairs and update the bot."""
 
     # Gather some bot values
+    bot_id = thebot["id"]
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
+
     minvolume = float(thebot["min_volume_btc_24h"])
     if not minvolume:
         minvolume = 0.0
 
+    newmaxdeals = False
+
+    # Get original max deal setting
+    originalmaxdeals = int(cfg.get(f"bot_{bot_id}", "originalmaxdeals"))
+    # Get lunarcrush settings for this bot
+    numberofpairs = int(cfg.get(f"bot_{bot_id}", "numberofpairs"))
+    maxacrscore = int(cfg.get(f"bot_{bot_id}", "maxaltrankscore", fallback=100))
+    allowmaxdealchange = config.getboolean(
+        f"bot_{bot_id}", "allowmaxdealchange", fallback=False
+    )
+
     logger.info("Bot base currency: %s" % base)
-    logger.info("Bot minimal 24h BTC volume: %s" % minvolume)
+    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
+    logger.debug("Bot numberofpairs setting: %s" % numberofpairs)
+    logger.debug("Bot maxaltrankscore setting: %s" % maxacrscore)
+    logger.debug("Bot allowmaxdealchange setting: %s" % allowmaxdealchange)
 
     # Start from scratch
     newpairs = list()
@@ -157,7 +215,7 @@ def lunarcrush_pairs(thebot):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot["id"], newpairs)
 
     if not newpairs:
         logger.info(
@@ -166,8 +224,18 @@ def lunarcrush_pairs(thebot):
         )
         return
 
+    # Lower the number of max deals if not enough new pairs and change allowed, change back to original if possible
+    if allowmaxdealchange:
+        if len(newpairs) < thebot["max_active_deals"]:
+            newmaxdeals = len(newpairs)
+        elif (
+            len(newpairs) > thebot["max_active_deals"]
+            and thebot["max_active_deals"] < originalmaxdeals
+        ):
+            newmaxdeals = originalmaxdeals
+
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs)
+    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
 
 
 # Start application
@@ -237,13 +305,13 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
-    # Upgrade config file if needed
-    config = upgrade_config(logger, config)
-
-    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
-
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+
+# Upgrade config file if needed
+config = upgrade_config(logger, api, config)
+
+logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Lunacrush GalayScore or AltRank pairs
 while True:
@@ -253,9 +321,9 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    numberofpairs = int(config.get("settings", "numberofpairs"))
-    maxacrscore = int(config.get("settings", "maxaltrankscore", fallback=100))
-    botids = json.loads(config.get("settings", "botids"))
+    # numberofpairs = int(config.get("settings", "numberofpairs"))
+    # maxacrscore = int(config.get("settings", "maxaltrankscore", fallback=100))
+    # botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
     lcapikey = config.get("settings", "lc-apikey")
 
@@ -266,21 +334,28 @@ while True:
     usdtbtcprice = get_threecommas_btcusd(logger, api)
     lunarcrush = get_lunarcrush_data(logger, program, config, usdtbtcprice)
 
-    # Walk through all bots configured
-    for bot in botids:
-        error, data = api.request(
-            entity="bots",
-            action="show",
-            action_id=str(bot),
-        )
+    for section in config.sections():
+        # Each section is a bot
+        if section.startswith("bot_"):
+            botid = remove_prefix(section, "bot_")
 
-        if data:
-            lunarcrush_pairs(data)
-        else:
-            if error and "msg" in error:
-                logger.error("Error occurred updating bots: %s" % error["msg"])
+            if botid:
+                boterror, botdata = api.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(botid),
+                )
+                if botdata:
+                    lunarcrush_pairs(config, botdata)
+                else:
+                    if boterror and "msg" in boterror:
+                        logger.error(
+                            "Error occurred updating bots: %s" % boterror["msg"]
+                        )
+                    else:
+                        logger.error("Error occurred updating bots")
             else:
-                logger.error("Error occurred updating bots")
+                logger.error("Invalid botid found: %s" % botid)
 
     if not wait_time_interval(logger, notification, timeint):
         break

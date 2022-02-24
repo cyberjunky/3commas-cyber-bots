@@ -155,7 +155,7 @@ def movecontract_pairs(thebot):
         return
 
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs)
+    set_threecommas_bot_pairs(logger, api, thebot, newpairs, False)
 
 
 # Start application
