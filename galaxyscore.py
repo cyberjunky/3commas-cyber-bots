@@ -235,7 +235,7 @@ def lunarcrush_pairs(cfg, thebot):
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
-            and thebot["max_active_deals"] <= originalmaxdeals
+            and thebot["max_active_deals"] != originalmaxdeals
         ):
             newmaxdeals = originalmaxdeals
 
