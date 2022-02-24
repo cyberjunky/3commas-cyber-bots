@@ -230,7 +230,12 @@ def lunarcrush_pairs(cfg, thebot):
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
-            and thebot["max_active_deals"] < originalmaxdeals
+            and len(newpairs) < originalmaxdeals
+        ):
+            newmaxdeals = len(newpairs)
+        elif (
+            len(newpairs) > thebot["max_active_deals"]
+            and thebot["max_active_deals"] <= originalmaxdeals
         ):
             newmaxdeals = originalmaxdeals
 
@@ -321,9 +326,6 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    # numberofpairs = int(config.get("settings", "numberofpairs"))
-    # maxacrscore = int(config.get("settings", "maxaltrankscore", fallback=100))
-    # botids = json.loads(config.get("settings", "botids"))
     timeint = int(config.get("settings", "timeinterval"))
     lcapikey = config.get("settings", "lc-apikey")
 
