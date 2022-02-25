@@ -100,11 +100,11 @@ def watchlist_deal(thebot, coin, trade):
                     return
 
             logger.info(
-                "No active deal(s) found for bot '%s' and pair '%s'"
-                % (thebot["name"], pair)
+                "No deal(s) running for bot '%s' and pair '%s'"
+                % (thebot["name"], pair, True)
             )
         else:
-            logger.info("No active deal(s) found for bot '%s'" % thebot["name"])
+            logger.info("No deal(s) running for bot '%s'" % thebot["name"], True)
 
 
 def prefetch_marketcodes():
@@ -132,10 +132,10 @@ def prefetch_marketcodes():
             else:
                 if boterror and "msg" in boterror:
                     logger.error(
-                        "Error occurred fetching active deals: %s" % boterror["msg"]
+                        "Error occurred fetching marketcode data: %s" % boterror["msg"]
                     )
                 else:
-                    logger.error("Error occurred fetching active deals")
+                    logger.error("Error occurred fetching marketcode data")
 
     return marketcodearray
 
