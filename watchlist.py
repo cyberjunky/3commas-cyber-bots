@@ -70,22 +70,22 @@ def watchlist_deal(thebot, coin, trade):
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
 
-    # Check if pair is on 3Commas blacklist
-    if pair in blacklist:
-        logger.debug(
-            "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
-        )
-        return
-
-    # Check if pair is in bot's pairlist
-    if pair not in thebot["pairs"]:
-        logger.info(
-            "This pair is not in bot's pairlist, and was skipped: %s" % pair,
-            True,
-        )
-        return
-
     if trade == "LONG":
+        # Check if pair is on 3Commas blacklist
+        if pair in blacklist:
+            logger.debug(
+                "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
+            )
+            return
+
+        # Check if pair is in bot's pairlist
+        if pair not in thebot["pairs"]:
+            logger.info(
+                "This pair is not in bot's pairlist, and was skipped: %s" % pair,
+                True,
+            )
+            return
+
         # We have valid pair for our bot so we trigger an open asap action
         logger.info("Triggering your 3Commas bot for a buy")
         trigger_threecommas_bot_deal(logger, api, thebot, pair, len(blacklistfile))
