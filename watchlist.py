@@ -15,7 +15,6 @@ from helpers.misc import format_pair
 from helpers.threecommas import (
     close_threecommas_deal,
     get_threecommas_account_marketcode,
-    get_threecommas_deals,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -99,14 +98,17 @@ def watchlist_deal(thebot, coin, trade):
         trigger_threecommas_bot_deal(logger, api, thebot, pair, skipchecks)
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
-        deals = get_threecommas_deals(logger, api, thebot["id"], "active")
+        deals = thebot["active_deals"]
         if deals:
             for deal in deals:
                 if deal["pair"] == pair:
                     close_threecommas_deal(logger, api, deal["id"], pair)
                     return
 
-            logger.info("No active deal(s) found for bot '%s' and pair '%s'" % (thebot["name"], pair))
+            logger.info(
+                "No active deal(s) found for bot '%s' and pair '%s'"
+                % (thebot["name"], pair)
+            )
         else:
             logger.info("No active deal(s) found for bot '%s'" % thebot["name"])
 
@@ -203,7 +205,7 @@ async def callback(event):
         logger.debug("Coin: %s" % coin)
         logger.debug("Trade type: %s" % trade)
 
-        if trade != "LONG" and trade != "CLOSE":
+        if trade not in ('LONG', 'CLOSE'):
             logger.debug(f"Trade type '{trade}' is not supported yet!")
             return
         if base == "USDT":
