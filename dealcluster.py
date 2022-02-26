@@ -356,7 +356,7 @@ def update_bot_pairs(cluster_id, thebot):
 
     if botenabledpairs:
         enabledpairlist = [row[0] for row in botenabledpairs]
-        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False)
+        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False)
     else:
         logger.warning(
             f"Failed to get enabled pairs for bot {bot_id}"

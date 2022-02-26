@@ -15,7 +15,6 @@ from helpers.misc import format_pair
 from helpers.threecommas import (
     close_threecommas_deal,
     get_threecommas_account_marketcode,
-    get_threecommas_deals,
     init_threecommas_api,
     load_blacklist,
     trigger_threecommas_bot_deal,
@@ -62,53 +61,83 @@ def watchlist_deal(thebot, coin, trade):
     logger.debug("Base coin for this bot: %s" % base)
     logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
 
-    # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account_marketcode(logger, api, thebot["account_id"])
+    # Get marketcode from array
+    marketcode = marketcodes.get(thebot["id"])
     if not marketcode:
         return
-
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
-
-    # Update the blacklist
-    skipchecks = False
-    blacklist = load_blacklist(logger, api, blacklistfile)
-    if len(blacklistfile):
-        skipchecks = True
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
 
-    # Check if pair is on 3Commas blacklist
-    if pair in blacklist:
-        logger.debug(
-            "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
-        )
-        return
-
-    # Check if pair is in bot's pairlist
-    if pair not in thebot["pairs"]:
-        logger.debug(
-            "This pair is not in bot's pairlist, and was skipped: %s" % pair,
-            True,
-        )
-        return
-
     if trade == "LONG":
+        # Check if pair is on 3Commas blacklist
+        if pair in blacklist:
+            logger.debug(
+                "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
+            )
+            return
+
+        # Check if pair is in bot's pairlist
+        if pair not in thebot["pairs"]:
+            logger.info(
+                "This pair is not in bot's pairlist, and was skipped: %s" % pair,
+                True,
+            )
+            return
+
         # We have valid pair for our bot so we trigger an open asap action
-        logger.info("Triggering your 3Commas bot for buy")
-        trigger_threecommas_bot_deal(logger, api, thebot, pair, skipchecks)
+        logger.info("Triggering your 3Commas bot for a buy")
+        trigger_threecommas_bot_deal(logger, api, thebot, pair, len(blacklistfile))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
-        deals = get_threecommas_deals(logger, api, thebot["id"], "active")
+        deals = thebot["active_deals"]
         if deals:
             for deal in deals:
                 if deal["pair"] == pair:
+                    logger.info("Triggering your 3Commas bot for a sell")
                     close_threecommas_deal(logger, api, deal["id"], pair)
                     return
 
-            logger.info("No active deal(s) found for bot '%s' and pair '%s'" % (thebot["name"], pair))
+            logger.info(
+                "No deal(s) running for bot '%s' and pair '%s'"
+                % (thebot["name"], pair, True)
+            )
         else:
-            logger.info("No active deal(s) found for bot '%s'" % thebot["name"])
+            logger.info("No deal(s) running for bot '%s'" % thebot["name"], True)
+
+
+def prefetch_marketcodes():
+    """Gather and store marketcodes for all bots."""
+
+    marketcodearray = {}
+    accounts = []
+    botids = json.loads(config.get("settings", "usdt-botids")) + json.loads(config.get("settings", "btc-botids"))
+
+    for botid in botids:
+        if botid:
+            boterror, botdata = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(botid),
+            )
+            if botdata:
+                accountid = botdata["account_id"]
+                # Get marketcode (exchange) from account if not already fetched
+                if accountid in accounts:
+                    continue
+                marketcode = get_threecommas_account_marketcode(logger, api, accountid)
+                marketcodearray[botdata["id"]] = marketcode
+                accounts.append(accountid)
+            else:
+                if boterror and "msg" in boterror:
+                    logger.error(
+                        "Error occurred fetching marketcode data: %s" % boterror["msg"]
+                    )
+                else:
+                    logger.error("Error occurred fetching marketcode data")
+
+    return marketcodearray
 
 
 # Start application
@@ -167,6 +196,12 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
+# Prefect marketcodes for all bots
+marketcodes = prefetch_marketcodes()
+
+# Prefect blacklists
+blacklist = load_blacklist(logger, api, blacklistfile)
+
 # Watchlist telegram trigger
 client = TelegramClient(
     f"{datadir}/{program}",
@@ -203,7 +238,7 @@ async def callback(event):
         logger.debug("Coin: %s" % coin)
         logger.debug("Trade type: %s" % trade)
 
-        if trade != "LONG" and trade != "CLOSE":
+        if trade not in ('LONG', 'CLOSE'):
             logger.debug(f"Trade type '{trade}' is not supported yet!")
             return
         if base == "USDT":
