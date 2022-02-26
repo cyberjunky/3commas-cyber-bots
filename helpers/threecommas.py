@@ -245,7 +245,7 @@ def get_threecommas_market(logger, api, market_code):
     return tickerlist
 
 
-def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
+def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify=True):
     """Update bot with new pairs."""
 
     # Do we already use these pairs?
@@ -256,6 +256,11 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
             notify,
         )
         return
+
+    if not newmaxdeals:
+        maxactivedeals = thebot["max_active_deals"]
+    else:
+        maxactivedeals = newmaxdeals
 
     logger.debug("Current pair(s): %s\nNew pair(s): %s" % (thebot["pairs"], newpairs))
 
@@ -274,7 +279,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
             ),
             "martingale_step_coefficient": float(thebot["martingale_step_coefficient"]),
             "max_safety_orders": int(thebot["max_safety_orders"]),
-            "max_active_deals": int(thebot["max_active_deals"]),
+            "max_active_deals": int(maxactivedeals),
             "active_safety_orders_count": int(thebot["active_safety_orders_count"]),
             "safety_order_step_percentage": float(
                 thebot["safety_order_step_percentage"]
@@ -304,6 +309,11 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, notify=True):
                     newpairs[0],
                     newpairs[-1],
                 ),
+                notify,
+            )
+        if newmaxdeals:
+            logger.info(
+                "Max active deals changed to %s" % newmaxdeals,
                 notify,
             )
     else:

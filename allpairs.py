@@ -85,7 +85,7 @@ def all_pairs(thebot):
     show_pair_diffs(thebot["pairs"], newpairs)
 
     # Update the bot with the all pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs)
+    set_threecommas_bot_pairs(logger, api, thebot, newpairs, False)
 
 
 def show_pair_diffs(currentpairs, newpairs):

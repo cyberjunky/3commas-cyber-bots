@@ -288,6 +288,8 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
             "take_profit_type": thebot["take_profit_type"],
             "strategy_list": thebot["strategy_list"],
             "active_safety_orders_count": thebot["active_safety_orders_count"],
+            "leverage_type": thebot["leverage_type"],
+            "leverage_custom_value": thebot["leverage_custom_value"],
         },
     )
     if data:
@@ -354,6 +356,8 @@ def update_bot_max_safety_orders(
             "take_profit_type": thebot["take_profit_type"],
             "strategy_list": thebot["strategy_list"],
             "active_safety_orders_count": thebot["active_safety_orders_count"],
+            "leverage_type": thebot["leverage_type"],
+            "leverage_custom_value": thebot["leverage_custom_value"],
         },
     )
     if data:
