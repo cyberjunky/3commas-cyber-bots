@@ -122,9 +122,10 @@ def lunarcrush_pairs(cfg, thebot):
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
 
-    minvolume = float(thebot["min_volume_btc_24h"])
-    if not minvolume:
+    if thebot["min_volume_btc_24h"] is None:
         minvolume = 0.0
+    else:
+        minvolume = float(thebot["min_volume_btc_24h"])
 
     newmaxdeals = False
 
