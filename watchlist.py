@@ -101,7 +101,7 @@ def watchlist_deal(thebot, coin, trade):
 
             logger.info(
                 "No deal(s) running for bot '%s' and pair '%s'"
-                % (thebot["name"], pair, True)
+                % (thebot["name"], pair), True
             )
         else:
             logger.info("No deal(s) running for bot '%s'" % thebot["name"], True)
