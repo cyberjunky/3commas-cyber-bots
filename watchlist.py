@@ -65,6 +65,7 @@ def watchlist_deal(thebot, coin, trade):
     marketcode = marketcodes.get(thebot["id"])
     if not marketcode:
         return
+    logger.info("Bot: %s" % thebot["name"])
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
@@ -111,7 +112,6 @@ def prefetch_marketcodes():
     """Gather and store marketcodes for all bots."""
 
     marketcodearray = {}
-    accounts = []
     botids = json.loads(config.get("settings", "usdt-botids")) + json.loads(config.get("settings", "btc-botids"))
 
     for botid in botids:
@@ -124,11 +124,8 @@ def prefetch_marketcodes():
             if botdata:
                 accountid = botdata["account_id"]
                 # Get marketcode (exchange) from account if not already fetched
-                if accountid in accounts:
-                    continue
                 marketcode = get_threecommas_account_marketcode(logger, api, accountid)
                 marketcodearray[botdata["id"]] = marketcode
-                accounts.append(accountid)
             else:
                 if boterror and "msg" in boterror:
                     logger.error(
