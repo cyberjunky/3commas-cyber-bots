@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal, wait_time_interval
+from helpers.misc import check_deal, unix_timestamp_to_string, wait_time_interval
 from helpers.threecommas import init_threecommas_api
 
 
@@ -106,7 +106,6 @@ def upgrade_config(thelogger, cfg):
                 cfg.write(cfgfile)
 
             thelogger.info("Upgraded section %s to have config list" % cfgsection)
-
 
     return cfg
 
@@ -550,7 +549,33 @@ def remove_all_deals(bot_id):
     db.commit()
 
 
-def init_tsl_db():
+def get_bot_next_interval(bot_id):
+    """Get the next processing interval time for the specified bot."""
+
+    dbrow = cursor.execute(
+            f"SELECT next_processing_timestamp FROM bots WHERE botid = {bot_id}"
+        ).fetchone()
+
+    return dbrow["next_processing_timestamp"] if not None else int(time.time())
+
+
+def set_bot_next_interval(bot_id, next_interval):
+    """Set the next processing interval time for the specified bot."""
+
+    logger.info(
+        f"Next processing for bot {bot_id} not before "
+        f"{unix_timestamp_to_string(next_interval, '%Y-%m-%d %H:%M:%S')}."
+    )
+
+    db.execute(
+        f"REPLACE INTO bots (botid, next_processing_timestamp) "
+        f"VALUES ({bot_id}, {next_interval})"
+    )
+
+    db.commit()
+
+
+def open_tsl_db():
     """Create or open database to store bot and deals data."""
 
     try:
@@ -564,20 +589,31 @@ def init_tsl_db():
     except sqlite3.OperationalError:
         dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
         dbconnection.row_factory = sqlite3.Row
-        dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
-        dbcursor.execute(
-            "CREATE TABLE deals ("
-            "dealid INT Primary Key, "
-            "botid INT, "
-            "last_profit_percentage FLOAT, "
-            "last_stop_loss_percentage FLOAT"
-            ")"
-        )
-        logger.info("Database tables created successfully")
-
     return dbconnection
+
+
+def init_tsl_db():
+    """Initialize database to store bot and deals data."""
+
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS deals ("
+        "dealid INT Primary Key, "
+        "botid INT, "
+        "last_profit_percentage FLOAT, "
+        "last_stop_loss_percentage FLOAT"
+        ")"
+    )
+
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS bots ("
+        "botid INT Primary Key, "
+        "next_processing_timestamp INT"
+        ")"
+    )
+
+    logger.info("Database tables created (if not existed) successfully")
 
 
 # Start application
@@ -636,8 +672,9 @@ else:
 api = init_threecommas_api(config)
 
 # Initialize or open the database
-db = init_tsl_db()
+db = open_tsl_db()
 cursor = db.cursor()
+init_tsl_db()
 
 # TrailingStopLoss and TakeProfit %
 while True:
@@ -651,6 +688,9 @@ while True:
 
     # Used to determine the correct interval
     deals_to_monitor = 0
+
+    # Current time to determine which bots to process
+    starttime = int(time.time())
 
     for section in config.sections():
         if section.startswith("tsl_tp_"):
@@ -667,18 +707,34 @@ while True:
 
             # Walk through all bots configured
             for bot in botids:
-                boterror, botdata = api.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(bot),
-                )
-                if botdata:
-                    deals_to_monitor += process_deals(botdata, sectionconfig)
-                else:
-                    if boterror and "msg" in boterror:
-                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                nextinterval = get_bot_next_interval(bot)
+
+                # Only process the bot if it's time for the next interval, or
+                # time exceeds the check interval (clock has changed somehow)
+                if starttime >= nextinterval or (abs(nextinterval - starttime) > check_interval):
+                    boterror, botdata = api.request(
+                        entity="bots",
+                        action="show",
+                        action_id=str(bot),
+                    )
+                    if botdata:
+                        bot_deals_to_monitor = process_deals(botdata, sectionconfig)
+
+                        # Determine new time to process this bot, based on the monitored deals
+                        newtime = starttime + (check_interval if bot_deals_to_monitor == 0 else monitor_interval)
+                        set_bot_next_interval(bot, newtime)
+
+                        deals_to_monitor += bot_deals_to_monitor
                     else:
-                        logger.error("Error occurred updating bots")
+                        if boterror and "msg" in boterror:
+                            logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                        else:
+                            logger.error("Error occurred updating bots")
+                else:
+                    logger.info(
+                        f"Bot {bot} will be processed after "
+                        f"{unix_timestamp_to_string(nextinterval, '%Y-%m-%d %H:%M:%S')}."
+                    )
 
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
     if not wait_time_interval(logger, notification, timeint, False):
