@@ -549,27 +549,34 @@ def remove_all_deals(bot_id):
     db.commit()
 
 
-def get_bot_next_interval(bot_id):
-    """Get the next processing interval time for the specified bot."""
+def get_bot_next_process_time(bot_id):
+    """Get the next processing time for the specified bot."""
 
     dbrow = cursor.execute(
             f"SELECT next_processing_timestamp FROM bots WHERE botid = {bot_id}"
         ).fetchone()
 
-    return dbrow["next_processing_timestamp"] if not None else int(time.time())
+    nexttime = int(time.time())
+    if dbrow is not None:
+        nexttime = dbrow["next_processing_timestamp"]
+    else:
+        # Record missing, create one
+        set_bot_next_process_time(bot_id, nexttime)
+
+    return nexttime
 
 
-def set_bot_next_interval(bot_id, next_interval):
-    """Set the next processing interval time for the specified bot."""
+def set_bot_next_process_time(bot_id, new_time):
+    """Set the next processing time for the specified bot."""
 
     logger.info(
         f"Next processing for bot {bot_id} not before "
-        f"{unix_timestamp_to_string(next_interval, '%Y-%m-%d %H:%M:%S')}."
+        f"{unix_timestamp_to_string(new_time, '%Y-%m-%d %H:%M:%S')}."
     )
 
     db.execute(
         f"REPLACE INTO bots (botid, next_processing_timestamp) "
-        f"VALUES ({bot_id}, {next_interval})"
+        f"VALUES ({bot_id}, {new_time})"
     )
 
     db.commit()
@@ -707,11 +714,11 @@ while True:
 
             # Walk through all bots configured
             for bot in botids:
-                nextinterval = get_bot_next_interval(bot)
+                nextprocesstime = get_bot_next_process_time(bot)
 
                 # Only process the bot if it's time for the next interval, or
                 # time exceeds the check interval (clock has changed somehow)
-                if starttime >= nextinterval or (abs(nextinterval - starttime) > check_interval):
+                if starttime >= nextprocesstime or (abs(nextprocesstime - starttime) > check_interval):
                     boterror, botdata = api.request(
                         entity="bots",
                         action="show",
@@ -722,7 +729,7 @@ while True:
 
                         # Determine new time to process this bot, based on the monitored deals
                         newtime = starttime + (check_interval if bot_deals_to_monitor == 0 else monitor_interval)
-                        set_bot_next_interval(bot, newtime)
+                        set_bot_next_process_time(bot, newtime)
 
                         deals_to_monitor += bot_deals_to_monitor
                     else:
@@ -733,7 +740,7 @@ while True:
                 else:
                     logger.info(
                         f"Bot {bot} will be processed after "
-                        f"{unix_timestamp_to_string(nextinterval, '%Y-%m-%d %H:%M:%S')}."
+                        f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}."
                     )
 
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
