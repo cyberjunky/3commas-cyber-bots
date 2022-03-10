@@ -233,22 +233,25 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     return pairs
 
 
-def remove_excluded_pairs(logger, share_dir, bot_id, newpairs):
+def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs):
     """Remove pairs which are excluded by other script(s)."""
 
-    excludedpairs = load_bot_excluded_pairs(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
-    if excludedpairs:
+    excludedcoins = load_bot_excluded_coins(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
+    if excludedcoins:
         logger.info(
-            f"Removing the following pair(s) for bot {bot_id}: {excludedpairs}"
+            f"Removing the following coin(s) for bot {bot_id}: {excludedcoins}"
         )
 
-        for pair in excludedpairs:
+        for coin in excludedcoins:
+            # Construct pair based on bot settings and marketcode
+            # (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
             if newpairs.count(pair) > 0:
                 newpairs.remove(pair)
 
 
-def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
-    """Load excluded pairs from file, for the specified bot"""
+def load_bot_excluded_coins(logger, share_dir, bot_id, extension):
+    """Load excluded coins from file, for the specified bot"""
 
     excludedlist = []
     excludefilename = f"{share_dir}/{bot_id}.{extension}"
@@ -258,12 +261,12 @@ def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
             excludedlist = file.read().splitlines()
         if excludedlist:
             logger.info(
-                "Reading exclude file '%s' OK (%s pairs)"
+                "Reading exclude file '%s' OK (%s coins)"
                 % (excludefilename, len(excludedlist))
             )
     except FileNotFoundError:
         logger.info(
-            "Exclude file (%s) not found for bot '%s'; no pairs to exclude."
+            "Exclude file (%s) not found for bot '%s'; no coins to exclude."
             % (excludefilename, bot_id)
         )
 

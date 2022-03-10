@@ -216,7 +216,7 @@ def lunarcrush_pairs(cfg, thebot):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot["id"], newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
 
     if not newpairs:
         logger.info(
@@ -225,7 +225,8 @@ def lunarcrush_pairs(cfg, thebot):
         )
         return
 
-    # Lower the number of max deals if not enough new pairs and change allowed, change back to original if possible
+    # Lower the number of max deals if not enough new pairs and change allowed and
+    # change back to original if possible
     if allowmaxdealchange:
         if len(newpairs) < thebot["max_active_deals"]:
             newmaxdeals = len(newpairs)

@@ -52,7 +52,7 @@ def upgrade_config(thelogger, cfg):
     return cfg
 
 
-def init_coin_db():
+def init_cluster_db():
     """Create or open database to store cluster and coin data."""
     try:
         dbname = f"{program}.sqlite3"
@@ -69,13 +69,13 @@ def init_coin_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
-            "CREATE TABLE deals (dealid INT Primary Key, pair STRING, clusterid STRING, "
+            "CREATE TABLE deals (dealid INT Primary Key, coin STRING, clusterid STRING, "
             "botid INT, active BIT)"
         )
 
         dbcursor.execute(
-            "CREATE TABLE cluster_pairs (clusterid STRING, pair STRING, number_active INT, "
-            "PRIMARY KEY(clusterid, pair))"
+            "CREATE TABLE cluster_coins (clusterid STRING, coin STRING, number_active INT, "
+            "PRIMARY KEY(clusterid, coin))"
         )
 
         dbcursor.execute(
@@ -84,6 +84,7 @@ def init_coin_db():
             "botid INT, "
             "botname STRING, "
             "pair STRING, "
+            "coin STRING, "
             "enabled BIT, "
             "PRIMARY KEY(clusterid, botid, pair)"
             ")"
@@ -126,11 +127,11 @@ def process_bot_deals(cluster_id, thebot):
 
             existing_deal = check_deal(cursor, deal_id)
             if not existing_deal:
-                deal_pair = deal['pair']
+                deal_coin = deal['pair'].split("_")[1]
 
                 db.execute(
-                    f"INSERT INTO deals (dealid, pair, clusterid, botid, active) "
-                    f"VALUES ({deal_id}, '{deal_pair}', '{cluster_id}', {bot_id}, {1})"
+                    f"INSERT INTO deals (dealid, coin, clusterid, botid, active) "
+                    f"VALUES ({deal_id}, '{deal_coin}', '{cluster_id}', {bot_id}, {1})"
                 )
                 logger.info(
                     f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}",
@@ -173,8 +174,12 @@ def process_bot_deals(cluster_id, thebot):
 
         for pair in botpairs:
             db.execute(
-                f"INSERT OR IGNORE INTO bot_pairs (clusterid, botid, botname, pair, enabled) "
-                f"VALUES ('{cluster_id}', {bot_id},'{botname}', '{pair}', {1})"
+                f"INSERT OR IGNORE INTO bot_pairs ("
+                f"clusterid, botid, botname, pair, coin, enabled"
+                f") "
+                f"VALUES ("
+                f"'{cluster_id}', {bot_id},'{botname}', '{pair}', '{pair.split('_')[1]}', {1}"
+                f")"
             )
 
     db.commit()
@@ -184,7 +189,7 @@ def log_deals(cluster_id):
     """Log the deals within this cluster"""
 
     dealdata = cursor.execute(
-        f"SELECT dealid, pair, botid, active FROM deals "
+        f"SELECT dealid, pair, coin, botid, active FROM deals "
         f"WHERE clusterid = '{cluster_id}'"
     ).fetchall()
 
@@ -192,7 +197,7 @@ def log_deals(cluster_id):
         logger.info(f"Printing deals for '{cluster_id}':")
         for entry in dealdata:
             logger.info(
-                f"{entry[0]}: {entry[1]}, {entry[2]} => {entry[3]}"
+                f"{entry[0]}: {entry[1]} ({entry[2]}), {entry[3]} => {entry[4]}"
             )
     else:
         logger.info(
@@ -207,18 +212,18 @@ def aggregrate_cluster(cluster_id):
 
     # Remove old data
     db.execute(
-        f"DELETE from cluster_pairs WHERE clusterid = '{cluster_id}'"
+        f"DELETE from cluster_coins WHERE clusterid = '{cluster_id}'"
     )
 
-    # Create the cluster data, how many of the same pairs are active within the
+    # Create the cluster data, how many of the same coins are active within the
     # cluster based on the active deals
     db.execute(
-        f"INSERT INTO cluster_pairs (clusterid, pair, number_active) "
-        f"SELECT clusterid, pair, "
+        f"INSERT INTO cluster_coins (clusterid, coin, number_active) "
+        f"SELECT clusterid, coin, "
         f"SUM ( CASE WHEN active = {1} THEN 1 ELSE 0 END) AS number_active "
         f"FROM deals "
         f"WHERE clusterid = '{cluster_id}' "
-        f"GROUP BY pair"
+        f"GROUP BY coin"
     )
 
     db.commit()
@@ -228,12 +233,12 @@ def log_cluster_data(cluster_id):
     """Log the aggregated data based on the deals for this cluster"""
 
     clusterdata = cursor.execute(
-        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+        f"SELECT clusterid, coin, number_active FROM cluster_coins "
         f"WHERE clusterid = '{cluster_id}'"
     ).fetchall()
 
     if clusterdata:
-        logger.info(f"Printing cluster_pairs for '{cluster_id}':")
+        logger.info(f"Printing cluster_coins for '{cluster_id}':")
         for entry in clusterdata:
             logger.info(
                 f"{entry[1]}: {entry[2]}"
@@ -249,59 +254,59 @@ def process_cluster_deals(cluster_id):
 
     # Get the cluster data and pair numbers
     clusterdata = db.execute(
-        f"SELECT clusterid, pair, number_active FROM cluster_pairs "
+        f"SELECT clusterid, coin, number_active FROM cluster_coins "
         f"WHERE clusterid = '{cluster_id}'"
     ).fetchall()
 
     if clusterdata:
-        logger.info(f"Processing cluster_pairs for '{cluster_id}':")
+        logger.info(f"Processing cluster_coins for '{cluster_id}':")
 
-        enablepairs = []
-        disablepairs = []
+        enablecoins = []
+        disablecoins = []
 
         for entry in clusterdata:
-            pair = str(entry[1])
+            coin = str(entry[1])
             numberofdeals = int(entry[2])
 
             logger.info(
-                f"Pair {pair} has {numberofdeals} deal(s) active"
+                f"Coin {coin} has {numberofdeals} deal(s) active"
             )
 
             if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
                 # Found a pair which should be suspended
-                disablepairs.append(pair)
+                disablecoins.append(coin)
 
-                log_disable_enable_pair(cluster_id, pair, 0)
+                log_disable_enable_coin(cluster_id, coin, 0)
             else:
                 # Found a pair which can be activated again
-                enablepairs.append(pair)
+                enablecoins.append(coin)
 
-                log_disable_enable_pair(cluster_id, pair, 1)
+                log_disable_enable_coin(cluster_id, coin, 1)
 
-        # Enable the found pairs (caused by finished deals)
-        if enablepairs:
+        # Enable the found coins (caused by finished deals)
+        if enablecoins:
             # Remove start and end square bracket so we can properly use it
-            enablepairs_str = str(enablepairs)[1:-1]
+            enablecoins_str = str(enablecoins)[1:-1]
 
             logger.info(
-                f"Enabling pairs for {cluster_id}: {enablepairs_str}"
+                f"Enabling coins for {cluster_id}: {enablecoins_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ({enablepairs_str})"
+                f"WHERE clusterid = '{cluster_id}' AND coin IN ({enablecoins_str})"
             )
 
-        # Disable the found pairs (caused by new deals)
-        if disablepairs:
+        # Disable the found coins (caused by new deals)
+        if disablecoins:
             # Remove start and end square bracket so we can properly use it
-            disablepairs_str = str(disablepairs)[1:-1]
+            disablecoins_str = str(disablecoins)[1:-1]
 
             logger.info(
-                f"Disabling pairs for {cluster_id}: {disablepairs_str}"
+                f"Disabling coins for {cluster_id}: {disablecoins_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
-                f"WHERE clusterid = '{cluster_id}' AND pair IN ({disablepairs_str})"
+                f"WHERE clusterid = '{cluster_id}' AND coin IN ({disablecoins_str})"
             )
 
         db.commit()
@@ -311,19 +316,19 @@ def process_cluster_deals(cluster_id):
         )
 
 
-def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
+def log_disable_enable_coin(cluster_id, coin, new_enabled_value):
     """Log the pairs which will be enabled or disabled"""
 
     pairdata = cursor.execute(
-        f"SELECT botid, botname, pair, enabled FROM bot_pairs "
-        f"WHERE clusterid = '{cluster_id}' AND pair = '{pair}'"
+        f"SELECT botid, botname, enabled FROM bot_pairs "
+        f"WHERE clusterid = '{cluster_id}' AND coin = '{coin}'"
     ).fetchall()
 
     if pairdata:
         changedbots = ""
 
         for entry in pairdata:
-            if entry[3] != new_enabled_value:
+            if entry[2] != new_enabled_value:
                 if changedbots:
                     changedbots += ", "
                 changedbots += str(entry[1]) + " (" + str(entry[0]) + ")"
@@ -331,18 +336,18 @@ def log_disable_enable_pair(cluster_id, pair, new_enabled_value):
         if changedbots:
             if new_enabled_value:
                 logger.info(
-                    f"Enabling pair {pair} for the following bot(s): {changedbots}",
+                    f"Enabling coin {coin} for the following bot(s): {changedbots}",
                     True
                 )
             else:
                 logger.info(
-                    f"Disabling pair {pair} for the following bot(s): {changedbots}",
+                    f"Disabling coin {coin} for the following bot(s): {changedbots}",
                     True
                 )
 
 
-def update_bot_pairs(cluster_id, thebot):
-    """Update bots."""
+def update_bot_config(cluster_id, thebot):
+    """Update bots at 3C"""
 
     bot_id = thebot["id"]
 
@@ -356,35 +361,41 @@ def update_bot_pairs(cluster_id, thebot):
 
     if botenabledpairs:
         enabledpairlist = [row[0] for row in botenabledpairs]
-        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False)
+        #set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False)
     else:
         logger.warning(
             f"Failed to get enabled pairs for bot {bot_id}"
         )
 
+
+def write_cluster_exclude_files(cluster_id, bot_list):
+    """Write exclude files for each bot in the specified cluster"""
+
     if sharedir is not None:
-        botdisabledpairs = cursor.execute(
-            f"SELECT pair FROM bot_pairs "
-            f"WHERE clusterid = '{cluster_id}' AND botid = {bot_id} AND enabled = {0}"
+        clusterdisabledcoins = cursor.execute(
+            f"SELECT coin FROM bot_pairs "
+            f"WHERE clusterid = '{cluster_id}' AND enabled = {0}"
         ).fetchall()
 
-        if botdisabledpairs:
-            disabledpairlist = [row[0] for row in botdisabledpairs]
-            write_bot_exclude_file(bot_id, disabledpairlist)
+        if clusterdisabledcoins:
+            disabledcoinlist = [row[0] for row in clusterdisabledcoins]
+
+            for botid in bot_list:
+                write_bot_exclude_file(botid, disabledcoinlist)
 
 
-def write_bot_exclude_file(bot_id, pairs):
+def write_bot_exclude_file(bot_id, coins):
     """Write the exclude file for the specified bot"""
 
     excludefilename = f"{sharedir}/{bot_id}.{PAIREXCLUDE_EXT}"
 
     logger.info(
-        f"Writing pairs {pairs} to file {excludefilename}"
+        f"Writing coins {coins} to file {excludefilename}"
     )
 
     with open(excludefilename, 'w') as filehandle:
-        for pair in pairs:
-            filehandle.write('%s\n' % pair)
+        for coin in coins:
+            filehandle.write('%s\n' % coin)
 
 
 # Start application
@@ -463,7 +474,7 @@ else:
 api = init_threecommas_api(config)
 
 # Initialize or open the database
-db = init_coin_db()
+db = init_cluster_db()
 cursor = db.cursor()
 
 # DCA Deal Cluster
@@ -507,7 +518,7 @@ while True:
             if debug:
                 log_cluster_data(section)
 
-            # Enable and disable pairs
+            # Enable and disable coins
             process_cluster_deals(section)
 
             # Update the bots in this cluster with the enabled/disabled pairs
@@ -518,12 +529,16 @@ while True:
                     action_id=str(bot),
                 )
                 if botdata:
-                    update_bot_pairs(section, botdata)
+                    update_bot_config(section, botdata)
                 else:
                     if boterror and "msg" in boterror:
                         logger.error("Error occurred updating bots: %s" % boterror["msg"])
                     else:
                         logger.error("Error occurred updating bots")
+
+            # Some coins could not be active in a bot, but we should inform other scripts about
+            # those excluded coins (prevent adding those coins)
+            write_cluster_exclude_files(section, botids)
 
             # Send notifications for the processed cluster, otherwise the message can
             # become too long resulting in a bad request
