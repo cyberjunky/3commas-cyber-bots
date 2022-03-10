@@ -361,7 +361,7 @@ def update_bot_config(cluster_id, thebot):
 
     if botenabledpairs:
         enabledpairlist = [row[0] for row in botenabledpairs]
-        #set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False)
+        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False)
     else:
         logger.warning(
             f"Failed to get enabled pairs for bot {bot_id}"
@@ -373,7 +373,7 @@ def write_cluster_exclude_files(cluster_id, bot_list):
 
     if sharedir is not None:
         clusterdisabledcoins = cursor.execute(
-            f"SELECT coin FROM bot_pairs "
+            f"SELECT DISTINCT(coin) FROM bot_pairs "
             f"WHERE clusterid = '{cluster_id}' AND enabled = {0}"
         ).fetchall()
 
