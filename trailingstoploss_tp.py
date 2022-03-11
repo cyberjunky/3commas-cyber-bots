@@ -210,9 +210,8 @@ def process_deals(thebot, section_config):
 
         for deal in deals:
             deal_id = deal["id"]
-            deal_strategy = deal["strategy"]
 
-            if deal_strategy in ("short", "long"):
+            if deal["strategy"] in ("short", "long"):
                 current_deals.append(deal_id)
 
                 existing_deal = check_deal(cursor, deal_id)
@@ -223,7 +222,7 @@ def process_deals(thebot, section_config):
                 if not existing_deal and actual_profit_config:
                     monitored_deals = +1
 
-                    handle_new_deal(thebot, deal, deal_strategy, actual_profit_config)
+                    handle_new_deal(thebot, deal, actual_profit_config)
                 elif existing_deal:
                     deal_sl = deal["stop_loss_percentage"]
                     current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
@@ -231,14 +230,14 @@ def process_deals(thebot, section_config):
                         monitored_deals = +1
 
                         handle_update_deal(
-                                thebot, deal, existing_deal, deal_strategy, actual_profit_config
+                                thebot, deal, existing_deal, actual_profit_config
                             )
                     else:
                         # Existing deal, but stoploss is 0.0 which means it has been reset
                         remove_active_deal(deal_id)
             else:
                 logger.warning(
-                    f"Unknown strategy {deal_strategy} for deal {deal_id}"
+                    f"Unknown strategy {deal['strategy']} for deal {deal_id}"
                 )
 
         # Housekeeping, clean things up and prevent endless growing database
@@ -257,29 +256,19 @@ def process_deals(thebot, section_config):
     return monitored_deals
 
 
-def handle_new_deal(thebot, deal, strategy, profit_config):
-    """New deal (short or long) to activate SL on"""
+def calculate_sl_percentage(deal_data, profit_config, activation_diff):
+    """Calculate the SL percentage in 3C range"""
 
-    botid = thebot["id"]
-    deal_id = deal["id"]
-    pair = deal['pair']
-    actual_profit_percentage = float(deal["actual_profit_percentage"])
-
-    activation_percentage = float(profit_config.get("activation-percentage"))
     initial_stoploss_percentage = float(profit_config.get("initial-stoploss-percentage"))
     sl_increment_factor = float(profit_config.get("sl-increment-factor"))
-    tp_increment_factor = float(profit_config.get("tp-increment-factor"))
-
-    # Take space between trigger and actual profit into account
-    activation_diff = actual_profit_percentage - activation_percentage
 
     # SL is calculated by 3C on base order price. Because of filled SO's,
     # we must first calculate the SL price based on the average price
     average_price = 0.0
-    if strategy == "short":
-        average_price = float(deal["sold_average_price"])
+    if deal_data["strategy"] == "short":
+        average_price = float(deal_data["sold_average_price"])
     else:
-        average_price = float(deal["bought_average_price"])
+        average_price = float(deal_data["bought_average_price"])
 
     # Calculate the amount we need to substract or add to the average price based
     # on the configured increments and activation
@@ -287,23 +276,23 @@ def handle_new_deal(thebot, deal, strategy, profit_config):
                                         + ((activation_diff / 100.0) * sl_increment_factor))
 
     sl_price = average_price
-    if strategy == "short":
+    if deal_data["strategy"] == "short":
         sl_price -= percentage_price
     else:
         sl_price += percentage_price
 
     logger.debug(
-        f"{pair}/{deal_id}: SL price {sl_price} calculated based on average "
+        f"{deal_data['pair']}/{deal_data['id']}: SL price {sl_price} calculated based on average "
         f"price {average_price}, initial SL of {initial_stoploss_percentage}, "
         f"activation diff of {activation_diff} and sl factor {sl_increment_factor}"
     )
 
     # Now we know the SL price, let's calculate the percentage from
     # the base order price so we have the desired SL for 3C
-    base_price = float(deal["base_order_average_price"])
+    base_price = float(deal_data["base_order_average_price"])
     base_price_sl_percentage = 0.0
 
-    if strategy == "short":
+    if deal_data["strategy"] == "short":
         base_price_sl_percentage = calculate_slpercentage_base_price_short(
                 sl_price, base_price
             )
@@ -313,41 +302,61 @@ def handle_new_deal(thebot, deal, strategy, profit_config):
             )
 
     logger.debug(
-        f"{pair}/{deal_id}: base SL of {base_price_sl_percentage}% calculated "
+        f"{deal_data['pair']}/{deal_data['id']}: base SL of {base_price_sl_percentage}% calculated "
         f"based on base price {base_price} and SL price {sl_price}."
     )
 
-    if base_price_sl_percentage != 0.00:
-        # Calculate understandable SL percentage based on average price
+    return average_price, sl_price, base_price_sl_percentage
+
+
+def handle_new_deal(thebot, deal, profit_config):
+    """New deal (short or long) to activate SL on"""
+
+    botid = thebot["id"]
+    actual_profit_percentage = float(deal["actual_profit_percentage"])
+
+    activation_percentage = float(profit_config.get("activation-percentage"))
+
+    # Take space between trigger and actual profit into account
+    activation_diff = actual_profit_percentage - activation_percentage
+
+    # SL data contains three values:
+    # 0. The sold or bought average price
+    # 1. The calculated SL price
+    # 2. The SL percentage on 3C axis (inverted range compared to TP axis)
+    sl_data = calculate_sl_percentage(deal, profit_config, activation_diff)
+
+    if sl_data[2] != 0.00:
+        # Calculate understandable SL percentage (TP axis range) based on average price
         average_price_sl_percentage = 0.0
 
-        if strategy == "short":
+        if deal["strategy"] == "short":
             average_price_sl_percentage = calculate_average_price_sl_percentage_short(
-                    sl_price, average_price
+                    sl_data[1], sl_data[0]
                 )
         else:
             average_price_sl_percentage = calculate_average_price_sl_percentage_long(
-                    sl_price, average_price
+                    sl_data[1], sl_data[0]
                 )
 
         logger.debug(
-            f"{pair}/{deal_id}: average SL of {average_price_sl_percentage}% "
-            f"calculated based on average price {average_price} and "
-            f"SL price {sl_price}."
+            f"{deal['pair']}/{deal['id']}: average SL of {average_price_sl_percentage}% "
+            f"calculated based on average price {sl_data[0]} and "
+            f"SL price {sl_data[1]}."
         )
 
         # Calculate new TP percentage
         current_tp_percentage = float(deal["take_profit"])
         new_tp_percentage = round(
             current_tp_percentage
-            + (activation_diff * tp_increment_factor),
+            + (activation_diff * float(profit_config.get("tp-increment-factor"))),
             2
         )
 
         logger.info(
-            f"\"{thebot['name']}\": {pair}/{deal_id} profit ({actual_profit_percentage}%) above "
-            f"activation ({activation_percentage}%). StopLoss activated "
-            f"on {average_price_sl_percentage}%.",
+            f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} "
+            f"profit ({actual_profit_percentage}%) above activation ({activation_percentage}%). "
+            f"StopLoss activated on {average_price_sl_percentage}%.",
             True
         )
 
@@ -359,22 +368,22 @@ def handle_new_deal(thebot, deal, strategy, profit_config):
             )
 
         # Update deal in 3C
-        update_deal(thebot, deal, base_price_sl_percentage, new_tp_percentage)
+        update_deal(thebot, deal, sl_data[2], new_tp_percentage)
 
         # Add deal to our database
-        add_deal_in_db(deal_id, botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage)
+        add_deal_in_db(
+            deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
+        )
     else:
         logger.info(
-            f"{pair}/{deal_id}: calculated SL of {base_price_sl_percentage} which "
+            f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]} which "
             f"will cause 3C not to activate SL. No action taken!"
         )
 
 
-def handle_update_deal(thebot, deal, existing_deal, strategy, profit_config):
+def handle_update_deal(thebot, deal, existing_deal, profit_config):
     """Update deal (short or long) and increase SL (Trailing SL) when profit has increased."""
 
-    deal_id = deal["id"]
-    pair = deal['pair']
     actual_profit_percentage = float(deal["actual_profit_percentage"])
     last_profit_percentage = float(existing_deal["last_profit_percentage"])
 
@@ -383,148 +392,49 @@ def handle_update_deal(thebot, deal, existing_deal, strategy, profit_config):
         tp_increment_factor = float(profit_config.get("tp-increment-factor"))
 
         if sl_increment_factor > 0.0 or tp_increment_factor > 0.0:
-            # Existing deal with TSL and profit increased, so move TSL
-            # Because initial SL was calculated correctly, we only have
-            # to adjust with the profit change
+            activation_diff = actual_profit_percentage - float(profit_config.get("activation-percentage"))
+
+            # SL data contains three values:
+            # 0. The sold or bought average price
+            # 1. The calculated SL price
+            # 2. The SL percentage on 3C axis (inverted range compared to TP axis)
+            sl_data = calculate_sl_percentage(deal, profit_config, activation_diff)
+
             current_sl_percentage = float(deal["stop_loss_percentage"])
-            current_tp_percentage = float(deal["take_profit"])
-            profit_diff = actual_profit_percentage - last_profit_percentage
-
-            # Could be a new config with increased base SL percentage, take into account
-            last_readable_sl_percentage = float(existing_deal["last_readable_sl_percentage"])
-            activation_percentage = float(profit_config.get("activation-percentage"))
-            initial_stoploss_percentage = float(profit_config.get("initial-stoploss-percentage"))
-            sl_percentage_jump = 0.0
-            if initial_stoploss_percentage > last_readable_sl_percentage:
-                sl_percentage_jump = initial_stoploss_percentage - last_readable_sl_percentage
-                profit_diff = actual_profit_percentage - activation_percentage
-
-                logger.info(
-                    f"{pair}/{deal_id}: jump to next config detected. "
-                    f"Jump of {sl_percentage_jump} based on initial {initial_stoploss_percentage}% "
-                    f"and current SL of {current_sl_percentage}%"
-                )
-
-            new_base_price_sl_percentage = round(
-                current_sl_percentage - sl_percentage_jump - (profit_diff * sl_increment_factor), 2
-            )
-
-            logger.debug(
-                f"{pair}/{deal_id}: new base SL of {new_base_price_sl_percentage}% "
-                f"calculated based on current SL {current_sl_percentage}%, "
-                f"profit diff {profit_diff} and increment {sl_increment_factor}."
-            )
-
-            # VALIDATION OF CALCULATION ABOVE!!!!!!
-            average_price = 0.0
-            if strategy == "short":
-                average_price = float(deal["sold_average_price"])
-            else:
-                average_price = float(deal["bought_average_price"])
-
-            # Calculate the amount we need to substract or add to the average price based
-            # on the configured increments and activation
-            percentage_price = average_price * ((initial_stoploss_percentage / 100.0)
-                                                + ((profit_diff / 100.0) * sl_increment_factor))
-
-            sl_price = average_price
-            if strategy == "short":
-                sl_price -= percentage_price
-            else:
-                sl_price += percentage_price
-
-            logger.info(
-                f"{pair}/{deal_id}: VALIDATION: SL price {sl_price} calculated based on average "
-                f"price {average_price}, initial SL of {initial_stoploss_percentage}, "
-                f"activation diff of {profit_diff} and sl factor {sl_increment_factor}"
-            )
-
-            # Now we know the SL price, let's calculate the percentage from
-            # the base order price so we have the desired SL for 3C
-            base_price = float(deal["base_order_average_price"])
-            base_price_sl_percentage = 0.0
-
-            if strategy == "short":
-                base_price_sl_percentage = calculate_slpercentage_base_price_short(
-                        sl_price, base_price
-                    )
-            else:
-                base_price_sl_percentage = calculate_slpercentage_base_price_long(
-                        sl_price, base_price
-                    )
-
-            logger.info(
-                f"{pair}/{deal_id}: VALIDATION: base SL of {base_price_sl_percentage}% calculated "
-                f"based on base price {base_price} and SL price {sl_price}. "
-                f"Should match SL {new_base_price_sl_percentage}%"
-            )
-            # END VALIDATION
-
-            if fabs(new_base_price_sl_percentage) > 0.0 and new_base_price_sl_percentage != current_sl_percentage:
-                new_tp_percentage = round(
-                    current_tp_percentage + (profit_diff * tp_increment_factor), 2
-                )
-
-                # Calculate understandable SL percentage based on bought average price
-                # First calculate the base prices for current and new SL %
-                base_price = float(deal["base_order_average_price"])
-
-                percentage_current_price = ((base_price / 100.0) * current_sl_percentage)
-                percentage_new_price = ((base_price / 100.0) * new_base_price_sl_percentage)
-
-                current_base_sl_price = base_price
-                new_base_sl_price = base_price
-
-                if strategy == "short":
-                    current_base_sl_price += percentage_current_price
-                    new_base_sl_price += percentage_new_price
-                else:
-                    current_base_sl_price -= percentage_current_price
-                    new_base_sl_price -= percentage_new_price
-
-                logger.debug(
-                    f"{pair}/{deal_id}: current SL price of {current_base_sl_price} "
-                    f"on base price {base_price} and {current_sl_percentage}%. New "
-                    f"SL price {new_base_sl_price} on base price {base_price} "
-                    f"and {new_base_price_sl_percentage}%."
-                )
-
-                # Then calculate the SL % based on the average price, same axis as TP %
-                average_price = 0.0
-                # current_average_price_sl_percentage = 0.0
+            if fabs(sl_data[2]) > 0.0 and sl_data[2] != current_sl_percentage:
+                # Calculate understandable SL percentage (TP axis range) based on average price
                 new_average_price_sl_percentage = 0.0
 
-                if strategy == "short":
-                    average_price = float(deal["sold_average_price"])
-
-                    # current_average_price_sl_percentage = calculate_average_price_sl_percentage_short(
-                    #        current_base_sl_price, average_price
-                    #    )
+                if deal["strategy"] == "short":
                     new_average_price_sl_percentage = calculate_average_price_sl_percentage_short(
-                            new_base_sl_price, average_price
+                            sl_data[1], sl_data[0]
                         )
                 else:
-                    average_price = float(deal["bought_average_price"])
-
-                    # current_average_price_sl_percentage = calculate_average_price_sl_percentage_long(
-                    #        current_base_sl_price, average_price
-                    #    )
                     new_average_price_sl_percentage = calculate_average_price_sl_percentage_long(
-                            new_base_sl_price, average_price
+                            sl_data[1], sl_data[0]
                         )
 
                 logger.debug(
-                    f"{pair}/{deal_id}: new average SL {new_average_price_sl_percentage}% "
-                    f"based on new base sl price {new_base_sl_price} and average price "
-                    f"{average_price}."
+                    f"{deal['pair']}/{deal['id']}: new average SL "
+                    f"of {new_average_price_sl_percentage}% calculated "
+                    f"based on average price {sl_data[0]} and "
+                    f"SL price {sl_data[1]}."
                 )
 
                 logger.info(
-                    f"\"{thebot['name']}\": {pair}/{deal_id} profit increased "
+                    f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} profit increased "
                     f"from {last_profit_percentage}% to {actual_profit_percentage}%. "
                     f"StopLoss increased from {existing_deal['last_readable_sl_percentage']}% to "
                     f"{new_average_price_sl_percentage}%. ",
                     True
+                )
+
+                # Calculate new TP percentage based on the increased profit and increment factor
+                current_tp_percentage = float(deal["take_profit"])
+                new_tp_percentage = round(
+                    current_tp_percentage + (
+                            (actual_profit_percentage - last_profit_percentage) * tp_increment_factor
+                        ), 2
                 )
 
                 if new_tp_percentage > current_tp_percentage:
@@ -535,25 +445,28 @@ def handle_update_deal(thebot, deal, existing_deal, strategy, profit_config):
                     )
 
                 # Update deal in 3C
-                update_deal(thebot, deal, new_base_price_sl_percentage, new_tp_percentage)
+                update_deal(thebot, deal, sl_data[2], new_tp_percentage)
 
                 # Update deal in our database
-                update_deal_in_db(deal_id, actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage)
+                update_deal_in_db(
+                    deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
+                )
             else:
                 logger.info(
-                    f"{pair}/{deal_id}: calculated SL of {new_base_price_sl_percentage}% which "
+                    f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]}% which "
                     f"is equal to current SL {current_sl_percentage}% or "
                     f"is 0.0 which causes 3C to deactive SL; no change made!"
                 )
         else:
             logger.info(
-                f"{pair}/{deal_id}: profit increased from {last_profit_percentage}% "
+                f"{deal['pair']}/{deal['id']}: profit increased from {last_profit_percentage}% "
                 f"to {actual_profit_percentage}%, but increment factors are 0.0 so "
                 f"no change required for this deal."
             )
     else:
         logger.info(
-            f"{pair}/{deal_id}: no profit increase (current: {actual_profit_percentage}%, "
+            f"{deal['pair']}/{deal['id']}: no profit increase "
+            f"(current: {actual_profit_percentage}%, "
             f"previous: {last_profit_percentage}%). Keep on monitoring."
         )
 
@@ -804,7 +717,9 @@ while True:
 
                 # Only process the bot if it's time for the next interval, or
                 # time exceeds the check interval (clock has changed somehow)
-                if starttime >= nextprocesstime or (abs(nextprocesstime - starttime) > check_interval):
+                if starttime >= nextprocesstime or (
+                        abs(nextprocesstime - starttime) > check_interval
+                ):
                     boterror, botdata = api.request(
                         entity="bots",
                         action="show",
@@ -814,7 +729,9 @@ while True:
                         bot_deals_to_monitor = process_deals(botdata, sectionconfig)
 
                         # Determine new time to process this bot, based on the monitored deals
-                        newtime = starttime + (check_interval if bot_deals_to_monitor == 0 else monitor_interval)
+                        newtime = starttime + (
+                                check_interval if bot_deals_to_monitor == 0 else monitor_interval
+                            )
                         set_bot_next_process_time(bot, newtime)
 
                         deals_to_monitor += bot_deals_to_monitor
