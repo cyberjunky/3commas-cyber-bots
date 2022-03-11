@@ -373,8 +373,9 @@ def write_cluster_exclude_files(cluster_id, bot_list):
 
     if sharedir is not None:
         clusterdisabledcoins = cursor.execute(
-            f"SELECT DISTINCT(coin) FROM bot_pairs "
-            f"WHERE clusterid = '{cluster_id}' AND enabled = {0}"
+            f"SELECT coin FROM cluster_coins "
+            f"WHERE clusterid = '{cluster_id}' AND "
+            f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))}"
         ).fetchall()
 
         if clusterdisabledcoins:
