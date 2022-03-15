@@ -94,7 +94,7 @@ def upgrade_config(thelogger, theapi, cfg):
                         "numberofpairs": default_numberofpairs,
                         "originalmaxdeals": int(data["max_active_deals"]),
                         "allowmaxdealchange": False,
-                        "comment": data["name"],
+                        "comment": data["name"].replace('%','%%'),
                     }
                 else:
                     if error and "msg" in error:
