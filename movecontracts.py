@@ -10,8 +10,9 @@ import sys
 import time
 from pathlib import Path
 
+import schedule
+
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import wait_time_interval
 from helpers.threecommas import (
     get_threecommas_account_marketcode,
     get_threecommas_market,
@@ -29,7 +30,6 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
-        "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
         "botids": [12345, 67890],
@@ -208,20 +208,19 @@ else:
     )
 
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
+    logger.info(f"Program with update the bot(s) at 00:00:01")
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
 # MOVE contract pairs
-while True:
 
-    # Reload config files and data to catch changes
-    config = load_config()
-    logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
+
+def schedule_bots():
+    """Update bots at midnight only."""
 
     # Configuration settings
     botids = json.loads(config.get("settings", "botids"))
-    timeint = int(config.get("settings", "timeinterval"))
 
     # Walk through all bots configured
     for bot in botids:
@@ -239,5 +238,9 @@ while True:
             else:
                 logger.error("Error occurred updating bots")
 
-    if not wait_time_interval(logger, notification, timeint):
-        break
+
+scheduler1 = schedule.Scheduler()
+scheduler1.every().day.at("00:00:01").do(schedule_bots)
+while True:
+    scheduler1.run_pending()
+    time.sleep(1)
