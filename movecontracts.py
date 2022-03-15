@@ -214,8 +214,6 @@ else:
 api = init_threecommas_api(config)
 
 # MOVE contract pairs
-
-
 def schedule_bots():
     """Update bots at midnight only."""
 
