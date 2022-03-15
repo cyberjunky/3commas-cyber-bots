@@ -594,32 +594,53 @@ def open_tsl_db():
     except sqlite3.OperationalError:
         dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
         dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
+
+        dbcursor.execute(
+            "CREATE TABLE IF NOT EXISTS deals ("
+            "dealid INT Primary Key, "
+            "botid INT, "
+            "last_profit_percentage FLOAT, "
+            "last_readable_sl_percentage FLOAT, "
+            "last_readable_tp_percentage FLOAT "
+            ")"
+        )
+
+        dbcursor.execute(
+            "CREATE TABLE IF NOT EXISTS bots ("
+            "botid INT Primary Key, "
+            "next_processing_timestamp INT"
+            ")"
+        )
+
+        logger.info("Database tables created successfully")
 
     return dbconnection
 
 
-def init_tsl_db():
-    """Initialize database to store bot and deals data."""
 
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS deals ("
-        "dealid INT Primary Key, "
-        "botid INT, "
-        "last_profit_percentage FLOAT, "
-        "last_readable_sl_percentage FLOAT, "
-        "last_readable_tp_percentage FLOAT "
-        ")"
-    )
+def upgrade_trailingstoploss_tp_db():
+    """Upgrade database if needed."""
+    try:
+        try:
+            # DROP column supported from sqlite 3.35.0 (2021.03.12)
+            cursor.execute("ALTER TABLE deals DROP COLUMN last_stop_loss_percentage")
+        except sqlite3.OperationalError:
+            logger.debug("Older SQLite version; not used column not removed")
 
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS bots ("
-        "botid INT Primary Key, "
-        "next_processing_timestamp INT"
-        ")"
-    )
+        cursor.execute("ALTER TABLE deals ADD COLUMN last_readable_sl_percentage FLOAT")
+        cursor.execute("ALTER TABLE deals ADD COLUMN last_readable_tp_percentage FLOAT")
 
-    logger.info("Database tables created (if not existed) successfully")
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS bots ("
+            "botid INT Primary Key, "
+            "next_processing_timestamp INT"
+            ")"
+        )
+        logger.info("Database schema upgraded")
+    except sqlite3.OperationalError:
+        logger.debug("Database schema is up-to-date")
 
 
 # Start application
@@ -680,7 +701,9 @@ api = init_threecommas_api(config)
 # Initialize or open the database
 db = open_tsl_db()
 cursor = db.cursor()
-init_tsl_db()
+
+# Upgrade the database if needed
+upgrade_trailingstoploss_tp_db()
 
 # TrailingStopLoss and TakeProfit %
 while True:
