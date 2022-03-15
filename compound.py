@@ -85,7 +85,7 @@ def upgrade_config(thelogger, theapi, cfg):
                         "profittocompound": default_profit_percentage,
                         "usermaxactivedeals": int(data["max_active_deals"]) + 5,
                         "usermaxsafetyorders": int(data["max_safety_orders"]) + 5,
-                        "comment": data["name"],
+                        "comment": data["name"].replace('%','%%'),
                     }
                 else:
                     if error and "msg" in error:
