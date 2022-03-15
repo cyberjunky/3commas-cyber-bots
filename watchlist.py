@@ -59,14 +59,14 @@ def watchlist_deal(thebot, coin, trade):
     minvolume = thebot["min_volume_btc_24h"]
 
     logger.debug("Base coin for this bot: %s" % base)
-    logger.debug("Minimal 24h volume in BTC for this bot: %s" % minvolume)
+    logger.debug("Minimal 24h volume of %s BTC" % minvolume)
 
     # Get marketcode from array
     marketcode = marketcodes.get(thebot["id"])
     if not marketcode:
         return
     logger.info("Bot: %s" % thebot["name"])
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    logger.info("Exchange %s (%s) used" % (exchange, marketcode))
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
@@ -75,20 +75,20 @@ def watchlist_deal(thebot, coin, trade):
         # Check if pair is on 3Commas blacklist
         if pair in blacklist:
             logger.debug(
-                "This pair is on your 3Commas blacklist and was skipped: %s" % pair, True
+                "Pair '%s' is on your 3Commas blacklist and was skipped" % pair, True
             )
             return
 
         # Check if pair is in bot's pairlist
         if pair not in thebot["pairs"]:
             logger.info(
-                "This pair is not in bot's pairlist, and was skipped: %s" % pair,
+                "Pair '%s' is not in bot's pairlist and was skipped" % pair,
                 True,
             )
             return
 
         # We have valid pair for our bot so we trigger an open asap action
-        logger.info("Triggering your 3Commas bot for a buy")
+        logger.info("Triggering your 3Commas bot for a start deal of '%s'" % pair)
         trigger_threecommas_bot_deal(logger, api, thebot, pair, len(blacklistfile))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
@@ -96,7 +96,7 @@ def watchlist_deal(thebot, coin, trade):
         if deals:
             for deal in deals:
                 if deal["pair"] == pair:
-                    logger.info("Triggering your 3Commas bot for a sell")
+                    logger.info("Triggering your 3Commas bot for a (panic) sell of '%s'" % pair)
                     close_threecommas_deal(logger, api, deal["id"], pair)
                     return
 
@@ -251,7 +251,7 @@ async def callback(event):
                 logger.debug("No valid btc-botids configured for '%s', disabled" % base)
                 return
         else:
-            logger.error("Error the base of pair '%s' is not supported yet!" % pair)
+            logger.error("Error the base of pair '%s' being '%s' is not supported yet!" % (pair, base))
             return
 
         for bot in botids:
