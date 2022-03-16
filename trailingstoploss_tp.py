@@ -243,12 +243,12 @@ def process_deals(thebot, section_config):
         # Housekeeping, clean things up and prevent endless growing database
         remove_closed_deals(botid, current_deals)
 
-        logger.info(
+        logger.debug(
             f"Bot \"{thebot['name']}\" ({botid}) has {len(deals)} deal(s) "
             f"of which {monitored_deals} require monitoring."
         )
     else:
-        logger.info(
+        logger.debug(
             f"Bot \"{thebot['name']}\" ({botid}) has no active deals."
         )
         remove_all_deals(botid)
@@ -375,7 +375,7 @@ def handle_new_deal(thebot, deal, profit_config):
             deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
         )
     else:
-        logger.info(
+        logger.debug(
             f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]} which "
             f"will cause 3C not to activate SL. No action taken!"
         )
@@ -433,7 +433,8 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                 current_tp_percentage = float(deal["take_profit"])
                 new_tp_percentage = round(
                     current_tp_percentage + (
-                            (actual_profit_percentage - last_profit_percentage) * tp_increment_factor
+                            (actual_profit_percentage - last_profit_percentage)
+                            * tp_increment_factor
                         ), 2
                 )
 
@@ -452,19 +453,19 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
                 )
             else:
-                logger.info(
+                logger.debug(
                     f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]}% which "
                     f"is equal to current SL {current_sl_percentage}% or "
                     f"is 0.0 which causes 3C to deactive SL; no change made!"
                 )
         else:
-            logger.info(
+            logger.debug(
                 f"{deal['pair']}/{deal['id']}: profit increased from {last_profit_percentage}% "
                 f"to {actual_profit_percentage}%, but increment factors are 0.0 so "
                 f"no change required for this deal."
             )
     else:
-        logger.info(
+        logger.debug(
             f"{deal['pair']}/{deal['id']}: no profit increase "
             f"(current: {actual_profit_percentage}%, "
             f"previous: {last_profit_percentage}%). Keep on monitoring."
@@ -493,7 +494,7 @@ def remove_closed_deals(bot_id, current_deals):
         # Remove start and end square bracket so we can properly use it
         current_deals_str = str(current_deals)[1:-1]
 
-        logger.info(f"Deleting old deals from bot {bot_id} except {current_deals_str}")
+        logger.debug(f"Deleting old deals from bot {bot_id} except {current_deals_str}")
         db.execute(
             f"DELETE FROM deals WHERE botid = {bot_id} AND dealid NOT IN ({current_deals_str})"
         )
@@ -504,7 +505,7 @@ def remove_closed_deals(bot_id, current_deals):
 def remove_all_deals(bot_id):
     """Remove all stored deals for the specified bot."""
 
-    logger.info(
+    logger.debug(
         f"Removing all stored deals for bot {bot_id}."
     )
 
@@ -535,7 +536,7 @@ def get_bot_next_process_time(bot_id):
 def set_bot_next_process_time(bot_id, new_time):
     """Set the next processing time for the specified bot."""
 
-    logger.info(
+    logger.debug(
         f"Next processing for bot {bot_id} not before "
         f"{unix_timestamp_to_string(new_time, '%Y-%m-%d %H:%M:%S')}."
     )
@@ -617,7 +618,6 @@ def open_tsl_db():
         logger.info("Database tables created successfully")
 
     return dbconnection
-
 
 
 def upgrade_trailingstoploss_tp_db():
@@ -764,7 +764,7 @@ while True:
                         else:
                             logger.error("Error occurred updating bots")
                 else:
-                    logger.info(
+                    logger.debug(
                         f"Bot {bot} will be processed after "
                         f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}."
                     )

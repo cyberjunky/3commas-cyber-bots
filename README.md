@@ -518,20 +518,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [tsl_tp_default]
 botids = [ 123456 ]
-config = [
-   {
-      "activation-percentage" = "2.0",
-      "initial-stoploss-percentage" = "0.5",
-      "sl-increment-factor" = "0.0",
-      "tp-increment-factor" = "0.0",
-   },
-   {
-      "activation-percentage" = "3.0",
-      "initial-stoploss-percentage" = "2.0",
-      "sl-increment-factor" = "0.4",
-      "tp-increment-factor" = "0.4",
-   }
-]
+config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
 
 ```
 
