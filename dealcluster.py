@@ -69,17 +69,26 @@ def init_cluster_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
-            "CREATE TABLE deals (dealid INT Primary Key, coin STRING, clusterid STRING, "
-            "botid INT, active BIT)"
+            "CREATE TABLE IF NOT EXISTS deals ("
+            "dealid INT Primary Key, "
+            "coin STRING, "
+            "clusterid STRING, "
+            "botid INT, "
+            "active BIT"
+            ")"
         )
 
         dbcursor.execute(
-            "CREATE TABLE cluster_coins (clusterid STRING, coin STRING, number_active INT, "
-            "PRIMARY KEY(clusterid, coin))"
+            "CREATE TABLE IF NOT EXISTS cluster_coins ("
+            "clusterid STRING, "
+            "coin STRING, "
+            "number_active INT, "
+            "PRIMARY KEY(clusterid, coin)"
+            ")"
         )
 
         dbcursor.execute(
-            "CREATE TABLE bot_pairs ("
+            "CREATE TABLE IF NOT EXISTS bot_pairs ("
             "clusterid STRING, "
             "botid INT, "
             "botname STRING, "
@@ -93,6 +102,35 @@ def init_cluster_db():
         logger.info("Database tables created successfully")
 
     return dbconnection
+
+
+def upgrade_cluster_db():
+    """Upgrade database if needed."""
+
+    try:
+        try:
+            # DROP column supported from sqlite 3.35.0 (2021.03.12)
+            cursor.execute("ALTER TABLE deals DROP COLUMN pair")
+        except sqlite3.OperationalError:
+            logger.debug("Older SQLite version; not used columns not removed")
+
+        cursor.execute("ALTER TABLE deals ADD COLUMN coin STRING")
+
+        cursor.execute("DROP TABLE cluster_pairs")
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS cluster_coins ("
+            "clusterid STRING, "
+            "coin STRING, "
+            "number_active INT, "
+            "PRIMARY KEY(clusterid, coin)"
+            ")"
+        )
+
+        cursor.execute("ALTER TABLE bot_pairs ADD COLUMN coin STRING")
+
+        logger.info("Database schema upgraded (pair to coins)")
+    except sqlite3.OperationalError:
+        logger.debug("Database schema is up-to-date")
 
 
 def clean_bot_db_data(thebot):
@@ -477,6 +515,9 @@ api = init_threecommas_api(config)
 # Initialize or open the database
 db = init_cluster_db()
 cursor = db.cursor()
+
+# Upgrade the database if needed
+upgrade_cluster_db()
 
 # DCA Deal Cluster
 while True:
