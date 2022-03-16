@@ -89,7 +89,7 @@ def watchlist_deal(thebot, coin, trade):
 
         # We have valid pair for our bot so we trigger an open asap action
         logger.info("Triggering your 3Commas bot for a start deal of '%s'" % pair)
-        trigger_threecommas_bot_deal(logger, api, thebot, pair, len(blacklistfile))
+        trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) == 0))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
         deals = thebot["active_deals"]
@@ -251,7 +251,9 @@ async def callback(event):
                 logger.debug("No valid btc-botids configured for '%s', disabled" % base)
                 return
         else:
-            logger.error("Error the base of pair '%s' being '%s' is not supported yet!" % (pair, base))
+            logger.error(
+                "Error the base of pair '%s' being '%s' is not supported yet!" % (pair, base)
+            )
             return
 
         for bot in botids:
