@@ -34,22 +34,23 @@ def load_config():
         "notify-urls": ["notify-url1"],
     }
 
+    cfgsectionconfig = list()
+    cfgsectionconfig.append({
+        "activation-percentage": "2.0",
+        "initial-stoploss-percentage": "0.5",
+        "sl-increment-factor": "0.0",
+        "tp-increment-factor": "0.0",
+    })
+    cfgsectionconfig.append({
+        "activation-percentage": "3.0",
+        "initial-stoploss-percentage": "2.0",
+        "sl-increment-factor": "0.4",
+        "tp-increment-factor": "0.4",
+    })
+
     cfg["tsl_tp_default"] = {
         "botids": [12345, 67890],
-        "config": [
-            {
-                "activation-percentage": 2.0,
-                "initial-stoploss-percentage": 0.5,
-                "sl-increment-factor": 0.0,
-                "tp-increment-factor": 0.0,
-            },
-            {
-                "activation-percentage": 3.0,
-                "initial-stoploss-percentage": 2.0,
-                "sl-increment-factor": 0.4,
-                "tp-increment-factor": 0.4,
-            }
-        ]
+        "config": json.dumps(cfgsectionconfig)
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
