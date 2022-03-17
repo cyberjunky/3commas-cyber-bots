@@ -1,4 +1,5 @@
 """Cyberjunky's 3Commas bot helpers."""
+import datetime
 import time
 
 import requests
@@ -271,3 +272,9 @@ def load_bot_excluded_coins(logger, share_dir, bot_id, extension):
         )
 
     return excludedlist
+
+
+def unix_timestamp_to_string(timestamp, date_time_format):
+    """Convert the given timestamp to a readable date/time in the specified format"""
+
+    return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)
