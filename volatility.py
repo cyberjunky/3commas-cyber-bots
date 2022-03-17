@@ -157,7 +157,7 @@ def lunarcrush_pairs(thebot):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
 
     if not newpairs:
         logger.info(
