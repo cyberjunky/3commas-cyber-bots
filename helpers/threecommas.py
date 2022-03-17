@@ -337,7 +337,7 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
         entity="bots",
         action="start_new_deal",
         action_id=str(thebot["id"]),
-        payload={"pair": pair, "skip_signal_checks": skip_checks},
+        payload={"pair": pair, "skip_signal_checks": skip_checks, "bot_id": thebot["id"]},
     )
     if data:
         logger.debug("Bot deal triggered: %s" % data)
