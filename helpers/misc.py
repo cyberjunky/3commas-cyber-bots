@@ -215,9 +215,12 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 if rank < start_number:
                     continue
 
-                pair = rowcolums[1].text
-                logger.debug(f"rank:{rank:3d} pair:{pair:10}")
-                pairs.append(pair)
+                pairdata = {}
+                pairdata["pair"] = rowcolums[1].text
+                pairdata["volume"] = float(rowcolums[len(rowcolums) - 1].text.replace(" BTC", "").replace(",", ""))
+
+                logger.debug(f"Rank {rank}: {pairdata}")
+                pairs.append(pairdata)
 
                 if rank == limit:
                     break
