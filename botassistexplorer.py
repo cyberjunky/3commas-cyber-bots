@@ -45,6 +45,7 @@ def load_config():
         "botids": [12345, 67890],
         "start-number": 1,
         "end-number": 200,
+        "originalmaxdeals": 15,
         "list": "binance_spot_usdt_winner_60m",
     }
 
@@ -54,14 +55,67 @@ def load_config():
     return None
 
 
-def botassist_pairs(thebot, botassistdata):
+def upgrade_config(thelogger, theapi, cfg):
+    """Upgrade config file if needed."""
+
+    for cfg_section in config.sections():
+        if cfg_section.startswith("botassist_"):
+            if not cfg.has_option(cfg_section, "originalmaxdeals"):
+                thebotids = json.loads(cfg.get(cfg_section, "botids"))
+
+                newmaxdeals = 0
+                # Walk through all bots configured
+                for thebot in thebotids:
+                    boterror, botdata = theapi.request(
+                        entity="bots",
+                        action="show",
+                        action_id=str(thebot),
+                    )
+                    if botdata:
+                        if int(botdata["max_active_deals"]) > newmaxdeals:
+                            newmaxdeals = int(botdata["max_active_deals"])
+                    else:
+                        if boterror and "msg" in boterror:
+                            logger.error(
+                                "Error occurred upgrading config: %s" % boterror["msg"]
+                            )
+                        else:
+                            logger.error("Error occurred upgrading config")
+
+                cfg.set(cfg_section, "originalmaxdeals", str(newmaxdeals))
+                cfg.set(cfg_section, "allowmaxdealchange", "False")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (added deal changing)")
+
+    return cfg
+
+
+def botassist_pairs(cfg_section, thebot, botassistdata):
     """Find new pairs and update the bot."""
 
     # Gather bot settings
     base = thebot["pairs"][0].split("_")[0]
     exchange = thebot["account_name"]
 
+    if thebot["min_volume_btc_24h"] is None:
+        minvolume = 0.0
+    else:
+        minvolume = float(thebot["min_volume_btc_24h"])
+
+    newmaxdeals = False
+
+    # Get deal settings for this bot
+    originalmaxdeals = int(config.get(cfg_section, "originalmaxdeals"))
+    allowmaxdealchange = config.getboolean(
+        cfg_section, "allowmaxdealchange", fallback=False
+    )
+
     logger.info("Bot base currency: %s" % base)
+    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
+    logger.debug("Bot allowmaxdealchange setting: %s" % allowmaxdealchange)
 
     # Start from scratch
     newpairs = list()
@@ -78,10 +132,17 @@ def botassist_pairs(thebot, botassistdata):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Parse bot-assist data
-    for pair in botassistdata:
+    for pairdata in botassistdata:
+        # Check if coin has minimum 24h volume as set in bot
+        if pairdata["volume"] < minvolume:
+            logger.debug(
+                "Pair '%s' does not have enough 24h BTC volume (%s), skipping"
+                % (pairdata["pair"], str(pairdata["volume"]))
+            )
+            continue
 
         # Populate lists
-        populate_pair_lists(pair, blacklist, blackpairs, badpairs, newpairs, tickerlist)
+        populate_pair_lists(pairdata["pair"], blacklist, blackpairs, badpairs, newpairs, tickerlist)
 
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
@@ -100,8 +161,24 @@ def botassist_pairs(thebot, botassistdata):
         )
         return
 
+    # Lower the number of max deals if not enough new pairs and change allowed and
+    # change back to original if possible
+    if allowmaxdealchange:
+        if len(newpairs) < thebot["max_active_deals"]:
+            newmaxdeals = len(newpairs)
+        elif (
+            len(newpairs) > thebot["max_active_deals"]
+            and len(newpairs) < originalmaxdeals
+        ):
+            newmaxdeals = len(newpairs)
+        elif (
+            len(newpairs) > thebot["max_active_deals"]
+            and thebot["max_active_deals"] != originalmaxdeals
+        ):
+            newmaxdeals = originalmaxdeals
+
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, False)
+    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
 
 
 # Start application
@@ -176,6 +253,9 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
+# Upgrade config file if needed
+config = upgrade_config(logger, api, config)
+
 # Refresh coin pairs based on CoinMarketCap data
 while True:
 
@@ -210,7 +290,7 @@ while True:
                         action_id=str(bot),
                     )
                     if data:
-                        botassist_pairs(data, botassist_data)
+                        botassist_pairs(section, data, botassist_data)
                     else:
                         if error and "msg" in error:
                             logger.error(
