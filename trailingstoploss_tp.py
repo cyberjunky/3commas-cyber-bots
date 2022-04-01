@@ -145,6 +145,8 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
         "take_profit": new_take_profit,
     }
 
+    # Check whether there is a timeout set for this config, when there is, set the timeout to this value.
+    # Otherwise, send the payload as it is.
     if sl_timeout != 0:
         payload["stop_loss_timeout_enabled"] = True
         payload["stop_loss_timeout_in_seconds"] = sl_timeout
@@ -241,6 +243,8 @@ def process_deals(thebot, section_config):
             deal_id = deal["id"]
 
             if deal["strategy"] in ("short", "long"):
+                # Check whether the actual_profit_percentage can be obtained from the deal,
+                # If it can't, skip this deal.
                 try:
                     current_deals.append(deal_id)
 
@@ -472,13 +476,16 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     f"{new_average_price_sl_percentage}%. ",
                     True
                 )
+
+                # Check whether there is an old timeout, and log when the new time out is higher than the old time out
                 old_sl_timeout = deal["stop_loss_timeout_in_seconds"]
-                if sl_timeout > old_sl_timeout:
-                    logger.info(
-                        f"StopLoss timeout increased from {old_sl_timeout}s "
-                        f"to {int(sl_timeout)}s",
-                        True
-                    )
+                if old_sl_timeout is not None:
+                    if sl_timeout > old_sl_timeout:
+                        logger.info(
+                            f"StopLoss timeout increased from {old_sl_timeout}s "
+                            f"to {int(sl_timeout)}s",
+                            True
+                        )
 
                 # Calculate new TP percentage based on the increased profit and increment factor
                 current_tp_percentage = float(deal["take_profit"])
