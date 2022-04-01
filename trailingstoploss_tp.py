@@ -38,12 +38,14 @@ def load_config():
     cfgsectionconfig.append({
         "activation-percentage": "2.0",
         "initial-stoploss-percentage": "0.5",
+        "sl-timeout": "0",
         "sl-increment-factor": "0.0",
         "tp-increment-factor": "0.0",
     })
     cfgsectionconfig.append({
         "activation-percentage": "3.0",
         "initial-stoploss-percentage": "2.0",
+        "sl-timeout": "0",
         "sl-increment-factor": "0.4",
         "tp-increment-factor": "0.4",
     })
@@ -108,31 +110,57 @@ def upgrade_config(thelogger, cfg):
                 cfg.write(cfgfile)
 
             thelogger.info("Upgraded section %s to have config list" % cfgsection)
+        if cfgsection.startswith("tsl_tp_") and cfg.has_option(cfgsection, "config"):
+            jsonconfiglist = list()
+            for configsectionconfig in json.loads(cfg.get(cfgsection, "config")):
+                if "sl-timeout" not in configsectionconfig:
+                    cfgsectionconfig = {
+                        "activation-percentage": configsectionconfig.get("activation-percentage"),
+                        "initial-stoploss-percentage": configsectionconfig.get("initial-stoploss-percentage"),
+                        "sl-timeout": "0",
+                        "sl-increment-factor": configsectionconfig.get("sl-increment-factor"),
+                        "tp-increment-factor": configsectionconfig.get("tp-increment-factor"),
+                    }
+                    jsonconfiglist.append(cfgsectionconfig)
 
+            if len(jsonconfiglist) > 0:
+                cfg.set(cfgsection, "config", json.dumps(jsonconfiglist))
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded section %s to have config list" % cfgsection)
     return cfg
 
 
-def update_deal(thebot, deal, new_stoploss, new_take_profit):
+def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     """Update bot with new SL and TP."""
 
     bot_name = thebot["name"]
     deal_id = deal["id"]
 
+    payload = {
+        "deal_id": thebot["id"],
+        "stop_loss_percentage": new_stoploss,
+        "take_profit": new_take_profit,
+    }
+
+    if sl_timeout != 0:
+        payload["stop_loss_timeout_enabled"] = True
+        payload["stop_loss_timeout_in_seconds"] = sl_timeout
+
     error, data = api.request(
         entity="deals",
         action="update_deal",
         action_id=str(deal_id),
-        payload={
-            "deal_id": thebot["id"],
-            "stop_loss_percentage": new_stoploss,
-            "take_profit": new_take_profit,
-        },
+        payload=payload,
     )
     if data:
         logger.info(
             f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
-            f"Changed TP from {deal['take_profit']}% to {new_take_profit}%"
+            f"Changed TP from {deal['take_profit']}% to {new_take_profit}% "
+            f"Changed SL timeout to {sl_timeout}s."
         )
     else:
         if error and "msg" in error:
@@ -140,7 +168,7 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit):
                 "Error occurred updating bot with new SL/TP values: %s" % error["msg"]
             )
         else:
-            logger.error("Error occurred updating bot with new SL/TP valuess")
+            logger.error("Error occurred updating bot with new SL/TP values")
 
 
 def calculate_slpercentage_base_price_short(sl_price, base_price):
@@ -213,29 +241,35 @@ def process_deals(thebot, section_config):
             deal_id = deal["id"]
 
             if deal["strategy"] in ("short", "long"):
-                current_deals.append(deal_id)
+                try:
+                    current_deals.append(deal_id)
 
-                existing_deal = check_deal(cursor, deal_id)
-                actual_profit_config = get_config_for_profit(
+                    existing_deal = check_deal(cursor, deal_id)
+                    actual_profit_config = get_config_for_profit(
                         section_config, float(deal["actual_profit_percentage"])
                     )
 
-                if not existing_deal and actual_profit_config:
-                    monitored_deals = +1
-
-                    handle_new_deal(thebot, deal, actual_profit_config)
-                elif existing_deal:
-                    deal_sl = deal["stop_loss_percentage"]
-                    current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
-                    if current_stoploss_percentage != 0.0:
+                    if not existing_deal and actual_profit_config:
                         monitored_deals = +1
 
-                        handle_update_deal(
+                        handle_new_deal(thebot, deal, actual_profit_config)
+                    elif existing_deal:
+                        deal_sl = deal["stop_loss_percentage"]
+                        current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
+                        if current_stoploss_percentage != 0.0:
+                            monitored_deals = +1
+
+                            handle_update_deal(
                                 thebot, deal, existing_deal, actual_profit_config
                             )
-                    else:
-                        # Existing deal, but stoploss is 0.0 which means it has been reset
-                        remove_active_deal(deal_id)
+                        else:
+                            # Existing deal, but stoploss is 0.0 which means it has been reset
+                            remove_active_deal(deal_id)
+                except ValueError:
+                    logger.warning( 
+                        f"Unknown actual profit percentage for deal {deal_id}"
+                    )
+                    continue
             else:
                 logger.warning(
                     f"Unknown strategy {deal['strategy']} for deal {deal_id}"
@@ -318,6 +352,8 @@ def handle_new_deal(thebot, deal, profit_config):
 
     activation_percentage = float(profit_config.get("activation-percentage"))
 
+    sl_timeout = float(profit_config.get("sl-timeout"))
+
     # Take space between trigger and actual profit into account
     activation_diff = actual_profit_percentage - activation_percentage
 
@@ -361,6 +397,12 @@ def handle_new_deal(thebot, deal, profit_config):
             True
         )
 
+        if sl_timeout != 0:
+            logger.info(
+                f"StopLoss timeout set at {int(sl_timeout)}s",
+                True
+            )
+
         if new_tp_percentage > current_tp_percentage:
             logger.info(
                 f"TakeProfit increased from {current_tp_percentage}% "
@@ -369,7 +411,7 @@ def handle_new_deal(thebot, deal, profit_config):
             )
 
         # Update deal in 3C
-        update_deal(thebot, deal, sl_data[2], new_tp_percentage)
+        update_deal(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout)
 
         # Add deal to our database
         add_deal_in_db(
@@ -387,6 +429,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
 
     actual_profit_percentage = float(deal["actual_profit_percentage"])
     last_profit_percentage = float(existing_deal["last_profit_percentage"])
+    sl_timeout = float(profit_config.get("sl-timeout"))
 
     if actual_profit_percentage > last_profit_percentage:
         sl_increment_factor = float(profit_config.get("sl-increment-factor"))
@@ -429,6 +472,13 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     f"{new_average_price_sl_percentage}%. ",
                     True
                 )
+                old_sl_timeout = deal["stop_loss_timeout_in_seconds"]
+                if sl_timeout > old_sl_timeout:
+                    logger.info(
+                        f"StopLoss timeout increased from {old_sl_timeout}s "
+                        f"to {int(sl_timeout)}s",
+                        True
+                    )
 
                 # Calculate new TP percentage based on the increased profit and increment factor
                 current_tp_percentage = float(deal["take_profit"])
@@ -447,7 +497,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     )
 
                 # Update deal in 3C
-                update_deal(thebot, deal, sl_data[2], new_tp_percentage)
+                update_deal(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout)
 
                 # Update deal in our database
                 update_deal_in_db(
