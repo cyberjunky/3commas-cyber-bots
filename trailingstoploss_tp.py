@@ -566,7 +566,7 @@ def add_deal_in_db(deal_id, bot_id, tp_percentage, readable_sl_percentage, reada
     """Add deal (short or long) to database."""
 
     db.execute(
-        f"INSERT INTO deals ("
+        f"INSERT or REPLACE INTO deals ("
         f"dealid, "
         f"botid, "
         f"last_profit_percentage, "
