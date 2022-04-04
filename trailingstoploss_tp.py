@@ -14,6 +14,20 @@ from helpers.logging import Logger, NotificationHandler
 from helpers.misc import check_deal, unix_timestamp_to_string, wait_time_interval
 from helpers.threecommas import init_threecommas_api
 
+import portalocker
+# Check for single instance run
+fh = 0
+def run_once():
+    global fh
+    fh = open(os.path.realpath(__file__), "r")
+    try:
+        portalocker.lock(fh, portalocker.LOCK_EX | portalocker.LOCK_NB)
+    except:
+        sys.exit(
+            "Only one instance running allowed!"
+        )
+
+run_once()
 
 def load_config():
     """Create default or load existing config file."""
