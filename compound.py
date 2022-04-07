@@ -544,6 +544,9 @@ def compound_bot(cfg, thebot):
 
             funds_so_needed = safety_order_volume
             total_so_funds = safety_order_volume
+            if max_safety_orders < 1:
+                total_so_funds = 0
+
             if max_safety_orders > 1:
                 for i in range(1, max_safety_orders):
                     funds_so_needed *= float(martingale_volume_coefficient)
