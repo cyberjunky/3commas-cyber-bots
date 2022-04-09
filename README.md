@@ -464,8 +464,7 @@ If the value is above or equal to activation-percentage, the initial SL is calcu
 
 `new_stoploss = initial-stoploss + (actual_profit_percentage - activation_percentage)`
 
-The script also supports a timeout for the stop loss. This means that it will add a configured timeout for the stop loss to be activated. When the timeout is 60 seconds for example, when the price reaches the stop loss price, a counter on 3commas will run to count down to 0.
-When the price is still below the stop loss price after the countdown reached 0 it will trigger a market order. When the price is higher than the stop loss price after the countdown reached 0 it won't execute a market order and will wait for targets again. ***Be careful, the market order will always be executed, even when the profit is below 0%. This means the deal could end up selling at a loss!***
+This script also supports a configurable timeout for the stoploss, which will be activated (and updated) when the stoploss is activated. For example, with a timeout of 60 seconds, 3Commas will sell the deal (market order) when after 60 seconds the current price is still below the set stoploss price.
 
 The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
 
@@ -521,7 +520,7 @@ This is the layout of the config file used by the `trailingstoploss_tp.py` bot h
 - *object*
 - **activation-percentage** - from % of profit this object is valid for.
 - **initial-stoploss-percentage** - % of stoploss to set when activation-percentage is reached.
-- **sl-timeout** - timeout before stoploss is triggered. 3Commas still handles triggering of the stop loss, but the market buy order is only triggerd after the timeout has expired and the current price is still under the stop loss price. ***(Be careful, the market order will also be activated when the profit is below 0%. This means the deal could end up selling at a loss!)***  (Default is 0 which means it is turned off). 
+- **sl-timeout** - stoploss timeout in seconds. (default = 0)
 
 - **sl-increment-factor** - % to increase the SL with, based on % profit after activation-percentage.
 - **tp-increment-factor** - % to increase the TP with, based on % profit after activation-percentage.
@@ -541,7 +540,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [tsl_tp_default]
 botids = [ 123456 ]
-config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-timeout": "600","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-timeout": "800","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
+config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-timeout": "0","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-timeout": "800","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
 
 ```
 

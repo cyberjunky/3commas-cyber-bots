@@ -129,7 +129,7 @@ def upgrade_config(thelogger, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Upgraded section %s to have config list" % cfgsection)
+                thelogger.info("Updates section %s to add sl-timeout" % cfgsection)
     return cfg
 
 
@@ -150,6 +150,9 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     if sl_timeout != 0:
         payload["stop_loss_timeout_enabled"] = True
         payload["stop_loss_timeout_in_seconds"] = sl_timeout
+    else:
+        payload["stop_loss_timeout_enabled"] = False
+        payload["stop_loss_timeout_in_seconds"] = 0
 
     error, data = api.request(
         entity="deals",
@@ -162,7 +165,7 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
             f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
             f"Changed TP from {deal['take_profit']}% to {new_take_profit}% "
-            f"Changed SL timeout to {sl_timeout}s."
+            f"Changed SL timeout from {deal['stop_loss_timeout_in_seconds']}% to  {sl_timeout}s."
         )
     else:
         if error and "msg" in error:
@@ -245,7 +248,12 @@ def process_deals(thebot, section_config):
             if deal["strategy"] in ("short", "long"):
                 # Check whether the actual_profit_percentage can be obtained from the deal,
                 # If it can't, skip this deal.
-                try:
+
+                if deal["actual_profit_percentage"] is "":
+
+                    continue
+                else:
+
                     current_deals.append(deal_id)
 
                     existing_deal = check_deal(cursor, deal_id)
@@ -269,11 +277,6 @@ def process_deals(thebot, section_config):
                         else:
                             # Existing deal, but stoploss is 0.0 which means it has been reset
                             remove_active_deal(deal_id)
-                except ValueError:
-                    logger.warning( 
-                        f"Unknown actual profit percentage for deal {deal_id}"
-                    )
-                    continue
             else:
                 logger.warning(
                     f"Unknown strategy {deal['strategy']} for deal {deal_id}"
@@ -356,7 +359,7 @@ def handle_new_deal(thebot, deal, profit_config):
 
     activation_percentage = float(profit_config.get("activation-percentage"))
 
-    sl_timeout = float(profit_config.get("sl-timeout"))
+    sl_timeout = int(profit_config.get("sl-timeout"))
 
     # Take space between trigger and actual profit into account
     activation_diff = actual_profit_percentage - activation_percentage
@@ -401,11 +404,10 @@ def handle_new_deal(thebot, deal, profit_config):
             True
         )
 
-        if sl_timeout != 0:
-            logger.info(
-                f"StopLoss timeout set at {int(sl_timeout)}s",
-                True
-            )
+        logger.info(
+            f"StopLoss timeout set at {sl_timeout}s",
+            True
+        )
 
         if new_tp_percentage > current_tp_percentage:
             logger.info(
@@ -483,7 +485,13 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     if sl_timeout > old_sl_timeout:
                         logger.info(
                             f"StopLoss timeout increased from {old_sl_timeout}s "
-                            f"to {int(sl_timeout)}s",
+                            f"to {sl_timeout}s",
+                            True
+                        )
+                    else:
+                        logger.info(
+                            f"StopLoss timeout decreased from {old_sl_timeout}s "
+                            f"to {sl_timeout}s",
                             True
                         )
 
