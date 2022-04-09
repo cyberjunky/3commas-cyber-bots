@@ -435,7 +435,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
 
     actual_profit_percentage = float(deal["actual_profit_percentage"])
     last_profit_percentage = float(existing_deal["last_profit_percentage"])
-    sl_timeout = float(profit_config.get("sl-timeout"))
+    new_sl_timeout = float(profit_config.get("sl-timeout"))
 
     if actual_profit_percentage > last_profit_percentage:
         sl_increment_factor = float(profit_config.get("sl-increment-factor"))
@@ -480,18 +480,18 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                 )
 
                 # Check whether there is an old timeout, and log when the new time out is higher than the old time out
-                old_sl_timeout = deal["stop_loss_timeout_in_seconds"]
-                if old_sl_timeout is not None:
-                    if sl_timeout > old_sl_timeout:
+                current_sl_timeout = deal["stop_loss_timeout_in_seconds"]
+                if current_sl_timeout is not None:
+                    if new_sl_timeout > current_sl_timeout:
                         logger.info(
-                            f"StopLoss timeout increased from {old_sl_timeout}s "
-                            f"to {sl_timeout}s",
+                            f"StopLoss timeout increased from {current_sl_timeout}s "
+                            f"to {new_sl_timeout}s",
                             True
                         )
                     else:
                         logger.info(
-                            f"StopLoss timeout decreased from {old_sl_timeout}s "
-                            f"to {sl_timeout}s",
+                            f"StopLoss timeout decreased from {current_sl_timeout}s "
+                            f"to {new_sl_timeout}s",
                             True
                         )
 
@@ -512,7 +512,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     )
 
                 # Update deal in 3C
-                update_deal(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout)
+                update_deal(thebot, deal, sl_data[2], new_tp_percentage, new_sl_timeout)
 
                 # Update deal in our database
                 update_deal_in_db(
