@@ -55,7 +55,7 @@ def get_threecommas_pairprice(pair):
         price = data["last"]
     else:
         logger.error(
-            "Fetching 3Commas price for pair %sfailed with error: %s"
+            "Fetching 3Commas price for pair '%s' failed with error: %s"
             % (pair, error["msg"])
         )
 
@@ -128,7 +128,7 @@ def update_gridbot(gridbot, upperprice, lowerprice):
     )
     if data:
         logger.info(
-            f"Moved the grid of gridbot '{botname}' with pair {pair} using"
+            f"Moved the grid of gridbot '{botname}' using pair {pair} with"
             f" upper and lower price: {upperprice} - {lowerprice}",
             True,
         )
@@ -158,7 +158,7 @@ def manage_gridbot(thebot):
     logger.info("Upper price: %s" % upperprice)
     logger.info("Lower price: %s" % lowerprice)
     logger.info("Quantity per grid: %s" % quantitypergrid)
-    logger.info("Grids quantity: %s" % gridsquantity)
+    logger.info("Grid quantity: %s" % gridsquantity)
     logger.info("Strategy type: %s" % strategytype)
 
     price = get_threecommas_pairprice(pair)
