@@ -213,13 +213,10 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         # Build list of columns we are interested in
         tablecolumns = data.find_all("th")
         for column in tablecolumns:
-            logger.info(f"Column: {column}")
             if column.text not in ("#", "symbol"):
                 columndict[columncount] = column.text
 
             columncount += 1
-
-        logger.info(f"columndict: {columndict}")
 
         tablerows = data.find_all("tr")
         for row in tablerows:

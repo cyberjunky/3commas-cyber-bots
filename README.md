@@ -120,6 +120,8 @@ After this the bot helper will sleep for the set interval time, after which it w
 
 When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
+3Commas does not allow a bot without trading pairs, however, based on the configuration and market an empty list can be the result. Enable `allowmaxdealchange` and `allowbotstopstart` to decrease the number of active deals, or stop the bot when no pairs are available. When the bot is stopped, and there are pairs available again, it will be started.
+
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
 ### Configuration
@@ -138,9 +140,11 @@ The configuration file for `galaxyscore` has the following settings:
 
 -   *[bot_]*
 -   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
+-   **mingalaxyscore** - minimum galaxyscore of the coin. (default is 0.0)
 -   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
 -   **originalmaxdeals** - the max number of active deals you want to have in your bot.
 -   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
 -   **comment** - free field you can use, for example for the name or description of the bot
 
 Example: (keys are bogus)
@@ -158,9 +162,11 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [bot_123456]
 maxaltrankscore = 250
+mingalaxyscore = 0.0
 numberofpairs = 10
 originalmaxdeals = 8
 allowmaxdealchange = True
+allowbotstopstart = True
 comment = my great bot
 ```
 
@@ -178,10 +184,6 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 ### How does it work?
 
 Same as galaxyscore bot helper except with AltRank data.
-
-When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
-
-NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
 ### Configuration
 
@@ -202,6 +204,7 @@ The configuration file for `altrank` has the following settings:
 -   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
 -   **originalmaxdeals** - the max number of active deals you want to have in your bot.
 -   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
 -   **comment** - free field you can use, for example for the name or description of the bot
 
 Example: (keys are bogus)
@@ -222,6 +225,7 @@ maxaltrankscore = 250
 numberofpairs = 10
 originalmaxdeals = 8
 allowmaxdealchange = True
+allowbotstopstart = True
 comment = my great bot
 ```
 
@@ -317,6 +321,8 @@ This script can be used for multiple bots with different Top X lists by creating
 
 When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
 
+3Commas does not allow a bot without trading pairs, however, based on the configuration and market an empty list can be the result. Enable `allowmaxdealchange` and `allowbotstopstart` to decrease the number of active deals, or stop the bot when no pairs are available. When the bot is stopped, and there are pairs available again, it will be started.
+
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top pairs (like BTC and ETH) can also be excluded by increasing the start-number.
 
 ### Configuration
@@ -337,8 +343,10 @@ This is the layout of the config file used by the `botassistexplorer.py` bot hel
 -   **botids** - a list of bot id's to manage separated with commas
 -   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
 -   **end-number** - end number for the pairs to request. (default is 200)
+-   **mingalaxyscore** - minimum galaxyscore of the coin. (default is 0.0)
 -   **originalmaxdeals** - the max number of active deals you want to have in your bot.
 -   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
 -   **list** - the part behind the 'list=' parameter in the url of 3c-tools bot-assist-explorer, you can find it here: https://www.3c-tools.com/markets/bot-assist-explorer
 
 
@@ -358,6 +366,10 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 botids = [ 123456 ]
 start-number = 1
 end-number = 200
+mingalaxyscore = 0.0
+originalmaxdeals = 8
+allowmaxdealchange = True
+allowbotstopstart = True
 list = binance_spot_usdt_winner_60m
 ```
 

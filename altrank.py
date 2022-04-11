@@ -232,13 +232,6 @@ def lunarcrush_pairs(cfg, thebot):
     if sharedir is not None:
         remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
 
-    if not newpairs:
-        logger.info(
-            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
-
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
     if allowmaxdealchange:
@@ -264,8 +257,13 @@ def lunarcrush_pairs(cfg, thebot):
                 control_threecommas_bots(logger, api, thebot, "enable")
 
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
-
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    else:
+        logger.info(
+            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
+            % (exchange, marketcode)
+        )
 
 # Start application
 program = Path(__file__).stem

@@ -50,7 +50,7 @@ def load_config():
 
     cfg["bot_12345"] = {
         "maxaltrankscore": 1500,
-        "mingalaxyscore": 0,
+        "mingalaxyscore": 0.0,
         "numberofpairs": 10,
         "originalmaxdeals": 4,
         "allowmaxdealchange": False,
@@ -116,7 +116,7 @@ def upgrade_config(thelogger, theapi, cfg):
 
     for cfgsection in cfg.sections():
         if cfgsection.startswith("bot_") and not cfg.has_option(cfgsection, "mingalaxyscore"):
-            cfg.set(cfgsection, "mingalaxyscore", "0")
+            cfg.set(cfgsection, "mingalaxyscore", "0.0")
             cfg.set(cfgsection, "allowbotstopstart", "False")
 
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
@@ -147,7 +147,7 @@ def lunarcrush_pairs(cfg, thebot):
     # Get lunarcrush settings for this bot
     numberofpairs = int(cfg.get(f"bot_{bot_id}", "numberofpairs"))
     maxacrscore = int(cfg.get(f"bot_{bot_id}", "maxaltrankscore", fallback=100))
-    mingalaxyscore = int(cfg.get(f"bot_{bot_id}", "mingalaxyscore", fallback=0))
+    mingalaxyscore = float(cfg.get(f"bot_{bot_id}", "mingalaxyscore", fallback=0.0))
     allowmaxdealchange = config.getboolean(
         f"bot_{bot_id}", "allowmaxdealchange", fallback=False
     )
@@ -244,13 +244,6 @@ def lunarcrush_pairs(cfg, thebot):
     if sharedir is not None:
         remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
-    if not newpairs:
-        logger.info(
-            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
-
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
     if allowmaxdealchange:
@@ -276,7 +269,13 @@ def lunarcrush_pairs(cfg, thebot):
                 control_threecommas_bots(logger, api, thebot, "enable")
 
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    else:
+        logger.info(
+            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
+            % (exchange, marketcode)
+        )
 
 
 # Start application
