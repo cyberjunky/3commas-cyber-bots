@@ -18,6 +18,7 @@ from helpers.misc import (
     wait_time_interval,
 )
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_marketcode,
     get_threecommas_btcusd,
     get_threecommas_market,
@@ -52,6 +53,7 @@ def load_config():
         "numberofpairs": 10,
         "originalmaxdeals": 4,
         "allowmaxdealchange": False,
+        "allowbotstopstart": False,
         "comment": "Just a description of the bot(s)",
     }
 
@@ -111,6 +113,15 @@ def upgrade_config(thelogger, theapi, cfg):
 
         thelogger.info("Upgraded the configuration file (create sections)")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("bot_") and not cfg.has_option(cfgsection, "allowbotstopstart"):
+            cfg.set(cfgsection, "allowbotstopstart", "False")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            thelogger.info("Upgraded the configuration file (bot stop-start)")
+
     return cfg
 
 
@@ -136,6 +147,9 @@ def lunarcrush_pairs(cfg, thebot):
     maxacrscore = int(cfg.get(f"bot_{bot_id}", "maxaltrankscore", fallback=100))
     allowmaxdealchange = config.getboolean(
         f"bot_{bot_id}", "allowmaxdealchange", fallback=False
+    )
+    allowbotstopstart = config.getboolean(
+        f"bot_{bot_id}", "allowbotstopstart", fallback=False
     )
 
     logger.info("Bot base currency: %s" % base)
@@ -218,13 +232,6 @@ def lunarcrush_pairs(cfg, thebot):
     if sharedir is not None:
         remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
 
-    if not newpairs:
-        logger.info(
-            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
-
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
     if allowmaxdealchange:
@@ -241,9 +248,22 @@ def lunarcrush_pairs(cfg, thebot):
         ):
             newmaxdeals = originalmaxdeals
 
-    # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+        if allowbotstopstart:
+            if newmaxdeals == 0 and thebot["is_enabled"]:
+                # No pairs and bot is running (zero pairs not allowed), so stop it...
+                control_threecommas_bots(logger, api, thebot, "disable")
+            elif newmaxdeals > 0 and not thebot["is_enabled"]:
+                # Valid pairs and bot is not running, so start it...
+                control_threecommas_bots(logger, api, thebot, "enable")
 
+    # Update the bot with the new pairs
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    else:
+        logger.info(
+            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
+            % (exchange, marketcode)
+        )
 
 # Start application
 program = Path(__file__).stem
