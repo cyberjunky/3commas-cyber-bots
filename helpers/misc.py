@@ -16,7 +16,7 @@ def wait_time_interval(logger, notification, time_interval, notify=True):
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info(
-            "Next update in %s Seconds at %s" % (time_interval, timeresult)
+            "Next update in %s Seconds at %s" % (time_interval, timeresult), notify
         )
         notification.send_notification()
         time.sleep(time_interval)
