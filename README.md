@@ -464,6 +464,8 @@ If the value is above or equal to activation-percentage, the initial SL is calcu
 
 `new_stoploss = initial-stoploss + (actual_profit_percentage - activation_percentage)`
 
+This script also supports a configurable timeout for the stoploss, which will be activated (and updated) when the stoploss is activated. For example, with a timeout of 60 seconds, 3Commas will sell the deal (market order) when after 60 seconds the current price is still below the set stoploss price.
+
 The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
 
 `new_takeprofit = takeprofit + ((actual_percentage - activation_percentage) * tp-increment-factor)`
@@ -503,23 +505,25 @@ Author of this script is [amargedon](https://github.com/amargedon).
 
 This is the layout of the config file used by the `trailingstoploss_tp.py` bot helper:
 
--   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
--   **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
--   **debug** - set to true to enable debug logging to file. (default is False)
--   **logrotate** - number of days to keep logs. (default = 7)
--   **3c-apikey** - your 3Commas API key value.
--   **3c-apisecret** - your 3Commas API key secret value.
--   **notifications** - set to true to enable notifications. (default = False)
--   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
--   *[tsl_tp_]*
--   **botids** - a list of bot id's to manage separated with commas.
--   **config** - a list of objects with the settings for that percentage.
--   *object*
--   **activation-percentage** - from % of profit this object is valid for.
--   **initial-stoploss-percentage** - % of stoploss to set when activation-percentage is reached.
--   **sl-increment-factor** - % to increase the SL with, based on % profit after activation-percentage.
--   **tp-increment-factor** - % to increase the TP with, based on % profit after activation-percentage.
+- **timezone** - timezone. (default is 'Europe/Amsterdam')
+- **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
+- **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
+- **debug** - set to true to enable debug logging to file. (default is False)
+- **logrotate** - number of days to keep logs. (default = 7)
+- **3c-apikey** - your 3Commas API key value.
+- **3c-apisecret** - your 3Commas API key secret value.
+- **notifications** - set to true to enable notifications. (default = False)
+- **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+- *[tsl_tp_]*
+- **botids** - a list of bot id's to manage separated with commas.
+- **config** - a list of objects with the settings for that percentage.
+- *object*
+- **activation-percentage** - from % of profit this object is valid for.
+- **initial-stoploss-percentage** - % of stoploss to set when activation-percentage is reached.
+- **sl-timeout** - stoploss timeout in seconds. (default = 0)
+
+- **sl-increment-factor** - % to increase the SL with, based on % profit after activation-percentage.
+- **tp-increment-factor** - % to increase the TP with, based on % profit after activation-percentage.
 
 Example: (keys are bogus)
 ```
@@ -536,7 +540,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [tsl_tp_default]
 botids = [ 123456 ]
-config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
+config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-timeout": "0","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-timeout": "800","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
 
 ```
 
