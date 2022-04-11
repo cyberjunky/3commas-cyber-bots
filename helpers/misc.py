@@ -206,8 +206,22 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         result.raise_for_status()
         soup = BeautifulSoup(result.text, features="html.parser")
         data = soup.find("table", class_="table table-striped table-sm")
-        tablerows = data.find_all("tr")
 
+        columncount = 0
+        columndict = {}
+
+        # Build list of columns we are interested in
+        tablecolumns = data.find_all("th")
+        for column in tablecolumns:
+            logger.info(f"Column: {column}")
+            if column.text not in ("#", "symbol"):
+                columndict[columncount] = column.text
+
+            columncount += 1
+
+        logger.info(f"columndict: {columndict}")
+
+        tablerows = data.find_all("tr")
         for row in tablerows:
             rowcolums = row.find_all("td")
             if len(rowcolums) > 0:
@@ -216,8 +230,15 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                     continue
 
                 pairdata = {}
-                pairdata["pair"] = rowcolums[1].text
-                pairdata["volume"] = float(rowcolums[len(rowcolums) - 1].text.replace(" BTC", "").replace(",", ""))
+
+                # Iterate over the available columns and collect the data
+                for key, value in columndict.items():
+                    if value == "24h volume":
+                        pairdata[value] = float(
+                                rowcolums[key].text.replace(" BTC", "").replace(",", "")
+                            )
+                    else:
+                        pairdata[value] = rowcolums[key].text.replace("\n", "")
 
                 logger.debug(f"Rank {rank}: {pairdata}")
                 pairs.append(pairdata)
