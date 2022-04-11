@@ -16,6 +16,7 @@ from helpers.misc import (
     wait_time_interval,
 )
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_marketcode,
     get_threecommas_market,
     init_threecommas_api,
@@ -46,6 +47,9 @@ def load_config():
         "start-number": 1,
         "end-number": 200,
         "originalmaxdeals": 15,
+        "mingalaxyscore": 0.0,
+        "allowmaxdealchange": False,
+        "allowbotstopstart": False,
         "list": "binance_spot_usdt_winner_60m",
     }
 
@@ -90,6 +94,16 @@ def upgrade_config(thelogger, theapi, cfg):
 
                 thelogger.info("Upgraded the configuration file (added deal changing)")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("botassist_") and not cfg.has_option(cfgsection, "mingalaxyscore"):
+            cfg.set(cfgsection, "mingalaxyscore", "0.0")
+            cfg.set(cfgsection, "allowbotstopstart", "False")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            thelogger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
+
     return cfg
 
 
@@ -108,9 +122,13 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     newmaxdeals = False
 
     # Get deal settings for this bot
+    mingalaxyscore = float(config.get(cfg_section, "mingalaxyscore", fallback=0.0))
     originalmaxdeals = int(config.get(cfg_section, "originalmaxdeals"))
     allowmaxdealchange = config.getboolean(
         cfg_section, "allowmaxdealchange", fallback=False
+    )
+    allowbotstopstart = config.getboolean(
+        cfg_section, "allowbotstopstart", fallback=False
     )
 
     logger.info("Bot base currency: %s" % base)
@@ -134,10 +152,17 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     # Parse bot-assist data
     for pairdata in botassistdata:
         # Check if coin has minimum 24h volume as set in bot
-        if pairdata["volume"] < minvolume:
+        if pairdata["24h volume"] < minvolume:
             logger.debug(
                 "Pair '%s' does not have enough 24h BTC volume (%s), skipping"
-                % (pairdata["pair"], str(pairdata["volume"]))
+                % (pairdata["pair"], str(pairdata["24h volume"]))
+            )
+            continue
+
+        if "galaxy-score" in pairdata and float(pairdata["galaxy-score"]) < mingalaxyscore:
+            logger.debug(
+                "Pair '%s' with galaxyscore %s below minimal galaxyscore %s"
+                % (pairdata["pair"], pairdata["galaxy-score"], str(mingalaxyscore))
             )
             continue
 
@@ -153,13 +178,6 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
         remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
-
-    if not newpairs:
-        logger.info(
-            "None of the by 3c-tools bot-assist suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
@@ -177,8 +195,22 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
         ):
             newmaxdeals = originalmaxdeals
 
+        if allowbotstopstart:
+            if newmaxdeals == 0 and thebot["is_enabled"]:
+                # No pairs and bot is running (zero pairs not allowed), so stop it...
+                control_threecommas_bots(logger, api, thebot, "disable")
+            elif newmaxdeals > 0 and not thebot["is_enabled"]:
+                # Valid pairs and bot is not running, so start it...
+                control_threecommas_bots(logger, api, thebot, "enable")
+
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    else:
+        logger.info(
+            "None of the 3c-tools bot-assist suggested pairs have been found on the %s (%s) exchange!"
+            % (exchange, marketcode)
+        )
 
 
 # Start application
