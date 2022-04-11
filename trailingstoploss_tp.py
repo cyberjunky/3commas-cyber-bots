@@ -138,33 +138,24 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     bot_name = thebot["name"]
     deal_id = deal["id"]
 
-    payload = {
-        "deal_id": thebot["id"],
-        "stop_loss_percentage": new_stoploss,
-        "take_profit": new_take_profit,
-    }
-
-    # Check whether there is a timeout set for this config, when there is, set the timeout to this value.
-    # Otherwise, send the payload as it is.
-    if sl_timeout != 0:
-        payload["stop_loss_timeout_enabled"] = True
-        payload["stop_loss_timeout_in_seconds"] = sl_timeout
-    else:
-        payload["stop_loss_timeout_enabled"] = False
-        payload["stop_loss_timeout_in_seconds"] = 0
-
     error, data = api.request(
         entity="deals",
         action="update_deal",
         action_id=str(deal_id),
-        payload=payload,
+        payload={
+            "deal_id": thebot["id"],
+            "stop_loss_percentage": new_stoploss,
+            "take_profit": new_take_profit,
+            "stop_loss_timeout_enabled": sl_timeout > 0,
+            "stop_loss_timeout_in_seconds": sl_timeout
+        }
     )
     if data:
         logger.info(
             f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
             f"Changed TP from {deal['take_profit']}% to {new_take_profit}% "
-            f"Changed SL timeout from {deal['stop_loss_timeout_in_seconds']}% to  {sl_timeout}s."
+            f"Changed SL timeout from {deal['stop_loss_timeout_in_seconds']}s to {sl_timeout}s."
         )
     else:
         if error and "msg" in error:
@@ -211,11 +202,14 @@ def calculate_average_price_sl_percentage_long(sl_price, average_price):
     )
 
 def check_float(potential_float):
+    """Check if the passed argument is a valid float"""
+
     try:
         float(potential_float)
         return True
     except ValueError:
         return False
+
 
 def get_config_for_profit(section_config, current_profit):
     """Get the settings from the config corresponding to the current profit"""
@@ -254,35 +248,37 @@ def process_deals(thebot, section_config):
                 # Check whether the actual_profit_percentage can be obtained from the deal,
                 # If it can't, skip this deal.
 
-                if deal["actual_profit_percentage"] is "":
-                    logger.info("Dealid " + str(deal_id) + " with pair " + str(deal["pair"]) 
-                    + " not existent on exchange anymore. Please cancel deal manually on 3Commas")
-
+                if not check_float(deal["actual_profit_percentage"]):
+                    logger.info(
+                        f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} does no longer "
+                        f"exist on the exchange! Cancel or handle deal manually on 3Commas!",
+                        True # Make sure the user can see this message on Telegram
+                    )
                     continue
-                else:
-                    current_deals.append(deal_id)
-                    existing_deal = check_deal(cursor, deal_id)
 
-                    actual_profit_config = get_config_for_profit(
-                        section_config, float(deal["actual_profit_percentage"])
-                        )
+                current_deals.append(deal_id)
+                existing_deal = check_deal(cursor, deal_id)
 
-                    if not existing_deal and actual_profit_config:
+                actual_profit_config = get_config_for_profit(
+                    section_config, float(deal["actual_profit_percentage"])
+                    )
+
+                if not existing_deal and actual_profit_config:
+                    monitored_deals = +1
+
+                    handle_new_deal(thebot, deal, actual_profit_config)
+                elif existing_deal:
+                    deal_sl = deal["stop_loss_percentage"]
+                    current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
+                    if current_stoploss_percentage != 0.0:
                         monitored_deals = +1
 
-                        handle_new_deal(thebot, deal, actual_profit_config)
-                    elif existing_deal:
-                        deal_sl = deal["stop_loss_percentage"]
-                        current_stoploss_percentage = 0.0 if deal_sl is None else float(deal_sl)
-                        if current_stoploss_percentage != 0.0:
-                            monitored_deals = +1
-
-                            handle_update_deal(
-                                thebot, deal, existing_deal, actual_profit_config
-                            )
-                        else:
-                            # Existing deal, but stoploss is 0.0 which means it has been reset
-                            remove_active_deal(deal_id)
+                        handle_update_deal(
+                            thebot, deal, existing_deal, actual_profit_config
+                        )
+                    else:
+                        # Existing deal, but stoploss is 0.0 which means it has been reset
+                        remove_active_deal(deal_id)
             else:
                 logger.warning(
                     f"Unknown strategy {deal['strategy']} for deal {deal_id}"
@@ -441,7 +437,6 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
 
     actual_profit_percentage = float(deal["actual_profit_percentage"])
     last_profit_percentage = float(existing_deal["last_profit_percentage"])
-    new_sl_timeout = float(profit_config.get("sl-timeout"))
 
     if actual_profit_percentage > last_profit_percentage:
         sl_increment_factor = float(profit_config.get("sl-increment-factor"))
@@ -458,6 +453,8 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
 
             current_sl_percentage = float(deal["stop_loss_percentage"])
             if fabs(sl_data[2]) > 0.0 and sl_data[2] != current_sl_percentage:
+                new_sl_timeout = int(profit_config.get("sl-timeout"))
+
                 # Calculate understandable SL percentage (TP axis range) based on average price
                 new_average_price_sl_percentage = 0.0
 
@@ -485,22 +482,6 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     True
                 )
 
-                # Check whether there is an old timeout, and log when the new time out is higher than the old time out
-                current_sl_timeout = deal["stop_loss_timeout_in_seconds"]
-                if current_sl_timeout is not None:
-                    if new_sl_timeout > current_sl_timeout:
-                        logger.info(
-                            f"StopLoss timeout increased from {current_sl_timeout}s "
-                            f"to {new_sl_timeout}s",
-                            True
-                        )
-                    else:
-                        logger.info(
-                            f"StopLoss timeout decreased from {current_sl_timeout}s "
-                            f"to {new_sl_timeout}s",
-                            True
-                        )
-
                 # Calculate new TP percentage based on the increased profit and increment factor
                 current_tp_percentage = float(deal["take_profit"])
                 new_tp_percentage = round(
@@ -514,6 +495,15 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     logger.info(
                         f"TakeProfit increased from {current_tp_percentage}% "
                         f"to {new_tp_percentage}%",
+                        True
+                    )
+
+                # Check whether there is an old timeout, and log when the new time out is different
+                current_sl_timeout = deal["stop_loss_timeout_in_seconds"]
+                if current_sl_timeout is not None and current_sl_timeout != new_sl_timeout:
+                    logger.info(
+                        f"StopLoss timeout changed from {current_sl_timeout}s "
+                        f"to {new_sl_timeout}s",
                         True
                     )
 
