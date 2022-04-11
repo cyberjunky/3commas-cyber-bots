@@ -14,7 +14,6 @@ from helpers.logging import Logger, NotificationHandler
 from helpers.misc import check_deal, unix_timestamp_to_string, wait_time_interval
 from helpers.threecommas import init_threecommas_api
 
-
 def load_config():
     """Create default or load existing config file."""
 
@@ -211,6 +210,12 @@ def calculate_average_price_sl_percentage_long(sl_price, average_price):
         2
     )
 
+def check_float(potential_float):
+    try:
+        float(potential_float)
+        return True
+    except ValueError:
+        return False
 
 def get_config_for_profit(section_config, current_profit):
     """Get the settings from the config corresponding to the current profit"""
@@ -250,16 +255,17 @@ def process_deals(thebot, section_config):
                 # If it can't, skip this deal.
 
                 if deal["actual_profit_percentage"] is "":
+                    logger.info("Dealid " + str(deal_id) + " with pair " + str(deal["pair"]) 
+                    + " not existent on exchange anymore. Please cancel deal manually on 3Commas")
 
                     continue
                 else:
-
                     current_deals.append(deal_id)
-
                     existing_deal = check_deal(cursor, deal_id)
+
                     actual_profit_config = get_config_for_profit(
                         section_config, float(deal["actual_profit_percentage"])
-                    )
+                        )
 
                     if not existing_deal and actual_profit_config:
                         monitored_deals = +1
@@ -619,7 +625,7 @@ def add_deal_in_db(deal_id, bot_id, tp_percentage, readable_sl_percentage, reada
     """Add deal (short or long) to database."""
 
     db.execute(
-        f"INSERT INTO deals ("
+        f"INSERT or REPLACE INTO deals ("
         f"dealid, "
         f"botid, "
         f"last_profit_percentage, "
