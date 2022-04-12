@@ -118,9 +118,9 @@ async def handle_event(category, event):
             )
     else:
         if error and "msg" in error:
-            logger.error("Error occurred triggering bots: %s" % error["msg"])
+            logger.error("Error occurred fetching bot (%s) data: %s" % (str(botid), error["msg"]))
         else:
-            logger.error("Error occurred triggering bots")
+            logger.error("Error occurred fetching bot (%s) data" % str(botid))
 
     notification.send_notification()
 
@@ -150,21 +150,22 @@ def watchlist_deal(thebot, coin, trade):
         # Check if pair is on 3Commas blacklist
         if pair in blacklist:
             logger.debug(
-                "Pair '%s' is on your 3Commas blacklist and was skipped" % pair, True
+                f"Pair '{pair}' is on your 3Commas blacklist and was skipped",
+                True
             )
             return
 
         # Check if pair is in bot's pairlist
         if pair not in thebot["pairs"]:
             logger.info(
-                "Pair '%s' is not in bot's pairlist and was skipped" % pair,
-                True,
+                f"Pair '{pair}' is not in '{thebot['name']}' pairlist and was skipped",
+                True
             )
             return
 
         # We have valid pair for our bot so we trigger an open asap action
         logger.info("Triggering your 3Commas bot for a start deal of '%s'" % pair)
-        trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) == 0))
+        trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) > 0))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
         deals = thebot["active_deals"]
