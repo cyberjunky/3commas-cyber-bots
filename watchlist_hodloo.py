@@ -194,7 +194,7 @@ def prefetch_marketcodes():
         for base in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
             botid = get_botid(category, base)
 
-            if botid not in ("0") and botid not in botids:
+            if botid > 0 and botid not in botids:
                 botids.append(botid)
 
     logger.debug(
@@ -227,7 +227,13 @@ def prefetch_marketcodes():
 def get_botid(category, base):
     """Get botid from configuration based on category and base"""
 
-    return config.get(f"hodloo_{category}", f"{base.lower()}-botid")
+    botid = config.get(f"hodloo_{category}", f"{base.lower()}-botid")
+    if botid:
+        botid = int(botid)
+    else:
+        botid = 0
+
+    return botid
 
 
 # Start application
