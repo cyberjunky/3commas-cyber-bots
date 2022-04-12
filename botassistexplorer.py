@@ -205,11 +205,11 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # Update the bot with the new pairs
     if newpairs:
-        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, True, False)
     else:
         logger.info(
-            "None of the 3c-tools bot-assist suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
+            f"None of the 3c-tools bot-assist suggested pairs have been found on "
+            f"the {exchange} ({marketcode}) exchange!"
         )
 
 
@@ -333,5 +333,5 @@ while True:
             else:
                 logger.error("Error occurred during fetch of botassist data")
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
