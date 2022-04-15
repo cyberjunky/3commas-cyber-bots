@@ -203,23 +203,26 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     # change back to original if possible
     if allowmaxdealchange:
         if len(newpairs) < thebot["max_active_deals"]:
+            # Lower number of pairs; limit max active deals
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
             and len(newpairs) < originalmaxdeals
         ):
+            # Higher number of pairs below original; limit max active deals
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
             and thebot["max_active_deals"] != originalmaxdeals
         ):
+            # Increased number of pairs above original; set original max active deals
             newmaxdeals = originalmaxdeals
 
         if allowbotstopstart:
-            if newmaxdeals == 0 and thebot["is_enabled"]:
+            if len(newpairs) == 0 and thebot["is_enabled"]:
                 # No pairs and bot is running (zero pairs not allowed), so stop it...
                 control_threecommas_bots(logger, api, thebot, "disable")
-            elif newmaxdeals > 0 and not thebot["is_enabled"]:
+            elif len(newpairs) > 0 and not thebot["is_enabled"]:
                 # Valid pairs and bot is not running, so start it...
                 control_threecommas_bots(logger, api, thebot, "enable")
 
