@@ -230,7 +230,7 @@ def lunarcrush_pairs(cfg, thebot):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
@@ -249,10 +249,10 @@ def lunarcrush_pairs(cfg, thebot):
             newmaxdeals = originalmaxdeals
 
         if allowbotstopstart:
-            if newmaxdeals == 0 and thebot["is_enabled"]:
+            if len(newpairs) == 0 and thebot["is_enabled"]:
                 # No pairs and bot is running (zero pairs not allowed), so stop it...
                 control_threecommas_bots(logger, api, thebot, "disable")
-            elif newmaxdeals > 0 and not thebot["is_enabled"]:
+            elif len(newpairs) > 0 and not thebot["is_enabled"]:
                 # Valid pairs and bot is not running, so start it...
                 control_threecommas_bots(logger, api, thebot, "enable")
 
@@ -261,8 +261,8 @@ def lunarcrush_pairs(cfg, thebot):
         set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
     else:
         logger.info(
-            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
-            % (exchange, marketcode)
+            f"None of the 3c-tools bot-assist suggested pairs have been found on "
+            f"the {exchange} ({marketcode}) exchange!"
         )
 
 # Start application
