@@ -344,6 +344,7 @@ This is the layout of the config file used by the `botassistexplorer.py` bot hel
 -   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
 -   **end-number** - end number for the pairs to request. (default is 200)
 -   **mingalaxyscore** - minimum galaxyscore of the coin. (default is 0.0)
+-   **maxaltrankscore** - maximum altrankscore of the coin. (default is 1500)
 -   **originalmaxdeals** - the max number of active deals you want to have in your bot.
 -   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
 -   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
@@ -367,6 +368,7 @@ botids = [ 123456 ]
 start-number = 1
 end-number = 200
 mingalaxyscore = 0.0
+maxaltrankscore = 1500
 originalmaxdeals = 8
 allowmaxdealchange = True
 allowbotstopstart = True
