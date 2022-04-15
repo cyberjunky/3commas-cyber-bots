@@ -300,7 +300,7 @@ def process_deals(thebot, section_profit_config, section_safety_config):
                     deal_db_data = add_deal_in_db(deal_id, botid)
 
                 if float(deal["actual_profit_percentage"]) >= 0.0:
-                    # Deal is in profit, so TSL mode which requires the profit-config
+                    # Deal is in positive profit, so TSL mode which requires the profit-config
                     actual_profit_config = get_config_for_profit(
                             section_profit_config, float(deal["actual_profit_percentage"])
                         )
@@ -310,7 +310,7 @@ def process_deals(thebot, section_profit_config, section_safety_config):
                                 thebot, deal, deal_db_data, actual_profit_config
                             )
                 else:
-                    # Deal is not in profit, so SO mode. SO mode requires the total % drop
+                    # Deal is negative profit, so SO mode. SO mode requires the total % drop
                     totalnegativeprofit = ((float(deal["current_price"]) / float(deal["base_order_average_price"])) * 100.0) - 100.0
 
                     actual_safety_config = get_config_for_safety(
