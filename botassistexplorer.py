@@ -48,6 +48,7 @@ def load_config():
         "end-number": 200,
         "originalmaxdeals": 15,
         "mingalaxyscore": 0.0,
+        "maxaltrankscore": 1500,
         "allowmaxdealchange": False,
         "allowbotstopstart": False,
         "list": "binance_spot_usdt_winner_60m",
@@ -95,14 +96,25 @@ def upgrade_config(thelogger, theapi, cfg):
                 thelogger.info("Upgraded the configuration file (added deal changing)")
 
     for cfgsection in cfg.sections():
-        if cfgsection.startswith("botassist_") and not cfg.has_option(cfgsection, "mingalaxyscore"):
-            cfg.set(cfgsection, "mingalaxyscore", "0.0")
-            cfg.set(cfgsection, "allowbotstopstart", "False")
+        if cfgsection.startswith("botassist_"):
+            if not cfg.has_option(cfgsection, "mingalaxyscore"):
+                cfg.set(cfgsection, "mingalaxyscore", "0.0")
+                cfg.set(cfgsection, "allowbotstopstart", "False")
 
-            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-                cfg.write(cfgfile)
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
 
-            thelogger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
+                thelogger.info(
+                    "Upgraded the configuration file (mingalaxyscore and bot stop-start)"
+                )
+
+            if not cfg.has_option(cfgsection, "maxaltrankscore"):
+                cfg.set(cfgsection, "maxaltrankscore", "1500")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (maxaltrankscore)")
 
     return cfg
 
@@ -123,6 +135,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # Get deal settings for this bot
     mingalaxyscore = float(config.get(cfg_section, "mingalaxyscore", fallback=0.0))
+    maxaltrankscore = int(config.get(cfg_section, "maxaltrankscore", fallback=1500))
     originalmaxdeals = int(config.get(cfg_section, "originalmaxdeals"))
     allowmaxdealchange = config.getboolean(
         cfg_section, "allowmaxdealchange", fallback=False
@@ -131,9 +144,9 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
         cfg_section, "allowbotstopstart", fallback=False
     )
 
-    logger.info("Bot base currency: %s" % base)
-    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
-    logger.debug("Bot allowmaxdealchange setting: %s" % allowmaxdealchange)
+    logger.info(f"'{thebot['name']}' base currency: {base}")
+    logger.debug(f"'{thebot['name']}' minimal 24h BTC volume: {minvolume}")
+    logger.debug(f"'{thebot['name']}' allowmaxdealchange setting: {allowmaxdealchange}")
 
     # Start from scratch
     newpairs = list()
@@ -147,7 +160,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # Load tickerlist for this exchange
     tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    logger.info(f"'{thebot['name']}' exchange: {exchange} ({marketcode})")
 
     # Parse bot-assist data
     for pairdata in botassistdata:
@@ -166,6 +179,13 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
             )
             continue
 
+        if "alt-rank" in pairdata and int(pairdata["alt-rank"]) > maxaltrankscore:
+            logger.debug(
+                "Pair '%s' with alt-rank %s above maximum altrankscore %s"
+                % (pairdata["pair"], pairdata["alt-rank"], str(maxaltrankscore))
+            )
+            continue
+
         # Populate lists
         populate_pair_lists(pairdata["pair"], blacklist, blackpairs, badpairs, newpairs, tickerlist)
 
@@ -177,7 +197,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
