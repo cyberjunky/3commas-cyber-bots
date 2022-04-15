@@ -131,9 +131,9 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
         cfg_section, "allowbotstopstart", fallback=False
     )
 
-    logger.info("Bot base currency: %s" % base)
-    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
-    logger.debug("Bot allowmaxdealchange setting: %s" % allowmaxdealchange)
+    logger.info(f"'{thebot['name']}' base currency: {base}")
+    logger.debug(f"'{thebot['name']}' minimal 24h BTC volume: {minvolume}")
+    logger.debug(f"'{thebot['name']}' allowmaxdealchange setting: {allowmaxdealchange}")
 
     # Start from scratch
     newpairs = list()
@@ -147,7 +147,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # Load tickerlist for this exchange
     tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    logger.info(f"'{thebot['name']}' exchange: {exchange} ({marketcode})")
 
     # Parse bot-assist data
     for pairdata in botassistdata:
@@ -177,7 +177,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
@@ -208,8 +208,8 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
         set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
     else:
         logger.info(
-            "None of the 3c-tools bot-assist suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
+            f"None of the 3c-tools bot-assist suggested pairs have been found "
+            f"on the {exchange} ({marketcode}) exchange!"
         )
 
 
