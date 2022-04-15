@@ -192,6 +192,32 @@ def update_deal_add_safety_funds(thebot, deal, quantity, limit_price):
             f"Add {quantity} at limit price {limit_price}."
             f"Received response data: {data}"
         )
+
+        get_deal_open_safety_orders(deal)
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred adding funds for safety to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred adding funds for safety to deal")
+
+
+def get_deal_open_safety_orders(deal):
+    """Get the current open safety orders for the given deal."""
+
+    deal_id = deal["id"]
+
+    error, data = api.request(
+        entity="deals",
+        action="market_orders",
+        action_id=str(deal_id)
+    )
+    if data:
+        logger.info(
+            f"Open Safety Orders for deal {deal['pair']} ({deal_id}): "
+            f"Received response data: {data}"
+        )
     else:
         if error and "msg" in error:
             logger.error(
@@ -708,7 +734,21 @@ def handle_deal_safety(thebot, thedeal, deal_db_data, safety_config, total_negat
 
         if sodata[0] > 0:
             logger.info("Adding safety funds for deal...")
-            update_deal_add_safety_funds(thebot, thedeal, sodata[1], sodata[2])
+
+            so_price = sodata[2]
+            if so_price > float(thedeal["current_price"]):
+                logger.info(
+                    f"Current price {thedeal['current_price']} lower than so price {so_price}"
+                )
+                so_price = float(thedeal["current_price"])
+            
+            quantity = sodata[1] / so_price
+
+            logger.info(
+                f"Quantity based on volume {sodata[1]} and price {so_price}; {quantity} "
+            )
+
+            update_deal_add_safety_funds(thebot, thedeal, quantity, so_price)
 
             newtotalso = deal_db_data["filled_so_count"] + sodata[0]
             logger.info(f"Updating deal {thedeal['id']} SO to {newtotalso} and next SO on {sodata[3]}%")
