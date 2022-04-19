@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+import json
 import os
 import sys
 import time
@@ -41,21 +42,21 @@ def load_config():
     }
 
     cfg["hodloo_5"] = {
-        "bnb-botid": 12345,
-        "btc-botid": 12345,
-        "busd-botid": 12345,
-        "eth-botid": 12345,
-        "eur-botid": 12345,
-        "usdt-botid": 12345,
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
     }
 
     cfg["hodloo_10"] = {
-        "bnb-botid": 12345,
-        "btc-botid": 12345,
-        "busd-botid": 12345,
-        "eth-botid": 12345,
-        "eur-botid": 12345,
-        "usdt-botid": 12345,
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -85,42 +86,47 @@ async def handle_event(category, event):
 
     if base.lower() not in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
         logger.debug(
-            f"Base {base} is not supported yet! Skipping."
+            f"{base}_{coin}: base '{base}' is not yet supported."
         )
         return
 
-    botid = get_botid(category, base)
-    if botid == 0:
+    botids = get_botids(category, base)
+
+    if len(botids) == 0:
         logger.debug(
-            f"No valid bot configured for {base}. Skipping."
+            f"{base}_{coin}: no valid botids configured for base '{base}'."
         )
         return
 
-    logger.debug(f"Configured botid for {base} is {botid}")
-
-    # Get bot data and process the deal
-    error, data = api.request(
-        entity="bots",
-        action="show",
-        action_id=str(botid),
-    )
-    if data:
-        # Check number of deals, otherwise error will occur anyway (save some processing)
-        if data["active_deals_count"] >= data["max_active_deals"]:
-            logger.info(
-                f"Bot '{data['name']}' on max number of deals ({data['max_active_deals']}). "
-                f"Cannot start a new one for {base}_{coin}!",
-                True
+    for botid in botids:
+        if botid:
+            error, data = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(botid),
             )
-        else:
-            await client.loop.run_in_executor(
-                None, watchlist_deal, data, coin, "LONG"
-            )
-    else:
-        if error and "msg" in error:
-            logger.error("Error occurred fetching bot (%s) data: %s" % (str(botid), error["msg"]))
-        else:
-            logger.error("Error occurred fetching bot (%s) data" % str(botid))
+            if data:
+                # Check number of deals, otherwise error will occur anyway (save some processing)
+                if data["active_deals_count"] >= data["max_active_deals"]:
+                    logger.info(
+                        f"Bot '{data['name']}' reached maximum number of "
+                        f"deals ({data['max_active_deals']}). "
+                        f"Cannot start a new deal for {base}_{coin}!",
+                        True
+                    )
+                else:
+                    await client.loop.run_in_executor(
+                        None, watchlist_deal, data, coin, "LONG"
+                    )
+            else:
+                if error and "msg" in error:
+                    logger.error(
+                        "Error occurred fetching bot (%s) data: %s" % (str(botid), error["msg"])
+                    )
+                else:
+                    logger.error(
+                        "Error occurred fetching bot (%s) data" % str(botid)
+                    )
 
     notification.send_notification()
 
@@ -192,10 +198,7 @@ def prefetch_marketcodes():
 
     for category in ("5", "10"):
         for base in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
-            botid = get_botid(category, base)
-
-            if botid > 0 and botid not in botids:
-                botids.append(botid)
+            botids += get_botids(category, base)
 
     logger.debug(
         f"Botids collected: {botids}"
@@ -224,16 +227,10 @@ def prefetch_marketcodes():
     return marketcodearray
 
 
-def get_botid(category, base):
-    """Get botid from configuration based on category and base"""
+def get_botids(category, base):
+    """Get list of botids from configuration based on category and base"""
 
-    botid = config.get(f"hodloo_{category}", f"{base.lower()}-botid")
-    if botid:
-        botid = int(botid)
-    else:
-        botid = 0
-
-    return botid
+    return json.loads(config.get(f"hodloo_{category}", f"{base.lower()}-botids"))
 
 
 # Start application
