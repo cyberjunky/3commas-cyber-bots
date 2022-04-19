@@ -29,37 +29,26 @@ def load_config():
         "timeinterval": 3600,
         "debug": False,
         "logrotate": 7,
-        "botids": [12345, 67890],
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1", "notify-url2"],
     }
 
+    cfg["gridbots_redbag_example"] = {
+        "botids": [12345, 67890],
+        "mode": "redbag",
+    }
+
+    cfg["gridbots_trade_example"] = {
+        "botids": [12345, 67890],
+        "mode": "trade",
+    }
+
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
-
-
-def get_threecommas_pairprice(pair):
-    """Get current value of pair."""
-
-    error, data = api.request(
-        entity="accounts",
-        action="currency_rates",
-        payload={"market_code": "binance", "pair": pair},
-    )
-    if data:
-        logger.info("Fetched 3Commas price for pair %s %s OK" % (pair, data["last"]))
-        price = data["last"]
-    else:
-        logger.error(
-            "Fetching 3Commas price for pair '%s' failed with error: %s"
-            % (pair, error["msg"])
-        )
-
-    return price
 
 
 def strtofloat(txtstr):
@@ -141,6 +130,44 @@ def update_gridbot(gridbot, upperprice, lowerprice):
     return error["msg"]
 
 
+def update_gridbot_activelines(gridbot, maxactivebuylines, maxactiveselllines):
+    """Update gridbot with new active line settings."""
+
+    botname = gridbot["name"]
+    pair = gridbot["pair"]
+
+    error, data = api.request(
+        entity="grid_bots",
+        action="manual_update",
+        action_id=str(gridbot["id"]),
+        payload={
+            "bot_id": gridbot["id"],
+            "name": gridbot["name"],
+            "account_id": gridbot["account_id"],
+            "pair": gridbot["pair"],
+            "upper_price": gridbot["upper_price"],
+            "lower_price": gridbot["lower_price"],
+            'max_active_buy_lines': maxactivebuylines,
+            'max_active_sell_lines': maxactiveselllines,
+            "quantity_per_grid": gridbot["quantity_per_grid"],
+            "grids_quantity": gridbot["grids_quantity"],
+        },
+    )
+    if data:
+        logger.info(
+            f"Set active lines of gridbot '{botname}' to"
+            f" buy: {maxactivebuylines} and sell: {maxactiveselllines}",
+            True,
+        )
+        return None
+
+    logger.error(
+        f"Error occurred updating gridbot '{botname}' with new active lines"
+        f" buy: {maxactivebuylines} and sell: {maxactiveselllines}: %s" % error["msg"]
+    )
+    return error["msg"]
+
+
 def manage_gridbot(thebot):
     """Move grid to match pricing."""
     botname = thebot["name"]
@@ -152,6 +179,7 @@ def manage_gridbot(thebot):
     quantitypergrid = thebot["quantity_per_grid"]
     gridsquantity = thebot["grids_quantity"]
     strategytype = thebot["strategy_type"]
+    currentprice = thebot["current_price"]
 
     logger.info("Current settings for '%s':" % botname)
     logger.info("Pair: %s" % pair)
@@ -160,9 +188,7 @@ def manage_gridbot(thebot):
     logger.info("Quantity per grid: %s" % quantitypergrid)
     logger.info("Grid quantity: %s" % gridsquantity)
     logger.info("Strategy type: %s" % strategytype)
-
-    price = get_threecommas_pairprice(pair)
-    logger.info("Current price for %s is %s" % (pair, price))
+    logger.info("Current price for %s is %s" % (pair, currentprice))
 
     gridinfo = get_gridbots_data(pair)
 
@@ -174,6 +200,12 @@ def manage_gridbot(thebot):
     newlowerprice = gridinfo["lower"]
     # newtokensgrid = gridinfo["tokensgrid"]
     # newnumgrid = gridinfo["numgrid"]
+
+    # Test updating active lines for @IamtheOnewhoKnocks:
+    # maxactivebuylines = 3
+    # maxactiveselllines = 3
+
+    # update_gridbot_activelines(thebot, maxactivebuylines, maxactiveselllines)
 
     if float(upperprice) == float(newupperprice):
         logger.info(
@@ -188,6 +220,7 @@ def manage_gridbot(thebot):
         f"Upper: {upperprice} -> {newupperprice} Lower: {lowerprice} -> {newlowerprice}",
         True,
     )
+    return
 
     # Update the bot with new limits
     result = update_gridbot(thebot, newupperprice, newlowerprice)
