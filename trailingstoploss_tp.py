@@ -169,6 +169,30 @@ def update_deal_profit(thebot, deal, new_stoploss, new_take_profit):
             logger.error("Error occurred updating deal with new SL/TP valuess")
 
 
+def get_data_for_add_funds(deal):
+    """Get data for correctly adding funds."""
+
+    deal_id = deal["id"]
+
+    error, data = api.request(
+        entity="deals",
+        action="data_for_adding_funds",
+        action_id=str(deal_id)
+    )
+    if data:
+        logger.info(
+            f"Data for adding funds to deal {deal['pair']} ({deal_id}): "
+            f"Received response data: {data}"
+        )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred retrieving data for adding funds to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred retrieving data for adding funds to deal")
+
+
 def update_deal_add_safety_funds(thebot, deal, quantity, limit_price):
     """Update bot with new Safety Order configuration."""
 
@@ -748,12 +772,14 @@ def handle_deal_safety(thebot, thedeal, deal_db_data, safety_config, total_negat
                 f"Quantity based on volume {sodata[1]} and price {so_price}; {quantity} "
             )
 
+            get_data_for_add_funds(thedeal)
+
             update_deal_add_safety_funds(thebot, thedeal, quantity, so_price)
 
             newtotalso = deal_db_data["filled_so_count"] + sodata[0]
             logger.info(f"Updating deal {thedeal['id']} SO to {newtotalso} and next SO on {sodata[3]}%")
             update_safetyorder_in_db(thedeal["id"], newtotalso, sodata[3])
-        elif deal_db_data["next_so_percentage"] == 0.0:
+        elif deal_db_data["next_so_percentage"] == 0.0 or sodata[3] > deal_db_data["next_so_percentage"]:
             logger.info(f"Updating next so percentage to {sodata[3]}%")
             update_safetyorder_in_db(thedeal["id"], deal_db_data["filled_so_count"], sodata[3])
         else:
@@ -812,7 +838,7 @@ def calculate_safety_order(thebot, deal_data, deal_db_data, total_negative_profi
 
             sovolume = nextsovolume
             totalvolume = nextsototalvolume
-            sopercentagedropfrombaseprice = nextsopercentagetotaldrop
+            sopercentagedropfrombaseprice = nextsopercentagedropfrombaseprice
             percentagetotaldrop = nextsopercentagetotaldrop
             sobuyprice = nextsobuyprice
 
@@ -875,8 +901,9 @@ def open_tsl_db():
             "last_profit_percentage FLOAT, "
             "last_readable_sl_percentage FLOAT, "
             "last_readable_tp_percentage FLOAT, "
-            "filled_so_count INT. "
-            "next_so_percentage FLOAT"
+            "filled_so_count INT, "
+            "next_so_percentage FLOAT, "
+            "manual_safety_order_id INT"
             ")"
         )
 
@@ -919,6 +946,7 @@ def upgrade_trailingstoploss_tp_db():
 
     # Changes required for handling Safety Orders
     try:
+        cursor.execute("ALTER TABLE deals ADD COLUMN manual_safety_order_id INT DEFAULT 0")
         cursor.execute("ALTER TABLE deals ADD COLUMN next_so_percentage FLOAT DEFAULT 0.0")
         cursor.execute("ALTER TABLE deals ADD COLUMN filled_so_count INT DEFAULT 0")
 
