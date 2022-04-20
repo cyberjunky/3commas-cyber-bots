@@ -98,26 +98,34 @@ async def handle_event(category, event):
         )
         return
 
-    for botid in botids:
+    await client.loop.run_in_executor(
+        None, process_botlist, botids, coin
+    )
+
+    notification.send_notification()
+
+def process_botlist(botidlist, coin):
+    """Process the list of bots for the given coin"""
+
+    for botid in botidlist:
         if botid:
             error, data = api.request(
                 entity="bots",
                 action="show",
                 action_id=str(botid),
             )
+
             if data:
                 # Check number of deals, otherwise error will occur anyway (save some processing)
                 if data["active_deals_count"] >= data["max_active_deals"]:
                     logger.info(
                         f"Bot '{data['name']}' reached maximum number of "
                         f"deals ({data['max_active_deals']}). "
-                        f"Cannot start a new deal for {base}_{coin}!",
+                        f"Cannot start a new deal for {coin}!",
                         True
                     )
                 else:
-                    await client.loop.run_in_executor(
-                        None, watchlist_deal, data, coin, "LONG"
-                    )
+                    process_bot_deal(data, coin, "LONG")
             else:
                 if error and "msg" in error:
                     logger.error(
@@ -128,10 +136,8 @@ async def handle_event(category, event):
                         "Error occurred fetching bot (%s) data" % str(botid)
                     )
 
-    notification.send_notification()
 
-
-def watchlist_deal(thebot, coin, trade):
+def process_bot_deal(thebot, coin, trade):
     """Check pair and trigger the bot deal."""
 
     # Gather some bot values
