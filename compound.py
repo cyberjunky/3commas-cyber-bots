@@ -85,7 +85,7 @@ def upgrade_config(thelogger, theapi, cfg):
                         "profittocompound": default_profit_percentage,
                         "usermaxactivedeals": int(data["max_active_deals"]) + 5,
                         "usermaxsafetyorders": int(data["max_safety_orders"]) + 5,
-                        "comment": data["name"].replace('%','%%'),
+                        "comment": data["name"].replace("%", "%%"),
                     }
                 else:
                     if error and "msg" in error:
@@ -118,7 +118,12 @@ def get_logged_profit_for_bot(bot_id):
 
 
 def update_bot_order_volumes(
-    thebot, new_base_order_volume, new_safety_order_volume, profit_sum, deals_count
+    thebot,
+    new_base_order_volume,
+    new_safety_order_volume,
+    profit_sum,
+    deals_count,
+    max_safety_orders,
 ):
     """Update bot with new order volumes."""
 
@@ -130,10 +135,11 @@ def update_bot_order_volumes(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, new_base_order_volume)
     )
-    logger.info(
-        "Calculated SO volume changed from: %s to %s"
-        % (safety_order_volume, new_safety_order_volume)
-    )
+    if max_safety_orders >= 1:
+        logger.info(
+            "Calculated SO volume changed from: %s to %s"
+            % (safety_order_volume, new_safety_order_volume)
+        )
 
     error, data = api.request(
         entity="bots",
@@ -161,13 +167,21 @@ def update_bot_order_volumes(
     if data:
         rounddigits = get_round_digits(thebot["pairs"][0])
 
-        logger.info(
-            f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
-            f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
-            f"₿{round(new_base_order_volume, rounddigits)}\nChanged SO from "
-            f"₿{round(safety_order_volume, rounddigits)} to ₿{round(new_safety_order_volume, rounddigits)}",
-            True,
-        )
+        if max_safety_orders >= 1:
+            logger.info(
+                f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
+                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
+                f"₿{round(new_base_order_volume, rounddigits)}\nChanged SO from "
+                f"₿{round(safety_order_volume, rounddigits)} to ₿{round(new_safety_order_volume, rounddigits)}",
+                True,
+            )
+        else:
+            logger.info(
+                f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
+                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
+                f"₿{round(new_base_order_volume, rounddigits)}",
+                True,
+            )
     else:
         if error and "msg" in error:
             logger.error(
@@ -541,6 +555,14 @@ def compound_bot(cfg, thebot):
             martingale_volume_coefficient = float(
                 thebot["martingale_volume_coefficient"]
             )
+            leverage_type = thebot["leverage_type"]
+
+            if leverage_type == "not_specified":
+                leverage_custom_value = (
+                    1  # leverage customer value of 1 means no leverage
+                )
+            else:
+                leverage_custom_value = float(thebot["leverage_custom_value"])
 
             funds_so_needed = safety_order_volume
             total_so_funds = safety_order_volume
@@ -552,12 +574,17 @@ def compound_bot(cfg, thebot):
                     funds_so_needed *= float(martingale_volume_coefficient)
                     total_so_funds += funds_so_needed
 
-            logger.info("Current bot settings :")
-            logger.info("Base order volume    : %s" % base_order_volume)
-            logger.info("Safety order volume  : %s" % safety_order_volume)
-            logger.info("Max active deals     : %s" % max_active_deals)
-            logger.info("Max safety orders    : %s" % max_safety_orders)
-            logger.info("SO volume scale      : %s" % martingale_volume_coefficient)
+            logger.info("Current bot settings  :")
+            logger.info("Base order volume     : %s" % base_order_volume)
+            logger.info("Safety order volume   : %s" % safety_order_volume)
+            logger.info("Max active deals      : %s" % max_active_deals)
+            logger.info("Max safety orders     : %s" % max_safety_orders)
+            logger.info("SO volume scale       : %s" % martingale_volume_coefficient)
+            if leverage_type == "not_specified":
+                logger.info("Leverage type         : %s" % leverage_type)
+            else:
+                logger.info("Leverage type         : %s" % leverage_type)
+                logger.info("Leverage custom value : %s" % leverage_custom_value)
 
             # Calculate the BO/SO ratio
             bo_percentage = (
@@ -571,14 +598,20 @@ def compound_bot(cfg, thebot):
                 / (float(total_so_funds) + float(base_order_volume))
             )
             logger.info("BO percentage: %s" % bo_percentage)
-            logger.info("SO percentage: %s" % so_percentage)
+            if max_safety_orders >= 1:
+                logger.info("SO percentage: %s" % so_percentage)
 
             # Calculate compound values
-            bo_profit = ((profit_sum * bo_percentage) / 100) / max_active_deals
-            so_profit = bo_profit * (safety_order_volume / base_order_volume)
-
+            bo_profit = (
+                ((profit_sum * bo_percentage) / 100) / max_active_deals
+            ) * leverage_custom_value
             logger.info("BO compound value: %s" % bo_profit)
-            logger.info("SO compound value: %s" % so_profit)
+
+            if max_safety_orders >= 1:
+                so_profit = bo_profit * (safety_order_volume / base_order_volume)
+                logger.info("SO compound value: %s" % so_profit)
+            else:
+                so_profit = 0
 
             # Update the bot
             update_bot_order_volumes(
@@ -587,6 +620,7 @@ def compound_bot(cfg, thebot):
                 (safety_order_volume + so_profit),
                 profit_sum,
                 deals_count,
+                max_safety_orders,
             )
         else:
             logger.info(
