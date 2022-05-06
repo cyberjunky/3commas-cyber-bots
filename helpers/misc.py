@@ -89,7 +89,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtcprice)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   vt:{crush['vt']:8f}   "
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
                     f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
