@@ -220,6 +220,7 @@ logrotate = 7
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 lc-apikey = z2cwr88jkyclno8ryj0f
+numberofpairs = 20
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 
