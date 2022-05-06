@@ -672,8 +672,8 @@ Example: (keys are bogus)
 timezone = Europe/Amsterdam
 debug = False
 logrotate = 14
-usdt-botid = 123456
-btc-botid = 789012
+usdt-botids = [123456,129011]
+btc-botids = [789012]
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 tgram-phone-number = +316512345678
