@@ -39,6 +39,8 @@ def load_config():
         "tgram-api-hash": "Your Telegram API Hash",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "exchange": "Bittrex / Binance / Kucoin",
+        "mode": "Telegram"
     }
 
     cfg["hodloo_5"] = {
@@ -104,6 +106,7 @@ async def handle_event(category, event):
 
     notification.send_notification()
 
+
 def process_botlist(botidlist, coin):
     """Process the list of bots for the given coin"""
 
@@ -142,7 +145,7 @@ def process_bot_deal(thebot, coin, trade):
 
     # Gather some bot values
     base = thebot["pairs"][0].split("_")[0]
-    exchange = thebot["account_name"]
+    bot_exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
 
     logger.debug("Base coin for this bot: %s" % base)
@@ -153,7 +156,7 @@ def process_bot_deal(thebot, coin, trade):
     if not marketcode:
         return
     logger.info("Bot: %s" % thebot["name"])
-    logger.info("Exchange %s (%s) used" % (exchange, marketcode))
+    logger.info("Exchange %s (%s) used" % (bot_exchange, marketcode))
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
@@ -292,6 +295,22 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+# Which Exchange to use?
+exchange = config.get("settings", "exchange")
+if exchange not in ("Bittrex", "Binance", "Kucoin"):
+    logger.error(
+        f"Exchange {exchange} not supported. Must be 'Bittrex', 'Binance' or 'Kucoin'!"
+    )
+    sys.exit(0)
+
+# Which Mode to use?
+mode = config.get("settings", "mode")
+if mode not in ("Telegram", "Websocket"):
+    logger.error(
+        f"Mode {mode} not supported. Must be 'Telegram' or 'Websocket'!"
+    )
+    sys.exit(0)
+
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
@@ -301,37 +320,36 @@ marketcodes = prefetch_marketcodes()
 # Prefect blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)
 
-# Watchlist telegram trigger
-client = TelegramClient(
-    f"{datadir}/{program}",
-    config.get("settings", "tgram-api-id"),
-    config.get("settings", "tgram-api-hash"),
-).start(config.get("settings", "tgram-phone-number"))
+if mode == "Telegram":
+    # Watchlist telegram trigger
+    client = TelegramClient(
+        f"{datadir}/{program}",
+        config.get("settings", "tgram-api-id"),
+        config.get("settings", "tgram-api-hash"),
+    ).start(config.get("settings", "tgram-phone-number"))
 
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 5%"))
+    async def callback_5(event):
+        """Receive Telegram message."""
 
-@client.on(events.NewMessage(chats="Hodloo Binance 5%"))
-async def callback_5(event):
-    """Receive Telegram message."""
+        await handle_event("5", event)
 
-    await handle_event("5", event)
+        notification.send_notification()
 
-    notification.send_notification()
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 10%"))
+    async def callback_10(event):
+        """Receive Telegram message."""
 
+        await handle_event("10", event)
 
-@client.on(events.NewMessage(chats="Hodloo Binance 10%"))
-async def callback_10(event):
-    """Receive Telegram message."""
+        notification.send_notification()
 
-    await handle_event("10", event)
-
-    notification.send_notification()
-
-
-# Start telegram client
-client.start()
-logger.info(
-    "Listening to telegram chat '%s' and '%s' for triggers"
-    % ("Hodloo Binance 5%", "Hodloo Binance 10%"),
-    True,
-)
-client.run_until_disconnected()
+    # Start telegram client
+    client.start()
+    logger.info(
+        f"Listening to telegram chat 'Hodloo {exchange} 5%' and "
+        f"'Hodloo {exchange} 10%' for triggers",
+        True,
+    )
+    client.run_until_disconnected()
+# No else case, mode is already checked before this statement

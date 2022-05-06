@@ -786,10 +786,13 @@ It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/
 
 ### How does it work?
 
-Parse incoming Telegram messages and validate the message. The base of the pair is used to find a matching botid in the configuration, and if that bot has not yet reached
+Receive incoming Telegram messages and validate the message. The base of the pair is used to find a matching botid in the configuration, and if that bot has not yet reached
 the maximum number of active deals a new deal is opened. The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
 
-The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger.
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger. 
+When you don't want to trade on a certain market, for example EUR, leave the eur-botids list empty (don't remove the entire entry) and this script will ignore those triggers.
+
+Author of this script is [amargedon](https://github.com/amargedon). Based on work from [NobbisCrypto](https://github.com/NobbisCrypto).
 
 ### Configuration
 
@@ -806,6 +809,8 @@ The `watchlist` bot helper config file uses this layout:
 -   **tgram-channel** - name of the chat channel to monitor.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   **exchange** - exchange channel to monitor on Telegram (Bittrex, Binance or Kucoin). (default = Binance)
+-   **mode** - mode for this script, which is currently only 'Telegram'.
 
 -   *[hodloo_5]*
 -   **bnb-botids** - list of zero or more botids for deals with BNB as base.
@@ -838,6 +843,8 @@ tgram-api-hash = o6la4h1158ylt4mzhnpio6la
 tgram-channel = mytriggerchannel
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+exchange = Binance
+mode = Telegram
 
 [hodloo_5]
 bnb-botids = [12345, 67890]
