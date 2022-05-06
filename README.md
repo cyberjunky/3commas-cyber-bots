@@ -70,15 +70,18 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
    * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy-)
       * [What does it do?](#what-does-it-do-8)
       * [How does it work?](#how-does-it-work-8)
-   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
+   * [Watchlist Hodloo bot helper named watchlist_hodloo.py ](#watchlist-hodloo-bot-helper-named-watchlist_hodloopy-)
       * [What does it do?](#what-does-it-do-9)
-      * [Configuration](#configuration-8)
-      * [Example output](#example-output-6)
-   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
-      * [What does it do?](#what-does-it-do-10)
       * [How does it work?](#how-does-it-work-9)
-      * [Configuration](#configuration-10)
+   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
+      * [What does it do?](#what-does-it-do-10)
+      * [Configuration](#configuration-9)
       * [Example output](#example-output-7)
+   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
+      * [What does it do?](#what-does-it-do-11)
+      * [How does it work?](#how-does-it-work-10)
+      * [Configuration](#configuration-11)
+      * [Example output](#example-output-8)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -772,6 +775,97 @@ Stochastics Oversold  (5m)
 Close Below Lower BB  (5m)
 Bullish Engulfing + RSI was Oversold  (5m)
 ```
+
+
+## Watchlist Hodloo bot helper named `watchlist_hodloo.py`
+Type = start deal trigger
+
+### What does it do?
+
+It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/alerts/) and sent a 'start new deal' trigger to the linked bot for that pair.
+
+### How does it work?
+
+Receive incoming Telegram messages and validate the message. The base of the pair is used to find a matching botid in the configuration, and if that bot has not yet reached
+the maximum number of active deals a new deal is opened. The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
+
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger. 
+When you don't want to trade on a certain market, for example EUR, leave the eur-botids list empty (don't remove the entire entry) and this script will ignore those triggers.
+
+Author of this script is [amargedon](https://github.com/amargedon). Based on work from [NobbisCrypto](https://github.com/NobbisCrypto).
+
+### Configuration
+
+The `watchlist` bot helper config file uses this layout:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **tgram-phone-number** - your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - your telegram API id.
+-   **tgram-api-hash** - your telegram API hash.
+-   **tgram-channel** - name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   **exchange** - exchange channel to monitor on Telegram (Bittrex, Binance or Kucoin). (default = Binance)
+-   **mode** - mode for this script, which is currently only 'Telegram'.
+
+-   *[hodloo_5]*
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+-   *[hodloo_10]*
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+debug = False
+logrotate = 14
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+exchange = Binance
+mode = Telegram
+
+[hodloo_5]
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+
+[hodloo_10]
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+```
+
+### Example output
+
+![Watchlist](images/watchlist_hodloo.png)
 
 
 ## Take profit bot helper named `tpincrement.py`
