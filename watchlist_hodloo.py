@@ -351,5 +351,7 @@ if mode == "Telegram":
         f"'Hodloo {exchange} 10%' for triggers",
         True,
     )
+    notification.send_notification()
+
     client.run_until_disconnected()
 # No else case, mode is already checked before this statement
