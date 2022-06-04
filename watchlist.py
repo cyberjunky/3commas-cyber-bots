@@ -216,12 +216,18 @@ async def callback(event):
     )
 
     trigger = event.raw_text.splitlines()
+
     if trigger[0] == "BINANCE" or trigger[0] == "FTX" or trigger[0] == "KUCOIN":
         try:
             exchange = trigger[0].replace("\n", "")
             pair = trigger[1].replace("#", "").replace("\n", "")
             base = pair.split("_")[0].replace("#", "").replace("\n", "")
             coin = pair.split("_")[1].replace("\n", "")
+
+            # Fix for future pair format
+            if coin.endswith(base) and len(coin) > len(base):
+                coin = coin.replace(base, "")
+
             trade = trigger[2].replace("\n", "")
             if trade == "LONG" and len(trigger) == 4 and trigger[3] == "CLOSE":
                 trade = "CLOSE"
