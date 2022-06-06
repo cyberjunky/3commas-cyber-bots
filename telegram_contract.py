@@ -6,6 +6,8 @@ import asyncio
 import os
 import sys
 import time
+import json
+import re
 from pathlib import Path
 from telethon import TelegramClient, events
 from telethon.errors.rpcerrorlist import ChatAdminRequiredError
@@ -30,6 +32,8 @@ def load_config():
         "tgram-api-hash": "Your Telegram API Hash",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "blacklist-msg": ["honeypot", "risk"],
+        "blacklist-line": ["Owner"],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -91,6 +95,8 @@ logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Configuration settings
 monitor = config.get("settings", "tgram-channel")
+blacklist_msg = config.get("settings", "blacklist-msg")
+blacklist_line = config.get("settings", "blacklist-line")
 
 # Setup the Telegram Client
 client = TelegramClient(
@@ -106,6 +112,18 @@ async def setup():
     logger.info("Started relaying as {}".format(user.first_name))
     await client.get_dialogs()
 
+def blacklist(words, line, whole=False):
+    """Check for string in line."""
+    if whole:
+        for ln in line:
+            for word in json.loads(words.replace("'", '"')):
+                if word in ln:
+                    return word
+    else:
+        for word in json.loads(words.replace("'", '"')):
+            if word in line:
+                return word
+    return None
 
 @client.on(events.NewMessage(chats=monitor))
 async def my_event_handler(event):
@@ -114,24 +132,32 @@ async def my_event_handler(event):
 
     if event.message.message:
         lines = event.message.message.split("\n")
+        found = blacklist(blacklist_msg, lines, True)
+        if found:
+            logger.info(f"Found blacklisted word '{found}' in telegram message, skipping.")
+        else:    
+            for line in lines:
+                temp=re.findall(r'\b[0x]\w+', line)
+                if len(temp):
+                    found = blacklist(blacklist_line, line)
+                    if found:
+                        logger.info(f"Found blacklisted word '{found}' in contract line, skipping.")
+                        continue
 
-        if len(lines[0]) and "Contract: " in lines[0]:
-            splitter = lines[0].split("Contract: ")
-            if len(splitter) == 2:
-                contract = splitter[1]
-                logger.info(f"Found trigger message for contract {contract}")
+                    contract = temp[0]
+                    logger.info(f"Found contract: '{contract}' in telegram message")
 
-                try:
-                    logger.info(f"Sent contract command for {contract}")
-                    await client.send_message(monitor, "/safe " + contract + "\n")
-                except ChatAdminRequiredError:
-                    logger.error(
-                        f"Not enough priviledge to write to telegram channel {monitor}"
-                    )
+                    try:
+                        logger.info(f"Sent contract command for '{contract}'")
+                        await client.send_message(monitor, "/safe " + contract + "\n")
+                    except ChatAdminRequiredError:
+                        logger.error(
+                            f"Not enough priviledge to write to telegram channel {monitor}"
+                        )
+                else:
+                    logger.debug(f"Could not extract contract from {line}")
             else:
-                logger.debug(f"Could not extract contract from {splitter}")
-        else:
-            logger.debug("No valid trigger message")
+                logger.debug("No valid trigger message")
     else:
         logger.debug("No valid trigger message")
 
