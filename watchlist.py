@@ -193,10 +193,10 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-# Prefect marketcodes for all bots
+# Prefetch marketcodes for all bots
 marketcodes = prefetch_marketcodes()
 
-# Prefect blacklists
+# Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)
 
 # Watchlist telegram trigger

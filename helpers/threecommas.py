@@ -151,10 +151,14 @@ def get_threecommas_account_marketcode(logger, api, accountid):
             "Fetched 3Commas account market code in real mode OK (%s)" % marketcode
         )
         return marketcode
-
-    if error and "msg" in error:
+    if error and "status_code" in error:
+        if error["status_code"] == 404:
+            logger.error(
+                "Error occurred fetching 3Commas account market code: accountid '%s' was not found" % accountid
+            )
+    elif error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account market code failed for id %s error: %s"
+            "Fetching 3Commas account market code failed for id '%s' error: %s"
             % (accountid, error["msg"])
         )
     else:

@@ -218,13 +218,13 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
             # Increased number of pairs above original; set original max active deals
             newmaxdeals = originalmaxdeals
 
-        if allowbotstopstart:
-            if len(newpairs) == 0 and thebot["is_enabled"]:
-                # No pairs and bot is running (zero pairs not allowed), so stop it...
-                control_threecommas_bots(logger, api, thebot, "disable")
-            elif len(newpairs) > 0 and not thebot["is_enabled"]:
-                # Valid pairs and bot is not running, so start it...
-                control_threecommas_bots(logger, api, thebot, "enable")
+    if allowbotstopstart:
+        if len(newpairs) == 0 and thebot["is_enabled"]:
+            # No pairs and bot is running (zero pairs not allowed), so stop it...
+            control_threecommas_bots(logger, api, thebot, "disable")
+        elif len(newpairs) > 0 and not thebot["is_enabled"]:
+            # Valid pairs and bot is not running, so start it...
+            control_threecommas_bots(logger, api, thebot, "enable")
 
     # Update the bot with the new pairs
     if newpairs:
@@ -338,18 +338,27 @@ while True:
 
             if botassist_data:
                 # Walk through all bots configured
-                for bot in botids:
-                    error, data = api.request(
+                for botid in botids:
+                    boterror, botdata = api.request(
                         entity="bots",
                         action="show",
-                        action_id=str(bot),
+                        action_id=str(botid),
                     )
-                    if data:
-                        botassist_pairs(section, data, botassist_data)
+                    if botdata:
+                        botassist_pairs(section, botdata, botassist_data)
                     else:
-                        if error and "msg" in error:
+                        if boterror and "status_code" in boterror:
+                            if boterror["status_code"] == 404:
+                                logger.error(
+                                    "Error occurred updating bots: bot with id '%s' was not found" % botid
+                                )
+                            else:
+                                logger.error(
+                                    "Error occurred updating bots: %s" % boterror["msg"]
+                                )
+                        elif boterror and "msg" in boterror:
                             logger.error(
-                                "Error occurred updating bots: %s" % error["msg"]
+                                "Error occurred updating bots: %s" % boterror["msg"]
                             )
                         else:
                             logger.error("Error occurred updating bots")
