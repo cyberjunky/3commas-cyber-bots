@@ -102,7 +102,7 @@ def store_bot_data(bot_data):
     db.commit()
 
     logger.info(
-        f"Stored latest data for bot {bot_data['bot_id']} in database"
+        f"Stored latest data for bot '{bot_data['bot_name']}' in database"
     )
 
 
@@ -141,6 +141,12 @@ def process_shared_bot_data(data, bot_id):
                 )
 
             index += 1
+    else:
+        logger.info(
+            f"New bot to watch: '{botinfo['bot_name']}' (id: {botinfo['bot_id']}). Store current "
+            f"configuration only.",
+            True
+        )
 
     # Save the data anyway for the next round
     store_bot_data(botinfo)
@@ -265,7 +271,12 @@ while True:
                     process_shared_bot_data(botdata, botid)
                 else:
                     logger.error("Error occurred, no shared bot data to process")
-        else:
+            else:
+                logger.error(
+                    f"No data fetched for section '{section}'. Check if bot still exists when "
+                    f"this message does not disappear on future intervals!"
+                )
+        elif section not in ("settings"):
             logger.warning(
                 f"Section '{section}' not processed (prefix 'botwatch_' missing)!",
                 False
