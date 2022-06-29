@@ -80,8 +80,12 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
    * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
       * [What does it do?](#what-does-it-do-11)
       * [How does it work?](#how-does-it-work-10)
-      * [Configuration](#configuration-11)
+      * [Configuration](#configuration-10)
       * [Example output](#example-output-8)
+   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
+      * [What does it do?](#what-does-it-do-12)
+      * [How does it work?](#how-does-it-work-11)
+      * [Configuration](#configuration-11)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -995,6 +999,53 @@ max-same-deals = 1
 ### Example output
 
 ![Dealcluster](images/dealcluster.png)
+
+
+## Bot Watcher bot helper named `botwatcher.py`
+Type = watcher
+
+### What does it do?
+Monitor one or more bot(s) which are shared by others, and inform you of any changes made in the configuration saving you tired fingers for pressing F5 all the time.
+
+### How does it work?
+The current data of the bot is requested using a simple http call. If there is no data in the database for this bot, only the data is saved and comparing will take place from next interval. When there is previous data saved, the old and new data is compared and any changes will be listed in the logfile and send to the configured `notify-urls`.
+
+Note: at this moment the parsing of data is very simple.
+
+
+Author of this script is [amargedon](https://github.com/amargedon).
+
+### Configuration
+
+The configuration file for `botwatcher` contains the following settings:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **timeinterval** - update timeinterval in Seconds. (default is 3600)
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   *botwatch_12345*
+-   **secret** - the secret for this shared bot.
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+timeinterval = 86400
+debug = False
+logrotate = 7
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[botwatch_12345]
+secret = secret
+```
+
 
 
 ## Binance account Setup
