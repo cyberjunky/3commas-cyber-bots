@@ -265,6 +265,11 @@ while True:
                     process_shared_bot_data(botdata, botid)
                 else:
                     logger.error("Error occurred, no shared bot data to process")
+        else:
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'botwatch_' missing)!",
+                False
+            )
 
     if not wait_time_interval(logger, notification, timeint, False):
         break
