@@ -585,6 +585,11 @@ while True:
             # Send notifications for the processed cluster, otherwise the message can
             # become too long resulting in a bad request
             notification.send_notification()
+        elif section not in ("settings"):
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'cluster_' missing)!",
+                False
+            )
 
     if not wait_time_interval(logger, notification, timeint, False):
         break

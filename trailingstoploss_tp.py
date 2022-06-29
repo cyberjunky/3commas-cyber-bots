@@ -830,6 +830,11 @@ while True:
                         f"Bot {bot} will be processed after "
                         f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}."
                     )
+        elif section not in ("settings"):
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'tsl_tp_' missing)!",
+                False
+            )
 
     timeint = check_interval if deals_to_monitor == 0 else monitor_interval
     if not wait_time_interval(logger, notification, timeint, False):

@@ -279,6 +279,11 @@ while True:
                             logger.error("Error occurred updating bots")
             else:
                 logger.error("Error occurred during fetch of CMC data")
+        elif section not in ("settings"):
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'cmc_' missing)!",
+                False
+            )
 
     if not wait_time_interval(logger, notification, timeint):
         break
