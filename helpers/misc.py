@@ -236,7 +236,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
 def get_shared_bot_data(logger, bot_id, bot_secret):
     """Get the shared bot data from the 3C website"""
 
-    url = "https://3commas.io/bots/%s/get_bot_data?secret=%s" % (bot_id, bot_secret)
+    url = "https://app.3commas.io/wapi/bots/%s/get_bot_data?secret=%s" % (bot_id, bot_secret)
 
     data = {}
     try:
