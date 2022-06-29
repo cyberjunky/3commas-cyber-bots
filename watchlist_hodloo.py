@@ -32,16 +32,33 @@ def load_config():
         "timezone": "Europe/Amsterdam",
         "debug": False,
         "logrotate": 7,
-        "usdt-botids": [12345, 67890],
-        "btc-botids": [12345, 67890],
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "tgram-phone-number": "Your Telegram Phone number",
-        "tgram-channel": "Telegram Channel to watch",
         "tgram-api-id": "Your Telegram API ID",
         "tgram-api-hash": "Your Telegram API Hash",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "exchange": "Bittrex / Binance / Kucoin",
+        "mode": "Telegram"
+    }
+
+    cfg["hodloo_5"] = {
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
+    }
+
+    cfg["hodloo_10"] = {
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -50,12 +67,85 @@ def load_config():
     return None
 
 
-def watchlist_deal(thebot, coin, trade):
+async def handle_event(category, event):
+    """Handle the received Telegram event"""
+
+    logger.debug(
+        "Received telegram message on %s: '%s'"
+        % (category, event.message.text.replace("\n", " - "))
+    )
+
+    # Parse the event and do some error checking
+    trigger = event.raw_text.splitlines()
+
+    pair = trigger[0].replace("\n", "").replace("**", "")
+    base = pair.split("/")[1]
+    coin = pair.split("/")[0]
+
+    logger.info(
+        f"Received message on {category}% for {base}_{coin}"
+    )
+
+    if base.lower() not in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
+        logger.debug(
+            f"{base}_{coin}: base '{base}' is not yet supported."
+        )
+        return
+
+    botids = get_botids(category, base)
+
+    if len(botids) == 0:
+        logger.debug(
+            f"{base}_{coin}: no valid botids configured for base '{base}'."
+        )
+        return
+
+    await client.loop.run_in_executor(
+        None, process_botlist, botids, coin
+    )
+
+    notification.send_notification()
+
+
+def process_botlist(botidlist, coin):
+    """Process the list of bots for the given coin"""
+
+    for botid in botidlist:
+        if botid:
+            error, data = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(botid),
+            )
+
+            if data:
+                # Check number of deals, otherwise error will occur anyway (save some processing)
+                if data["active_deals_count"] >= data["max_active_deals"]:
+                    logger.info(
+                        f"Bot '{data['name']}' reached maximum number of "
+                        f"deals ({data['max_active_deals']}). "
+                        f"Cannot start a new deal for {coin}!",
+                        True
+                    )
+                else:
+                    process_bot_deal(data, coin, "LONG")
+            else:
+                if error and "msg" in error:
+                    logger.error(
+                        "Error occurred fetching bot (%s) data: %s" % (str(botid), error["msg"])
+                    )
+                else:
+                    logger.error(
+                        "Error occurred fetching bot (%s) data" % str(botid)
+                    )
+
+
+def process_bot_deal(thebot, coin, trade):
     """Check pair and trigger the bot deal."""
 
     # Gather some bot values
     base = thebot["pairs"][0].split("_")[0]
-    exchange = thebot["account_name"]
+    bot_exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
 
     logger.debug("Base coin for this bot: %s" % base)
@@ -66,7 +156,7 @@ def watchlist_deal(thebot, coin, trade):
     if not marketcode:
         return
     logger.info("Bot: %s" % thebot["name"])
-    logger.info("Exchange %s (%s) used" % (exchange, marketcode))
+    logger.info("Exchange %s (%s) used" % (bot_exchange, marketcode))
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
@@ -75,21 +165,22 @@ def watchlist_deal(thebot, coin, trade):
         # Check if pair is on 3Commas blacklist
         if pair in blacklist:
             logger.debug(
-                "Pair '%s' is on your 3Commas blacklist and was skipped" % pair, True
+                f"Pair '{pair}' is on your 3Commas blacklist and was skipped",
+                True
             )
             return
 
         # Check if pair is in bot's pairlist
         if pair not in thebot["pairs"]:
             logger.info(
-                "Pair '%s' is not in bot's pairlist and was skipped" % pair,
-                True,
+                f"Pair '{pair}' is not in '{thebot['name']}' pairlist and was skipped",
+                True
             )
             return
 
         # We have valid pair for our bot so we trigger an open asap action
         logger.info("Triggering your 3Commas bot for a start deal of '%s'" % pair)
-        trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) == 0))
+        trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) > 0))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
         deals = thebot["active_deals"]
@@ -112,7 +203,15 @@ def prefetch_marketcodes():
     """Gather and store marketcodes for all bots."""
 
     marketcodearray = {}
-    botids = json.loads(config.get("settings", "usdt-botids")) + json.loads(config.get("settings", "btc-botids"))
+    botids = list()
+
+    for category in ("5", "10"):
+        for base in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
+            botids += get_botids(category, base)
+
+    logger.debug(
+        f"Botids collected: {botids}"
+    )
 
     for botid in botids:
         if botid:
@@ -135,6 +234,12 @@ def prefetch_marketcodes():
                     logger.error("Error occurred fetching marketcode data")
 
     return marketcodearray
+
+
+def get_botids(category, base):
+    """Get list of botids from configuration based on category and base"""
+
+    return json.loads(config.get(f"hodloo_{category}", f"{base.lower()}-botids"))
 
 
 # Start application
@@ -190,6 +295,22 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+# Which Exchange to use?
+exchange = config.get("settings", "exchange")
+if exchange not in ("Bittrex", "Binance", "Kucoin"):
+    logger.error(
+        f"Exchange {exchange} not supported. Must be 'Bittrex', 'Binance' or 'Kucoin'!"
+    )
+    sys.exit(0)
+
+# Which Mode to use?
+mode = config.get("settings", "mode")
+if mode not in ("Telegram", "Websocket"):
+    logger.error(
+        f"Mode {mode} not supported. Must be 'Telegram' or 'Websocket'!"
+    )
+    sys.exit(0)
+
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
@@ -199,99 +320,38 @@ marketcodes = prefetch_marketcodes()
 # Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)
 
-# Watchlist telegram trigger
-client = TelegramClient(
-    f"{datadir}/{program}",
-    config.get("settings", "tgram-api-id"),
-    config.get("settings", "tgram-api-hash"),
-).start(config.get("settings", "tgram-phone-number"))
+if mode == "Telegram":
+    # Watchlist telegram trigger
+    client = TelegramClient(
+        f"{datadir}/{program}",
+        config.get("settings", "tgram-api-id"),
+        config.get("settings", "tgram-api-hash"),
+    ).start(config.get("settings", "tgram-phone-number"))
 
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 5%"))
+    async def callback_5(event):
+        """Receive Telegram message."""
 
-@client.on(events.NewMessage(chats=config.get("settings", "tgram-channel")))
-async def callback(event):
-    """Parse Telegram message."""
+        await handle_event("5", event)
+
+        notification.send_notification()
+
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 10%"))
+    async def callback_10(event):
+        """Receive Telegram message."""
+
+        await handle_event("10", event)
+
+        notification.send_notification()
+
+    # Start telegram client
+    client.start()
     logger.info(
-        "Received telegram message: '%s'" % event.message.text.replace("\n", " - "),
+        f"Listening to telegram chat 'Hodloo {exchange} 5%' and "
+        f"'Hodloo {exchange} 10%' for triggers",
         True,
     )
-
-    trigger = event.raw_text.splitlines()
-
-    if trigger[0] == "BINANCE" or trigger[0] == "FTX" or trigger[0] == "KUCOIN":
-        try:
-            exchange = trigger[0].replace("\n", "")
-            pair = trigger[1].replace("#", "").replace("\n", "")
-            base = pair.split("_")[0].replace("#", "").replace("\n", "")
-            coin = pair.split("_")[1].replace("\n", "")
-
-            # Fix for future pair format
-            if coin.endswith(base) and len(coin) > len(base):
-                coin = coin.replace(base, "")
-
-            trade = trigger[2].replace("\n", "")
-            if trade == "LONG" and len(trigger) == 4 and trigger[3] == "CLOSE":
-                trade = "CLOSE"
-        except IndexError:
-            logger.debug("Invalid trigger message format!")
-            return
-
-        logger.debug("Exchange: %s" % exchange)
-        logger.debug("Pair: %s" % pair)
-        logger.debug("Base: %s" % base)
-        logger.debug("Coin: %s" % coin)
-        logger.debug("Trade type: %s" % trade)
-
-        if trade not in ('LONG', 'CLOSE'):
-            logger.debug(f"Trade type '{trade}' is not supported yet!")
-            return
-        if base == "USDT":
-            botids = json.loads(config.get("settings", "usdt-botids"))
-            if len(botids) == 0:
-                logger.debug(
-                    "No valid usdt-botids configured for '%s', disabled" % base
-                )
-                return
-        elif base == "BTC":
-            botids = json.loads(config.get("settings", "btc-botids"))
-            if len(botids) == 0:
-                logger.debug("No valid btc-botids configured for '%s', disabled" % base)
-                return
-        else:
-            logger.error(
-                "Error the base of pair '%s' being '%s' is not supported yet!" % (pair, base)
-            )
-            return
-
-        for bot in botids:
-            if bot == 0:
-                logger.debug("No valid botid configured for '%s', skipping" % base)
-                continue
-
-            error, data = api.request(
-                entity="bots",
-                action="show",
-                action_id=str(bot),
-            )
-            if data:
-                await client.loop.run_in_executor(
-                    None, watchlist_deal, data, coin, trade
-                )
-            else:
-                if error and "msg" in error:
-                    logger.error("Error occurred triggering bots: %s" % error["msg"])
-                else:
-                    logger.error("Error occurred triggering bots")
-    else:
-        logger.info("Not a crypto trigger message, or exchange not yet supported")
-
     notification.send_notification()
 
-
-# Start telegram client
-client.start()
-logger.info(
-    "Listening to telegram chat '%s' for triggers"
-    % config.get("settings", "tgram-channel"),
-    True,
-)
-client.run_until_disconnected()
+    client.run_until_disconnected()
+# No else case, mode is already checked before this statement

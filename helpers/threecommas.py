@@ -151,10 +151,14 @@ def get_threecommas_account_marketcode(logger, api, accountid):
             "Fetched 3Commas account market code in real mode OK (%s)" % marketcode
         )
         return marketcode
-
-    if error and "msg" in error:
+    if error and "status_code" in error:
+        if error["status_code"] == 404:
+            logger.error(
+                "Error occurred fetching 3Commas account market code: accountid '%s' was not found" % accountid
+            )
+    elif error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account market code failed for id %s error: %s"
+            "Fetching 3Commas account market code failed for id '%s' error: %s"
             % (accountid, error["msg"])
         )
     else:
@@ -245,7 +249,7 @@ def get_threecommas_market(logger, api, market_code):
     return tickerlist
 
 
-def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify=True):
+def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify=True, notify_uptodate=True):
     """Update bot with new pairs."""
 
     # Do we already use these pairs?
@@ -253,7 +257,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
         logger.info(
             "Bot '%s' with id '%s' is already using the new pair(s)"
             % (thebot["name"], thebot["id"]),
-            notify,
+            notify_uptodate,
         )
         return
 
@@ -300,17 +304,29 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
                 notify,
             )
         else:
-            logger.info(
-                "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
+            if len(newpairs) < 10:
+                logger.info(
+                "Bot '%s' with id '%s' updated with %d pairs (%s)"
                 % (
                     thebot["name"],
                     thebot["id"],
                     len(newpairs),
-                    newpairs[0],
-                    newpairs[-1],
+                    newpairs,
                 ),
                 notify,
             )
+            else:
+                logger.info(
+                    "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
+                    % (
+                        thebot["name"],
+                        thebot["id"],
+                        len(newpairs),
+                        newpairs[0],
+                        newpairs[-1],
+                    ),
+                    notify,
+                )
         if newmaxdeals:
             logger.info(
                 "Max active deals changed to %s" % newmaxdeals,
@@ -337,7 +353,7 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
         entity="bots",
         action="start_new_deal",
         action_id=str(thebot["id"]),
-        payload={"pair": pair, "skip_signal_checks": skip_checks},
+        payload={"pair": pair, "skip_signal_checks": skip_checks, "bot_id": thebot["id"]},
     )
     if data:
         logger.debug("Bot deal triggered: %s" % data)

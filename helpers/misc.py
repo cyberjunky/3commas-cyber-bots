@@ -1,4 +1,5 @@
 """Cyberjunky's 3Commas bot helpers."""
+import datetime
 import time
 import json
 import requests
@@ -15,7 +16,7 @@ def wait_time_interval(logger, notification, time_interval, notify=True):
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info(
-            "Next update in %s Seconds at %s" % (time_interval, timeresult), notify
+            "Next update in %s at %s" % (str(datetime.timedelta(seconds = time_interval)), timeresult), notify
         )
         notification.send_notification()
         time.sleep(time_interval)
@@ -88,7 +89,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtcprice)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   vt:{crush['vt']:8f}   "
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
                     f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
@@ -205,8 +206,19 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         result.raise_for_status()
         soup = BeautifulSoup(result.text, features="html.parser")
         data = soup.find("table", class_="table table-striped table-sm")
-        tablerows = data.find_all("tr")
 
+        columncount = 0
+        columndict = {}
+
+        # Build list of columns we are interested in
+        tablecolumns = data.find_all("th")
+        for column in tablecolumns:
+            if column.text not in ("#", "symbol"):
+                columndict[columncount] = column.text
+
+            columncount += 1
+
+        tablerows = data.find_all("tr")
         for row in tablerows:
             rowcolums = row.find_all("td")
             if len(rowcolums) > 0:
@@ -214,9 +226,19 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 if rank < start_number:
                     continue
 
-                pair = rowcolums[1].text
-                logger.debug(f"rank:{rank:3d} pair:{pair:10}")
-                pairs.append(pair)
+                pairdata = {}
+
+                # Iterate over the available columns and collect the data
+                for key, value in columndict.items():
+                    if value == "24h volume":
+                        pairdata[value] = float(
+                                rowcolums[key].text.replace(" BTC", "").replace(",", "")
+                            )
+                    else:
+                        pairdata[value] = rowcolums[key].text.replace("\n", "")
+
+                logger.debug(f"Rank {rank}: {pairdata}")
+                pairs.append(pairdata)
 
                 if rank == limit:
                     break
@@ -254,22 +276,25 @@ def get_shared_bot_data(logger, bot_id, bot_secret):
     return data
 
 
-def remove_excluded_pairs(logger, share_dir, bot_id, newpairs):
+def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs):
     """Remove pairs which are excluded by other script(s)."""
 
-    excludedpairs = load_bot_excluded_pairs(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
-    if excludedpairs:
+    excludedcoins = load_bot_excluded_coins(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
+    if excludedcoins:
         logger.info(
-            f"Removing the following pair(s) for bot {bot_id}: {excludedpairs}"
+            f"Removing the following coin(s) for bot {bot_id}: {excludedcoins}"
         )
 
-        for pair in excludedpairs:
+        for coin in excludedcoins:
+            # Construct pair based on bot settings and marketcode
+            # (BTC stays BTC, but USDT can become BUSD)
+            pair = format_pair(logger, marketcode, base, coin)
             if newpairs.count(pair) > 0:
                 newpairs.remove(pair)
 
 
-def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
-    """Load excluded pairs from file, for the specified bot"""
+def load_bot_excluded_coins(logger, share_dir, bot_id, extension):
+    """Load excluded coins from file, for the specified bot"""
 
     excludedlist = []
     excludefilename = f"{share_dir}/{bot_id}.{extension}"
@@ -279,14 +304,19 @@ def load_bot_excluded_pairs(logger, share_dir, bot_id, extension):
             excludedlist = file.read().splitlines()
         if excludedlist:
             logger.info(
-                "Reading exclude file '%s' OK (%s pairs)"
+                "Reading exclude file '%s' OK (%s coins)"
                 % (excludefilename, len(excludedlist))
             )
     except FileNotFoundError:
         logger.info(
-            "Exclude file (%s) not found for bot '%s'; no pairs to exclude."
+            "Exclude file (%s) not found for bot '%s'; no coins to exclude."
             % (excludefilename, bot_id)
         )
 
     return excludedlist
 
+
+def unix_timestamp_to_string(timestamp, date_time_format):
+    """Convert the given timestamp to a readable date/time in the specified format"""
+
+    return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)

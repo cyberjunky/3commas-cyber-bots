@@ -18,6 +18,7 @@ from helpers.misc import (
     wait_time_interval,
 )
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_marketcode,
     get_threecommas_btcusd,
     get_threecommas_market,
@@ -49,9 +50,11 @@ def load_config():
 
     cfg["bot_12345"] = {
         "maxaltrankscore": 1500,
+        "mingalaxyscore": 0.0,
         "numberofpairs": 10,
         "originalmaxdeals": 4,
         "allowmaxdealchange": False,
+        "allowbotstopstart": False,
         "comment": "Just a description of the bot(s)",
     }
 
@@ -111,6 +114,16 @@ def upgrade_config(thelogger, theapi, cfg):
 
         thelogger.info("Upgraded the configuration file (create sections)")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("bot_") and not cfg.has_option(cfgsection, "mingalaxyscore"):
+            cfg.set(cfgsection, "mingalaxyscore", "0.0")
+            cfg.set(cfgsection, "allowbotstopstart", "False")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            thelogger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
+
     return cfg
 
 
@@ -134,8 +147,12 @@ def lunarcrush_pairs(cfg, thebot):
     # Get lunarcrush settings for this bot
     numberofpairs = int(cfg.get(f"bot_{bot_id}", "numberofpairs"))
     maxacrscore = int(cfg.get(f"bot_{bot_id}", "maxaltrankscore", fallback=100))
+    mingalaxyscore = float(cfg.get(f"bot_{bot_id}", "mingalaxyscore", fallback=0.0))
     allowmaxdealchange = config.getboolean(
         f"bot_{bot_id}", "allowmaxdealchange", fallback=False
+    )
+    allowbotstopstart = config.getboolean(
+        f"bot_{bot_id}", "allowbotstopstart", fallback=False
     )
 
     logger.info("Bot base currency: %s" % base)
@@ -162,6 +179,7 @@ def lunarcrush_pairs(cfg, thebot):
     for entry in lunarcrush:
         try:
             coin = entry["s"]
+            galaxyscore = entry["gs"]
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
             pair = format_pair(logger, marketcode, base, coin)
@@ -187,6 +205,14 @@ def lunarcrush_pairs(cfg, thebot):
                     % (coin, maxacrscore, acrscore)
                 )
                 continue
+
+            if galaxyscore < mingalaxyscore:
+                logger.debug(
+                    "Quote currency '%s' with galaxyscore %s below minimal galaxyscore %s"
+                    % (coin, str(galaxyscore), str(mingalaxyscore))
+                )
+
+                break # Sorted list, so next coins will also be below the min galaxyscore
 
             # Populate lists
             populate_pair_lists(
@@ -216,16 +242,10 @@ def lunarcrush_pairs(cfg, thebot):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot["id"], newpairs)
+        remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
-    if not newpairs:
-        logger.info(
-            "None of the LunarCrush pairs are present on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
-
-    # Lower the number of max deals if not enough new pairs and change allowed, change back to original if possible
+    # Lower the number of max deals if not enough new pairs and change allowed and
+    # change back to original if possible
     if allowmaxdealchange:
         if len(newpairs) < thebot["max_active_deals"]:
             newmaxdeals = len(newpairs)
@@ -240,9 +260,22 @@ def lunarcrush_pairs(cfg, thebot):
         ):
             newmaxdeals = originalmaxdeals
 
-    # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    if allowbotstopstart:
+        if len(newpairs) == 0 and thebot["is_enabled"]:
+            # No pairs and bot is running (zero pairs not allowed), so stop it...
+            control_threecommas_bots(logger, api, thebot, "disable")
+        elif len(newpairs) > 0 and not thebot["is_enabled"]:
+            # Valid pairs and bot is not running, so start it...
+            control_threecommas_bots(logger, api, thebot, "enable")
 
+    # Update the bot with the new pairs
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    else:
+        logger.info(
+            f"None of the 3c-tools bot-assist suggested pairs have been found on "
+            f"the {exchange} ({marketcode}) exchange!"
+        )
 
 # Start application
 program = Path(__file__).stem
@@ -351,7 +384,16 @@ while True:
                 if botdata:
                     lunarcrush_pairs(config, botdata)
                 else:
-                    if boterror and "msg" in boterror:
+                    if boterror and "status_code" in boterror:
+                        if boterror["status_code"] == 404:
+                            logger.error(
+                                "Error occurred updating bots: bot with id '%s' was not found" % botid
+                            )
+                        else:
+                            logger.error(
+                                "Error occurred updating bots: %s" % boterror["msg"]
+                            )
+                    elif boterror and "msg" in boterror:
                         logger.error(
                             "Error occurred updating bots: %s" % boterror["msg"]
                         )

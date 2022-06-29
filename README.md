@@ -70,20 +70,22 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
    * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy-)
       * [What does it do?](#what-does-it-do-8)
       * [How does it work?](#how-does-it-work-8)
-   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
+   * [Watchlist Hodloo bot helper named watchlist_hodloo.py ](#watchlist-hodloo-bot-helper-named-watchlist_hodloopy-)
       * [What does it do?](#what-does-it-do-9)
-      * [Configuration](#configuration-8)
-      * [Example output](#example-output-6)
-   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
-      * [What does it do?](#what-does-it-do-10)
       * [How does it work?](#how-does-it-work-9)
-      * [Configuration](#configuration-10)
+   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
+      * [What does it do?](#what-does-it-do-10)
+      * [Configuration](#configuration-9)
       * [Example output](#example-output-7)
-   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
+   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
       * [What does it do?](#what-does-it-do-11)
       * [How does it work?](#how-does-it-work-10)
-      * [Configuration](#configuration-11)
+      * [Configuration](#configuration-10)
       * [Example output](#example-output-8)
+   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
+      * [What does it do?](#what-does-it-do-12)
+      * [How does it work?](#how-does-it-work-11)
+      * [Configuration](#configuration-11)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -119,11 +121,13 @@ It will monitor LunarCrush's GalaxyScores and use the Top X to create pairs for 
 
 The GalaxyScore Top 10 coins from LunarCrush are downloaded, the base pair of each of the specified 3Comma's bots is determined, from this new pairs are constructed, these are checked against your Blacklist on 3Comma's and the market data on 3Comma's (reflecting Binance or FTX data depending on your exchange) to see if the pairs are valid.
 
-If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
+If this is the case -and the current pairs are different than the current ones- the bot(s) are updated. When the number of pairs to update the bot with is lower then the number of active deals configured in the bot, 3C will raise an error. Use the `originalmaxdeals` as the desired number of active deals, and set `allowmaxdealchange` to `True` to indicate this script may lower the max number of active deals to the number of pairs the bot is being updated with. This will prevent 3C raising an error, and when more pairs are available the max number of active deals will be increased to `originalmaxdeals`.
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
+
+3Commas does not allow a bot without trading pairs, however, based on the configuration and market an empty list can be the result. Enable `allowmaxdealchange` and `allowbotstopstart` to decrease the number of active deals, or stop the bot when no pairs are available. When the bot is stopped, and there are pairs available again, it will be started.
 
 NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or galaxyscore.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
 
@@ -135,30 +139,42 @@ The configuration file for `galaxyscore` has the following settings:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
--   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
 -   **3c-apikey** - your 3Commas API key value.
 -   **3c-apisecret** - your 3Commas API key secret value.
 -   **lc-apikey** - your LunarCrush API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
+-   *[bot_]*
+-   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
+-   **mingalaxyscore** - minimum galaxyscore of the coin. (default is 0.0)
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
+-   **originalmaxdeals** - the max number of active deals you want to have in your bot.
+-   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
+-   **comment** - free field you can use, for example for the name or description of the bot
+
 Example: (keys are bogus)
 ```
 [settings]
 timezone = Europe/Amsterdam
-timeinterval = 1800
+timeinterval = 3600
 debug = False
-logrotate = 14
-botids = [ 123456 ]
-numberofpairs = 10
-maxaltrankscore = 250
+logrotate = 7
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 lc-apikey = z2cwr88jkyclno8ryj0f
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[bot_123456]
+maxaltrankscore = 250
+mingalaxyscore = 0.0
+numberofpairs = 10
+originalmaxdeals = 8
+allowmaxdealchange = True
+allowbotstopstart = True
+comment = my great bot
 ```
 
 ### Example output
@@ -176,10 +192,6 @@ It will monitor LunarCrush's AltRank list and use the Top X to create pairs for 
 
 Same as galaxyscore bot helper except with AltRank data.
 
-When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
-
-NOTE: make sure you specify a 'Trading 24h minimal volume' value in your bot(s), otherwise you can end up with 'shitcoins'. Check the LunarCrush website or altrank.log file after running in debug mode for a while to see which coins and values are retrieved, and decide how much risk you want to take.
-
 ### Configuration
 
 The configuration file for `altrank` has the following settings:
@@ -188,30 +200,41 @@ The configuration file for `altrank` has the following settings:
 -   **timeinterval** - update timeinterval in Seconds. (default is 3600)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
--   **botids** - a list of bot id's to manage separated with commas
--   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
--   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
 -   **3c-apikey** - your 3Commas API key value.
 -   **3c-apisecret** - your 3Commas API key secret value.
 -   **lc-apikey** - your LunarCrush API key value.
 -   **notifications** - set to true to enable notifications. (default = False)
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 
+-   *[bot_]*
+-   **maxaltrankscore** - set this lower for galaxyscore bot helper so altrank score of coin gets evaluated too. (default is 1500)
+-   **numberofpairs** - number of pairs to update your bot(s) with. Set to 0 if you want to have exactly the `maximum active deals` for each bot as pair amount. (default is 10)
+-   **originalmaxdeals** - the max number of active deals you want to have in your bot.
+-   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
+-   **comment** - free field you can use, for example for the name or description of the bot
+
 Example: (keys are bogus)
 ```
 [settings]
 timezone = Europe/Amsterdam
-timeinterval = 1800
+timeinterval = 3600
 debug = False
-logrotate = 14
-botids = [ 123456 ]
-numberofpairs = 10
-maxaltrankscore = 250
+logrotate = 7
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 lc-apikey = z2cwr88jkyclno8ryj0f
+numberofpairs = 20
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+
+[bot_123456]
+maxaltrankscore = 250
+numberofpairs = 10
+originalmaxdeals = 8
+allowmaxdealchange = True
+allowbotstopstart = True
+comment = my great bot
 ```
 
 ### Example output
@@ -298,13 +321,15 @@ It will fetch the specfied 3C-tools Bot-Assist Top X pairs for your 3Comma's com
 
 The data is gathered from the 3c-tools.com website which is sorted on the type of list requested and the pairs between `start-number` and `end-number` are processed. These pairs are not reconstructed but used as they are, after being checked against your Blacklist on 3Comma's (or your optional local blacklist file) and the market data on 3Comma's (reflecting Binance, FTX  etc. depending on your exchange) to see if the pairs are valid.
 
-If this is the case -and the current pairs are different than the current ones- the bot(s) are updated.
+If this is the case -and the current pairs are different than the current ones- the bot(s) are updated. When the number of pairs to update the bot with is lower then the number of active deals configured in the bot, 3C will raise an error. Use the `originalmaxdeals` as the desired number of active deals, and set `allowmaxdealchange` to `True` to indicate this script may lower the max number of active deals to the number of pairs the bot is being updated with. This will prevent 3C raising an error, and when more pairs are available the max number of active deals will be increased to `originalmaxdeals`.
 
 After this the bot helper will sleep for the set interval time, after which it will repeat these steps.
 
 This script can be used for multiple bots with different Top X lists by creating multiple `botassist_` sections in the configuration file. For each section bot-assist data is fetched and processed as described above. Make sure each section starts with `botassist_` between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
 
 When the SHAREDIR option is used, this script will try to read a `.pairexclude` file for each configured bot. If a pair is listed in the file it will be excluded from the pairs before updating the bot. This can be usefull when also using the DealCluster script in parallel with this script.
+
+3Commas does not allow a bot without trading pairs, however, based on the configuration and market an empty list can be the result. Enable `allowmaxdealchange` and `allowbotstopstart` to decrease the number of active deals, or stop the bot when no pairs are available. When the bot is stopped, and there are pairs available again, it will be started.
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top pairs (like BTC and ETH) can also be excluded by increasing the start-number.
 
@@ -326,6 +351,11 @@ This is the layout of the config file used by the `botassistexplorer.py` bot hel
 -   **botids** - a list of bot id's to manage separated with commas
 -   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
 -   **end-number** - end number for the pairs to request. (default is 200)
+-   **mingalaxyscore** - minimum galaxyscore of the coin. (default is 0.0)
+-   **maxaltrankscore** - maximum altrankscore of the coin. (default is 1500)
+-   **originalmaxdeals** - the max number of active deals you want to have in your bot.
+-   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
+-   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
 -   **list** - the part behind the 'list=' parameter in the url of 3c-tools bot-assist-explorer, you can find it here: https://www.3c-tools.com/markets/bot-assist-explorer
 
 
@@ -345,6 +375,11 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 botids = [ 123456 ]
 start-number = 1
 end-number = 200
+mingalaxyscore = 0.0
+maxaltrankscore = 1500
+originalmaxdeals = 8
+allowmaxdealchange = True
+allowbotstopstart = True
 list = binance_spot_usdt_winner_60m
 ```
 
@@ -451,13 +486,15 @@ If the value is above or equal to activation-percentage, the initial SL is calcu
 
 `new_stoploss = initial-stoploss + (actual_profit_percentage - activation_percentage)`
 
+This script also supports a configurable timeout for the stoploss, which will be activated (and updated) when the stoploss is activated. For example, with a timeout of 60 seconds, 3Commas will sell the deal (market order) when after 60 seconds the current price is still below the set stoploss price.
+
 The take profit can also be increased using the `tp-increment-factor` and the calculation is like this:
 
 `new_takeprofit = takeprofit + ((actual_percentage - activation_percentage) * tp-increment-factor)`
 
 Configuring the `tp-increment-factor` to 0.0 will disable the increment and leave the TP untouched to what is configured in the bot.
 
-Do note that extra profit is directly included! So, for example, when the `activation-percentage` is set to 3.0% and the `actual profit` is 3.2%, this 0.2% is immediately added to the `initial-stoploss`.
+Do note that extra profit is directly included if the `increment-factor` is greater than 0.0! So, for example, when the `activation-percentage` is set to 3.0% and the `actual profit` is 3.2%, this 0.2% is immediately added to the `initial-stoploss`.
 
 The last profit percentage of the deal is stored to be used for next iterations, so the bot only evaluates deals for which the % profit has increased to avoid unnecessary processing. In the calcutions shown above the `current` and `last` profit percentage will then be used.
 
@@ -469,7 +506,18 @@ Then the bot helper will sleep for the set interval time, after which it will re
 
 This script can be used for multiple bots with different TSL and TP settings by creating multiple tsl_tp_ sections in the configuration file. Each section is processed as described above. Make sure each section starts with tsl_tp_ between the square brackets, what follows does not matter and can be used to give a descriptive name for yourself.
 
-Note: the percentages used can be confusing. Please read the following document to understand them better: [in-depth](docs/trailingstoploss_tp-in-depth.pdf)
+### Advanced configuration
+This script supports some advanced configuration which should be understood! The basic purpose is to provide a trailing stoploss and optionally increasing take profit. When a deal starts to make profit the price will go up and down and therefor some space should be available to do so. So, for example, at 2% the SL can be set around 0.5% so the 1.5% can be used to go up and down. When the profit increases, for example to 4%, you may want to set the SL to 3% to avoid missing some profit (otherwise the SL would still be around 2%, depending on the `sl-increment-factor`). And sometimes, you just want to prevent a deal going down and rather have a fixed SL at a certain percentage.
+
+The great thing is; this is all possible with this script. The `config` of each section can contain one or more configurations which will be used. Make sure the configuration are in order, increasing in `activation-percentage`! As example:
+- The first configuration could have a lower `activation-percentage` of 2.0%, an `initial-stoploss-percentage` of 0.5% and the `increment-factors` are set to 0.0 (disabled).
+- The second configuration could have a `activation-percentage` of 3.0%, an `initial-stoploss-percentage` of 2.0% and the `increment-factors` are greater than 0.0 (enabled).
+This will result in a fixed SL of 0.5% when the profit reaches 2.0%. Even when the price or market dumps, you don't end up with a red bag because of this SL. Between 2.0% and the 3.0%, the SL remains untouched. As soon as the profit reaches the 3.0%, the second configuration will be used and the SL is directly set to 2.0%; and from there the trailing starts. 
+
+See the configuration below as an example on how to do this.
+
+### In depth
+The percentages and how the stoploss works at 3C can be confusing. Please read the following document to understand this better: [in-depth](docs/trailingstoploss_tp-in-depth.pdf)
 
 
 Author of this script is [amargedon](https://github.com/amargedon).
@@ -479,21 +527,25 @@ Author of this script is [amargedon](https://github.com/amargedon).
 
 This is the layout of the config file used by the `trailingstoploss_tp.py` bot helper:
 
--   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
--   **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
--   **debug** - set to true to enable debug logging to file. (default is False)
--   **logrotate** - number of days to keep logs. (default = 7)
--   **3c-apikey** - your 3Commas API key value.
--   **3c-apisecret** - your 3Commas API key secret value.
--   **notifications** - set to true to enable notifications. (default = False)
--   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
--   *[tsl_tp_]*
--   **botids** - a list of bot id's to manage separated with commas
--   **activation-percentage** - % of profit at which script becomes active for a bot. (default = 3.0)
--   **initial-stoploss-percentage** - % of stoploss to start on when activation-percentage is reached. (default = 1.0)
--   **sl-increment-factor** - % to increase the SL with, based on % profit after activation-percentage. (default = 0.5)
--   **tp-increment-factor** - % to increase the TP with, based on % profit after activation-percentage. (default = 0.5)
+- **timezone** - timezone. (default is 'Europe/Amsterdam')
+- **check-interval** - update interval in Seconds when no deals with SL are active. (default is 120)
+- **monitorinterval** - update interval in Seconds when there are deals with SL active. (default is 60)
+- **debug** - set to true to enable debug logging to file. (default is False)
+- **logrotate** - number of days to keep logs. (default = 7)
+- **3c-apikey** - your 3Commas API key value.
+- **3c-apisecret** - your 3Commas API key secret value.
+- **notifications** - set to true to enable notifications. (default = False)
+- **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+- *[tsl_tp_]*
+- **botids** - a list of bot id's to manage separated with commas.
+- **config** - a list of objects with the settings for that percentage.
+- *object*
+- **activation-percentage** - from % of profit this object is valid for.
+- **initial-stoploss-percentage** - % of stoploss to set when activation-percentage is reached.
+- **sl-timeout** - stoploss timeout in seconds. (default = 0)
+
+- **sl-increment-factor** - % to increase the SL with, based on % profit after activation-percentage.
+- **tp-increment-factor** - % to increase the TP with, based on % profit after activation-percentage.
 
 Example: (keys are bogus)
 ```
@@ -510,10 +562,8 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [tsl_tp_default]
 botids = [ 123456 ]
-activation-percentage = 3.0
-initial-stoploss-percentage = 1.0
-sl-increment-factor = 0.5
-tp-increment-factor = 0.5
+config = [{"activation-percentage": "2.0","initial-stoploss-percentage": "0.5","sl-timeout": "0","sl-increment-factor": "0.0","tp-increment-factor": "0.0"},{"activation-percentage": "3.0","initial-stoploss-percentage": "2.0","sl-timeout": "800","sl-increment-factor": "0.4","tp-increment-factor": "0.4"}]
+
 ```
 
 ### Example output
@@ -626,8 +676,8 @@ Example: (keys are bogus)
 timezone = Europe/Amsterdam
 debug = False
 logrotate = 14
-usdt-botid = 123456
-btc-botid = 789012
+usdt-botids = [123456,129011]
+btc-botids = [789012]
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 tgram-phone-number = +316512345678
@@ -730,6 +780,97 @@ Stochastics Oversold  (5m)
 Close Below Lower BB  (5m)
 Bullish Engulfing + RSI was Oversold  (5m)
 ```
+
+
+## Watchlist Hodloo bot helper named `watchlist_hodloo.py`
+Type = start deal trigger
+
+### What does it do?
+
+It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/alerts/) and sent a 'start new deal' trigger to the linked bot for that pair.
+
+### How does it work?
+
+Receive incoming Telegram messages and validate the message. The base of the pair is used to find a matching botid in the configuration, and if that bot has not yet reached
+the maximum number of active deals a new deal is opened. The exchange must match the exchange of the bot(s), 3Commas blacklist and market are also checked.
+
+The bot(s) need to have "Manually/API (Bot won't open new trades automatically)" as trigger. 
+When you don't want to trade on a certain market, for example EUR, leave the eur-botids list empty (don't remove the entire entry) and this script will ignore those triggers.
+
+Author of this script is [amargedon](https://github.com/amargedon). Based on work from [NobbisCrypto](https://github.com/NobbisCrypto).
+
+### Configuration
+
+The `watchlist` bot helper config file uses this layout:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **tgram-phone-number** - your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - your telegram API id.
+-   **tgram-api-hash** - your telegram API hash.
+-   **tgram-channel** - name of the chat channel to monitor.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+-   **exchange** - exchange channel to monitor on Telegram (Bittrex, Binance or Kucoin). (default = Binance)
+-   **mode** - mode for this script, which is currently only 'Telegram'.
+
+-   *[hodloo_5]*
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+-   *[hodloo_10]*
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+debug = False
+logrotate = 14
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+exchange = Binance
+mode = Telegram
+
+[hodloo_5]
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+
+[hodloo_10]
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+```
+
+### Example output
+
+![Watchlist](images/watchlist_hodloo.png)
 
 
 ## Take profit bot helper named `tpincrement.py`
@@ -869,7 +1010,7 @@ Monitor one or more bot(s) which are shared by others, and inform you of any cha
 ### How does it work?
 The current data of the bot is requested using a simple http call. If there is no data in the database for this bot, only the data is saved and comparing will take place from next interval. When there is previous data saved, the old and new data is compared and any changes will be listed in the logfile and send to the configured `notify-urls`.
 
-Note: currently the parsing of data is very simple at this point.
+Note: at this moment the parsing of data is very simple.
 
 
 Author of this script is [amargedon](https://github.com/amargedon).
@@ -901,12 +1042,9 @@ logrotate = 7
 notifications = True
 notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
 
-[cluster_12345]
+[botwatch_12345]
 secret = secret
 ```
-
-### Example output
-
 
 
 

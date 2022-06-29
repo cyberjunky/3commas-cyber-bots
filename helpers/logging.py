@@ -45,6 +45,7 @@ class NotificationHandler:
     def queue_notification(self, message):
         """Queue notification messages."""
         if self.enabled:
+            message.encode(encoding = 'UTF-8', errors = 'strict')
             self.message += f"{message}\n\n"
 
     def send_notification(self):
@@ -153,7 +154,7 @@ class Logger:
 
         # Log to file and rotate if needed
         file_handle = TimedRotatingFileHandler(
-            filename=f"{self.datadir}/logs/{self.program}.log", backupCount=logstokeep
+            filename=f"{self.datadir}/logs/{self.program}.log", backupCount=logstokeep, encoding='utf-8'
         )
         file_handle.setFormatter(formatter)
         self.my_logger.addHandler(file_handle)
