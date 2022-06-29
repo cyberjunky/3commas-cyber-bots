@@ -109,6 +109,8 @@ def store_bot_data(bot_data):
 def process_shared_bot_data(data, bot_id):
     """Process the downloaded data."""
 
+    storeconfig = False
+
     botinfo = data['bot_info']
 
     dbdata = get_db_data(bot_id)
@@ -135,6 +137,7 @@ def process_shared_bot_data(data, bot_id):
                 new = botinfo[field]
 
             if old != new:
+                storeconfig = True
                 logger.info(
                     f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed from {old} to {new}",
                     True
@@ -142,14 +145,16 @@ def process_shared_bot_data(data, bot_id):
 
             index += 1
     else:
+        storeconfig = True
         logger.info(
             f"New bot to watch: '{botinfo['bot_name']}' (id: {botinfo['bot_id']}). Store current "
             f"configuration only.",
             True
         )
 
-    # Save the data anyway for the next round
-    store_bot_data(botinfo)
+    # Store data if new bot or configuration has changed
+    if storeconfig:
+        store_bot_data(botinfo)
 
 
 def init_botwatcher_db():
