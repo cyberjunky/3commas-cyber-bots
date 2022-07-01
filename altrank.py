@@ -389,6 +389,11 @@ while True:
                         logger.error("Error occurred updating bots")
             else:
                 logger.error("Invalid botid found: %s" % botid)
+        elif section not in ("settings"):
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'bot_' missing)!",
+                False
+            )
 
     if not wait_time_interval(logger, notification, timeint):
         break
