@@ -1029,6 +1029,8 @@ The configuration file for `botwatcher` contains the following settings:
 -   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
 -   *botwatch_12345*
 -   **secret** - the secret for this shared bot.
+-   **notify-pairs** - should a notification be send when the pair(s) has/have changed.
+-   **comment** - free field to place a description or something else
 
 Example: (keys are bogus)
 ```
@@ -1044,6 +1046,8 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 
 [botwatch_12345]
 secret = secret
+notify-pairs = True
+comment = Awesome bot to monitor
 ```
 
 
