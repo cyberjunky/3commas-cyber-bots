@@ -33,12 +33,31 @@ def load_config():
     }
     cfg["botwatch_12345"] = {
         "secret": "secret",
+        "notify-pairs": "True",
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(thelogger, cfg):
+    """Upgrade config file if needed."""
+
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("botwatch_") and not cfg.has_option(cfgsection, "notify-pairs"):
+            cfg.set(cfgsection, "notify-pairs", "True")
+            cfg.set(cfgsection, "comment", "")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            thelogger.info(
+                f"Upgraded section {cfgsection} to have 'notify-pairs' and 'comment' property"
+            )
+
+    return cfg
 
 
 def get_fields_and_types():
@@ -106,10 +125,14 @@ def store_bot_data(bot_data):
     )
 
 
-def process_shared_bot_data(data, bot_id):
+def process_shared_bot_data(cfg, data, bot_id):
     """Process the downloaded data."""
 
     storeconfig = False
+
+    notifypairs = cfg.getboolean(
+        f"botwatch_{bot_id}", "notify-pairs", fallback = True
+    )
 
     botinfo = data['bot_info']
 
@@ -138,8 +161,15 @@ def process_shared_bot_data(data, bot_id):
 
             if old != new:
                 storeconfig = True
+
+                # Option to disable some notifications, because some fields can change (like pairs)
+                # Store the changed config, could be usefull later for future development
+                if field == "bot_pair_or_pairs" and not notifypairs:
+                    continue
+
                 logger.info(
-                    f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed from {old} to {new}",
+                    f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed "
+                    f"from: \n{old}\n to: \n{new}",
                     True
                 )
 
@@ -245,6 +275,9 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+    # Upgrade config file if needed
+    config = upgrade_config(logger, config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # No 3Commas API required
@@ -273,7 +306,7 @@ while True:
                 botdata = get_shared_bot_data(logger, botid, botsecret)
 
                 if botdata:
-                    process_shared_bot_data(botdata, botid)
+                    process_shared_bot_data(config, botdata, botid)
                 else:
                     logger.error("Error occurred, no shared bot data to process")
             else:
