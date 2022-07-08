@@ -73,7 +73,7 @@ async def handle_custom_event(event):
     """Handle the received Telegram event"""
 
     logger.debug(
-        "Received telegram message '%s'"
+        "Received custom message '%s'"
         % (event.message.text.replace("\n", " - "))
     )
 
@@ -110,6 +110,7 @@ async def handle_custom_event(event):
     if trade not in ('LONG', 'CLOSE'):
         logger.debug(f"Trade type '{trade}' is not supported yet!")
         return
+
     if base == "USDT":
         botids = json.loads(config.get("custom", "usdt-botids"))
         if len(botids) == 0:
@@ -144,7 +145,7 @@ async def handle_hodloo_event(category, event):
     """Handle the received Telegram event"""
 
     logger.debug(
-        "Received telegram message on %s: '%s'"
+        "Received message on Hodloo %s: '%s'"
         % (category, event.message.text.replace("\n", " - "))
     )
 
@@ -309,7 +310,7 @@ logger.debug(
 
 if customchannelid != -1:
     logger.info(
-        f"Listening to updates from {customchannelname} (id={customchannelid}) ...",
+        f"Listening to updates from '{customchannelname}' (id={customchannelid}) ...",
         True
     )
     @client.on(events.NewMessage(chats=customchannelid))
@@ -322,7 +323,7 @@ if customchannelid != -1:
 
 if hl5channelid != -1:
     logger.info(
-        f"Listening to updates from {hl5channelname} (id={hl5channelid}) ...",
+        f"Listening to updates from '{hl5channelname}' (id={hl5channelid}) ...",
         True
     )
     @client.on(events.NewMessage(chats=hl5channelid))
@@ -335,7 +336,7 @@ if hl5channelid != -1:
 
 if hl10channelid != -1:
     logger.info(
-        f"Listening to updates from {hl10channelname} (id={hl10channelid}) ...",
+        f"Listening to updates from '{hl10channelname}' (id={hl10channelid}) ...",
         True
     )
     @client.on(events.NewMessage(chats=hl10channelid))
