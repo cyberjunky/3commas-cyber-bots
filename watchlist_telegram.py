@@ -313,10 +313,6 @@ if customchannelid != -1:
     async def callback_custom(event):
         """Receive Telegram message."""
 
-        logger.info(
-            "Received update in custom channel..."
-        )
-
         await handle_custom_event(event)
         notification.send_notification()
 
@@ -330,10 +326,6 @@ if hl5channelid != -1:
     async def callback_5(event):
         """Receive Telegram message."""
 
-        logger.info(
-            "Received update in hodloo 5 channel..."
-        )
-
         await handle_hodloo_event("5", event)
         notification.send_notification()
 
@@ -346,10 +338,6 @@ if hl10channelid != -1:
     @client.on(events.NewMessage(chats=hl10channelid))
     async def callback_10(event):
         """Receive Telegram message."""
-
-        logger.info(
-            "Received update in hodloo 10 channel..."
-        )
 
         await handle_hodloo_event("10", event)
         notification.send_notification()

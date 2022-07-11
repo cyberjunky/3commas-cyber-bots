@@ -77,9 +77,11 @@ def process_bot_deal(logger, api, blacklistfile, blacklist, marketcodes, thebot,
     base = thebot["pairs"][0].split("_")[0]
     bot_exchange = thebot["account_name"]
     minvolume = thebot["min_volume_btc_24h"]
+    alloweddealsonsamepair = thebot["allowed_deals_on_same_pair"]
 
     logger.debug("Base coin for this bot: %s" % base)
     logger.debug("Minimal 24h volume of %s BTC" % minvolume)
+    logger.debug("Allowed same deals for pair: %s" % alloweddealsonsamepair)
 
     # Get marketcode from array
     marketcode = marketcodes.get(thebot["id"])
@@ -91,7 +93,19 @@ def process_bot_deal(logger, api, blacklistfile, blacklist, marketcodes, thebot,
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
     pair = format_pair(logger, marketcode, base, coin)
 
+    deals = thebot["active_deals"]
     if trade == "LONG":
+        # Check active deal(s) for this bot
+        dealcount = 0
+        if deals:
+            for deal in deals:
+                if deal["pair"] == pair:
+                    dealcount += 1
+
+        if dealcount >= alloweddealsonsamepair:
+            logger.debug("Open deals for %s reached max allowed open deals for same pair!" % pair)
+            return
+
         # Check if pair is on 3Commas blacklist
         if pair in blacklist:
             logger.debug(
@@ -113,7 +127,6 @@ def process_bot_deal(logger, api, blacklistfile, blacklist, marketcodes, thebot,
         trigger_threecommas_bot_deal(logger, api, thebot, pair, (len(blacklistfile) > 0))
     else:
         # Find active deal(s) for this bot so we can close deal(s) for pair
-        deals = thebot["active_deals"]
         if deals:
             for deal in deals:
                 if deal["pair"] == pair:
