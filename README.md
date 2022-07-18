@@ -291,9 +291,9 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 -   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
 -   **end-number** - end number for the pairs to request. (default is 200)
 -   **max-percent-compared-to** - what to compare the percent change to (BTC, ETH, EUR or USD) (default USD)
--   **max-percent-change-1h** - maximum percentage of change allowed in this timeframe. Leave at 0.0 to disable
--   **max-percent-change-24h** - maximum percentage of change allowed in this timeframe. Leave at 0.0 to disable
--   **max-percent-change-7d** - maximum percentage of change allowed in this timeframe. Leave at 0.0 to disable
+-   **max-percent-change-1h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
+-   **max-percent-change-24h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
+-   **max-percent-change-7d** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
 
 
 Example: (keys are bogus)
