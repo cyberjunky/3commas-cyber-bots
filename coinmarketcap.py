@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import json
+from math import fabs
 import os
 import sys
 import time
@@ -126,9 +127,9 @@ def coinmarketcap_filter(cmcdata, cmc_id):
         try:
             coin = entry["symbol"]
 
-            coinpercent1h = float(entry["quote"][comparedto]["percent_change_1h"])
-            coinpercent24h = float(entry["quote"][comparedto]["percent_change_24h"])
-            coinpercent7d = float(entry["quote"][comparedto]["percent_change_7d"])
+            coinpercent1h = fabs(float(entry["quote"][comparedto]["percent_change_1h"]))
+            coinpercent24h = fabs(float(entry["quote"][comparedto]["percent_change_24h"]))
+            coinpercent7d = fabs(float(entry["quote"][comparedto]["percent_change_7d"]))
 
             removecoin = False
             if maxpercent1h != 0.0 and coinpercent1h > maxpercent1h:
