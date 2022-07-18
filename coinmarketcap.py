@@ -95,7 +95,66 @@ def upgrade_config(thelogger, cfg):
 
         thelogger.info("Upgraded the configuration file")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("cmc_"):
+            if not cfg.has_option(cfgsection, "max-percent-change-1h"):
+                cfg.set(cfgsection, "max-percent-compared-to", "USD")
+                cfg.set(cfgsection, "max-percent-change-1h", "0.0")
+                cfg.set(cfgsection, "max-percent-change-24h", "0.0")
+                cfg.set(cfgsection, "max-percent-change-7d", "0.0")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info(
+                    "Upgraded the configuration file (max-percent-change)"
+                )
+
     return cfg
+
+def coinmarketcap_filter(cmcdata, cmc_id):
+    """Filter data based on percent change"""
+
+    filtereddata = cmcdata
+
+    comparedto = config.get(cmc_id, "max-percent-compared-to")
+    maxpercent1h = float(config.get(cmc_id, "max-percent-change-1h"))
+    maxpercent24h = float(config.get(cmc_id, "max-percent-change-24h"))
+    maxpercent7d = float(config.get(cmc_id, "max-percent-change-7d"))
+
+    for entry in cmcdata:
+        try:
+            coin = entry["symbol"]
+
+            coinpercent1h = float(entry["quote"][comparedto]["percent_change_1h"])
+            coinpercent24h = float(entry["quote"][comparedto]["percent_change_24h"])
+            coinpercent7d = float(entry["quote"][comparedto]["percent_change_7d"])
+
+            removecoin = False
+            if maxpercent1h != 0.0 and coinpercent1h > maxpercent1h:
+                removecoin = True
+
+            if maxpercent24h != 0.0 and coinpercent24h > maxpercent24h:
+                removecoin = True
+
+            if maxpercent7d != 0.0 and coinpercent7d > maxpercent7d:
+                removecoin = True
+
+            if removecoin:
+                filtereddata.remove(entry)
+
+                logger.debug(
+                    f"Removing coin {coin} based on percent change {coinpercent1h} (1h), "
+                    f"{coinpercent24h} (24h), {coinpercent7d} (7d)"
+                )
+        except KeyError as err:
+            logger.error(
+                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
+                % err
+            )
+            return cmcdata
+
+    return filtereddata
 
 
 def coinmarketcap_pairs(thebot, cmcdata):
@@ -258,11 +317,30 @@ while True:
             # Download CoinMarketCap data
             startnumber = int(config.get(section, "start-number"))
             endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
+            convert = config.get(section, "max-percent-compared-to")
+
+            if convert not in ("BTC", "USD"):
+                logger.error(
+                    f"Percent change ('{convert}') must be one of the following: "
+                    f"BTC, EUR, USD"
+                )
+                continue
+
             coinmarketcap_data = get_coinmarketcap_data(
-                logger, config.get("settings", "cmc-apikey"), startnumber, endnumber
+                logger, config.get("settings", "cmc-apikey"), startnumber, endnumber, convert
             )
 
             if coinmarketcap_data:
+                # Filter data according to configuration
+                unfilteredlength = len(coinmarketcap_data)
+                coinmarketcap_data = coinmarketcap_filter(coinmarketcap_data, section)
+                filteredlength = len(coinmarketcap_data)
+
+                logger.debug(
+                    f"Removed {unfilteredlength - filteredlength} entries from cmc data "
+                    f"based on configuration"
+                )
+
                 # Walk through all bots configured
                 for bot in botids:
                     error, data = api.request(
@@ -279,7 +357,7 @@ while True:
                             logger.error("Error occurred updating bots")
             else:
                 logger.error("Error occurred during fetch of CMC data")
-        elif section not in ("settings"):
+        elif section != "settings":
             logger.warning(
                 f"Section '{section}' not processed (prefix 'cmc_' missing)!",
                 False

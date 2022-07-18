@@ -104,7 +104,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     return lccoins
 
 
-def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
+def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
@@ -113,7 +113,7 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
     parms = {
         "start": start_number,
         "limit": limit,
-        "convert": "BTC",
+        "convert": convert,
         "aux": "cmc_rank",
     }
 
@@ -135,9 +135,9 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
                 cmc["rank"] = i
                 logger.debug(
                     f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}  "
-                    f"'{cmc['name']:25}' volume_24h:{cmc['quote']['BTC']['volume_24h']:12.2f}  "
-                    f"volume_change_24h:{cmc['quote']['BTC']['volume_change_24h']:5.2f}  "
-                    f"market_cap:{cmc['quote']['BTC']['market_cap']:12.2f}"
+                    f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}  "
+                    f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f}  "
+                    f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
                 )
             cmcdict = data["data"]
 
