@@ -322,7 +322,7 @@ while True:
             if convert not in ("BTC", "USD"):
                 logger.error(
                     f"Percent change ('{convert}') must be one of the following: "
-                    f"BTC, EUR, USD"
+                    f"BTC, ETH, EUR, USD"
                 )
                 continue
 
