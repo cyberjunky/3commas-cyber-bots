@@ -43,6 +43,12 @@ def load_config():
         "btc-botids": [12345, 67890],
     }
 
+    cfg["smt"] = {
+        "channel-name": "Telegram Channel to watch",
+        "amount-usdt": 20,
+        "amount-btc": 0.0001,
+    }
+
     cfg["hodloo_5"] = {
         "exchange": "Bittrex / Binance / Kucoin",
         "bnb-botids": [12345, 67890],
@@ -136,6 +142,11 @@ async def handle_custom_event(event):
                                 botids, coin, trade
     )
 
+
+async def handle_smarttrade_event(event):
+    """Handle the received Telegram event"""
+
+    return
 
 async def handle_hodloo_event(category, event):
     """Handle the received Telegram event"""
@@ -277,6 +288,9 @@ client = TelegramClient(
 customchannelname = config.get("custom", "channel-name")
 customchannelid = -1
 
+smtchannelname = config.get("smt", "channel-name")
+smtchannelid = -1
+
 hl5channelname = f"Hodloo {hl5exchange} 5%"
 hl5channelid = -1
 
@@ -291,6 +305,8 @@ for dialog in client.iter_dialogs():
 
         if dialog.title == customchannelname:
             customchannelid = dialog.id
+        elif dialog.title == smtchannelname:
+            smtchannelid = dialog.id
         elif dialog.title == hl5channelname:
             hl5channelid = dialog.id
         elif dialog.title == hl10channelname:
@@ -299,6 +315,7 @@ for dialog in client.iter_dialogs():
 logger.debug(
     f"Overview of resolved channel names: "
     f"Custom '{customchannelname}' to {customchannelid}, "
+    f"Smarttrade '{smtchannelname}' to {smtchannelid}, "
     f"Hodloo '{hl5channelname}' to {hl5channelid}, "
     f"Hodloo '{hl10channelname}' to {hl10channelid}"
 )
@@ -314,6 +331,19 @@ if customchannelid != -1:
         """Receive Telegram message."""
 
         await handle_custom_event(event)
+        notification.send_notification()
+
+
+if smtchannelid != -1:
+    logger.info(
+        f"Listening to updates from '{smtchannelname}' (id={smtchannelid}) ...",
+        True
+    )
+    @client.on(events.NewMessage(chats=customchannelid))
+    async def callback_smarttrade(event):
+        """Receive Telegram message."""
+
+        await handle_smarttrade_event(event)
         notification.send_notification()
 
 
