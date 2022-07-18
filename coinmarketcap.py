@@ -145,8 +145,8 @@ def coinmarketcap_filter(cmcdata, cmc_id):
                 filtereddata.remove(entry)
 
                 logger.debug(
-                    f"Removing coin {coin} based on percent change {coinpercent1h} (1h), "
-                    f"{coinpercent24h} (24h), {coinpercent7d} (7d)"
+                    f"Removing coin {coin}: 1h {coinpercent1h}/{maxpercent1h}, "
+                    f"24h {coinpercent24h}/{maxpercent24h}, 7d {coinpercent7d}/{maxpercent7d}"
                 )
         except KeyError as err:
             logger.error(
@@ -320,10 +320,11 @@ while True:
             endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
             convert = config.get(section, "max-percent-compared-to")
 
-            if convert not in ("BTC", "USD"):
+            convertlist = ("BTC", "ETH", "EUR", "USD")
+            if convert not in convertlist:
                 logger.error(
                     f"Percent change ('{convert}') must be one of the following: "
-                    f"BTC, ETH, EUR, USD"
+                    f"{convertlist}"
                 )
                 continue
 
@@ -339,7 +340,7 @@ while True:
 
                 logger.debug(
                     f"Removed {unfilteredlength - filteredlength} entries from cmc data "
-                    f"based on configuration"
+                    f"based on filter configuration"
                 )
 
                 # Walk through all bots configured
