@@ -108,6 +108,8 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
+    errorcode = -1
+    errormessage = ""
 
     # Construct query for CoinMarketCap data
     parms = {
@@ -127,27 +129,30 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
             params=parms,
             headers=headrs,
         )
-        result.raise_for_status()
+
         data = result.json()
 
-        if "data" in data.keys():
-            for i, cmc in enumerate(data["data"], start=1):
-                cmc["rank"] = i
-                logger.debug(
-                    f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}  "
-                    f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}  "
-                    f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f}  "
-                    f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
-                )
-            cmcdict = data["data"]
-
+        if result.ok:
+            if "data" in data.keys():
+                for i, cmc in enumerate(data["data"], start=1):
+                    cmc["rank"] = i
+                    logger.debug(
+                        f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}"
+                        f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}"
+                        f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f} "
+                        f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
+                    )
+                cmcdict = data["data"]
+        else:
+            errorcode = data['status']['error_code']
+            errormessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
         return {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
 
-    return cmcdict
+    return errorcode, errormessage, cmcdict
 
 
 def check_deal(cursor, dealid):

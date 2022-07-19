@@ -389,9 +389,23 @@ while True:
                     )
                     continue
 
-                coinmarketcap_data = get_coinmarketcap_data(
+                data = get_coinmarketcap_data(
                     logger, config.get("settings", "cmc-apikey"), startnumber, endnumber, convert
                 )
+
+                # Check if CMC replied with an error
+                if data[0] != -1:
+                    logger.error(
+                        f"Received error {data[0]}: {data[1]}. "
+                        f"Stop processing and retry in 24h again."
+                    )
+                    timeint = 86400
+
+                    # And exit loop so we can wait 24h before trying again
+                    break
+
+                # Get actual CMC data and process further
+                coinmarketcap_data = data[2]
 
                 if coinmarketcap_data:
                     # Filter data according to configuration
