@@ -161,6 +161,8 @@ def coinmarketcap_filter(cmcdata, cmc_id):
     maxpercent24h = float(config.get(cmc_id, "max-percent-change-24h"))
     maxpercent7d = float(config.get(cmc_id, "max-percent-change-7d"))
 
+    removedlist = []
+
     for entry in cmcdata:
         try:
             coin = entry["symbol"]
@@ -181,6 +183,7 @@ def coinmarketcap_filter(cmcdata, cmc_id):
 
             if removecoin:
                 filtereddata.remove(entry)
+                removedlist.append(coin)
 
                 logger.debug(
                     f"Removing coin {coin}: 1h {coinpercent1h}/{maxpercent1h}, "
@@ -192,6 +195,11 @@ def coinmarketcap_filter(cmcdata, cmc_id):
                 % err
             )
             return cmcdata
+
+    if len(removedlist) > 0:
+        logger.info(
+            f"Removed coins for {cmc_id} based on percent change: {removedlist}"
+        )
 
     return filtereddata
 
@@ -387,14 +395,7 @@ while True:
 
                 if coinmarketcap_data:
                     # Filter data according to configuration
-                    unfilteredlength = len(coinmarketcap_data)
                     coinmarketcap_data = coinmarketcap_filter(coinmarketcap_data, section)
-                    filteredlength = len(coinmarketcap_data)
-
-                    logger.debug(
-                        f"Removed {unfilteredlength - filteredlength} entries from cmc data "
-                        f"based on filter configuration"
-                    )
 
                     # Walk through all bots configured
                     for bot in botids:
