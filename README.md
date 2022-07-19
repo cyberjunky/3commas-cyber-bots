@@ -268,6 +268,7 @@ When the SHAREDIR option is used, this script will try to read a `.pairexclude` 
 
 NOTE: the 'Trading 24h minimal volume' value in your bot(s) can be used to prevent deals with low volume. Random pairs can be excluded using the blacklist. The first top coins (like BTC and ETH) can also be excluded by increasing the start-number.
 
+NOTE: configure the `timeinterval` correctly. Each section has it's own `timeinterval` and will be examined based on each `timeinterval` as configured in `settings`. So, a section `timeinterval` should be equal or multiply of the `timeinterval` configured in `settings`.
 
 Author of this script is [amargedon](https://github.com/amargedon).
 
@@ -277,7 +278,7 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 
 -   *[settings]*
 -   **timezone** - timezone. (default is 'Europe/Amsterdam')
--   **timeinterval** - update timeinterval in Seconds. (default is 86400)
+-   **timeinterval** - update timeinterval in seconds. (default is 86400)
 -   **debug** - set to true to enable debug logging to file. (default is False)
 -   **logrotate** - number of days to keep logs. (default = 7)
 -   **3c-apikey** - your 3Commas API key value.
@@ -290,10 +291,11 @@ This is the layout of the config file used by the `coinmarketcap.py` bot helper:
 -   **botids** - a list of bot id's to manage separated with commas
 -   **start-number** - start number for the pairs to request (exclude first x). (default is 1)
 -   **end-number** - end number for the pairs to request. (default is 200)
+-   **timeinterval** - update timeinterval in seconds for this specific section. (default is 86400)
 -   **max-percent-compared-to** - what to compare the percent change to (BTC, ETH, EUR or USD) (default USD)
--   **max-percent-change-1h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
--   **max-percent-change-24h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
--   **max-percent-change-7d** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable
+-   **max-percent-change-1h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable.
+-   **max-percent-change-24h** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable.
+-   **max-percent-change-7d** - maximum percentage of change (increase or decrease) allowed in this timeframe. Leave at 0.0 to disable.
 
 
 Example: (keys are bogus)
@@ -313,6 +315,7 @@ notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" 
 botids = [ 123456 ]
 start-number = 1
 end-number = 200
+timeinterval = 86400
 max-percent-compared-to = USD
 max-percent-change-1h = 0.0
 max-percent-change-24h = 25.0
