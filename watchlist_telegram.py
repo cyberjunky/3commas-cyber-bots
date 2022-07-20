@@ -146,7 +146,39 @@ async def handle_custom_event(event):
 async def handle_smarttrade_event(event):
     """Handle the received Telegram event"""
 
+    logger.debug(
+        "Received message on smarttrade: '%s'"
+        % (event.message.text.replace("\n", " - "))
+    )
+
+    # Parse the event and do some error checking
+    data = event.raw_text.splitlines()
+
+    if data[0] in ("Short", "Long"):
+        logger.info(f"Received Short or Long message: {data}", True)
+    elif "Entry 1" in data:
+        logger.info("Received Entry message!")
+
+        entries = []
+        stoploss = ""
+        targets = []
+
+        for line in data:
+            if "Entry" in line:
+                entries.append(line.split("-")[1])
+            elif "Stoploss" in line:
+                stoploss = line.split("-")[1]
+            elif "Target" in line:
+                targets = line.replace("Targets - ", "").split("-")
+        
+        logger.info(
+            f"Received concrete smarttrade with entries '{entries}', "
+            f"stoploss '{stoploss}' and targets '{targets}'",
+            True
+        )
+
     return
+
 
 async def handle_hodloo_event(category, event):
     """Handle the received Telegram event"""
