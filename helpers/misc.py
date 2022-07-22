@@ -172,8 +172,6 @@ def format_pair(logger, marketcode, base, coin):
     else:
         pair = f"{base}_{coin}"
 
-    logger.debug("New pair constructed: %s" % pair)
-
     return pair
 
 

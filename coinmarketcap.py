@@ -186,8 +186,13 @@ def coinmarketcap_filter(cmcdata, cmc_id):
                 removedlist.append(coin)
 
                 logger.debug(
-                    f"Removing coin {coin}: 1h {coinpercent1h}/{maxpercent1h}, "
-                    f"24h {coinpercent24h}/{maxpercent24h}, 7d {coinpercent7d}/{maxpercent7d}"
+                    f"Removing coin {coin}. 1h: {coinpercent1h}/{maxpercent1h}, "
+                    f"24h: {coinpercent24h}/{maxpercent24h}, 7d: {coinpercent7d}/{maxpercent7d}"
+                )
+            else:
+                logger.debug(
+                    f"Kept coin {coin}. 1h: {coinpercent1h}/{maxpercent1h}, "
+                    f"24h: {coinpercent24h}/{maxpercent24h}, 7d: {coinpercent7d}/{maxpercent7d}"
                 )
         except KeyError as err:
             logger.error(
@@ -196,9 +201,10 @@ def coinmarketcap_filter(cmcdata, cmc_id):
             )
             return cmcdata
 
-    if len(removedlist) > 0:
+    removedcount = len(removedlist)
+    if removedcount > 0:
         logger.info(
-            f"Removed coins for {cmc_id} based on percent change: {removedlist}"
+            f"Removed {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
         )
 
     return filtereddata
@@ -442,5 +448,5 @@ while True:
                 False
             )
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
