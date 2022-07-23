@@ -154,28 +154,32 @@ async def handle_smarttrade_event(event):
     # Parse the event and do some error checking
     data = event.raw_text.splitlines()
 
-    if data[0] in ("Short", "Long"):
-        logger.info(f"Received Short or Long message: {data}", True)
-    elif "Entry 1" in data:
-        logger.info("Received Entry message!")
+    try:
+        if data[0] in ("Short", "Long"):
+            logger.debug(f"Received Short or Long message: {data}", True)
+        elif "Entry 1" in data:
+            logger.debug("Received Entry message: {data}", True)
 
-        entries = []
-        stoploss = ""
-        targets = []
+            entries = []
+            stoploss = ""
+            targets = []
 
-        for line in data:
-            if "Entry" in line:
-                entries.append(line.split("-")[1])
-            elif "Stoploss" in line:
-                stoploss = line.split("-")[1]
-            elif "Target" in line:
-                targets = line.replace("Targets - ", "").split("-")
-        
-        logger.info(
-            f"Received concrete smarttrade with entries '{entries}', "
-            f"stoploss '{stoploss}' and targets '{targets}'",
-            True
-        )
+            for line in data:
+                if "Entry" in line:
+                    entries.append(line.split("-")[1])
+                elif "Stoploss" in line:
+                    stoploss = line.split("-")[1]
+                elif "Target" in line:
+                    targets = line.replace("Targets - ", "").split("-")
+            
+            logger.info(
+                f"Received concrete smarttrade with entries '{entries}', "
+                f"stoploss '{stoploss}' and targets '{targets}'",
+                True
+            )
+    except IndexError:
+        logger.debug("Invalid message or index used")
+        return
 
     return
 
@@ -371,7 +375,7 @@ if smtchannelid != -1:
         f"Listening to updates from '{smtchannelname}' (id={smtchannelid}) ...",
         True
     )
-    @client.on(events.NewMessage(chats=customchannelid))
+    @client.on(events.NewMessage(chats=smtchannelid))
     async def callback_smarttrade(event):
         """Receive Telegram message."""
 
