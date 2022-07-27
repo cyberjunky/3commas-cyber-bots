@@ -107,11 +107,20 @@ def store_bot_data(bot_data):
             values.append(str(bot_data[field])[1:-1])
         else:
             if fieldtype == "STRING":
-                values.append(str(bot_data[field]))
+                if bot_data[field] is None:
+                    values.append("None")
+                else:
+                    values.append(str(bot_data[field]))
             elif fieldtype == "FLOAT":
-                values.append(float(bot_data[field]))
+                if bot_data[field] is None:
+                    values.append(-1.0)
+                else:
+                    values.append(float(bot_data[field]))
             else:
-                values.append(bot_data[field])
+                if bot_data[field] is None:
+                    values.append(-1)
+                else:
+                    values.append(int(bot_data[field]))
 
     db.execute(
         f"INSERT OR REPLACE INTO bot_data ({str(datadef.keys())[11:-2]}) "
@@ -151,27 +160,38 @@ def process_shared_bot_data(cfg, data, bot_id):
 
             if field in ("bot_pair_or_pairs", "strategy_list"):
                 old = str(dbdata[index])
-                new = str(botinfo[field])[1:-1]
+                if botinfo[field] is None:
+                    new = "None"
+                else:
+                    new = str(botinfo[field])[1:-1]
             elif fieldtype == "FLOAT":
                 old = float(dbdata[index])
-                new = float(botinfo[field])
+                if botinfo[field] is None:
+                    new = -1.0
+                else:
+                    new = float(botinfo[field])
             else:
                 old = dbdata[index]
-                new = botinfo[field]
+                if botinfo[field] is None:
+                    new = -1
+                else:
+                    new = botinfo[field]
 
             if old != new:
                 storeconfig = True
 
                 # Option to disable some notifications, because some fields can change (like pairs)
                 # Store the changed config, could be usefull later for future development
+                notifychange = True
                 if field == "bot_pair_or_pairs" and not notifypairs:
-                    continue
+                    notifychange = False
 
-                logger.info(
-                    f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed "
-                    f"from: \n{old}\n to: \n{new}",
-                    True
-                )
+                if notifychange:
+                    logger.info(
+                        f"\'{botinfo['bot_name']}\' ({bot_id}): {field} changed "
+                        f"from: \n{old}\n to: \n{new}",
+                        True
+                    )
 
             index += 1
     else:
@@ -308,7 +328,9 @@ while True:
                 if botdata:
                     process_shared_bot_data(config, botdata, botid)
                 else:
-                    logger.error("Error occurred, no shared bot data to process")
+                    logger.error(
+                        f"Error occurred, no shared data to process for bot {botid}!"
+                    )
             else:
                 logger.error(
                     f"No data fetched for section '{section}'. Check if bot still exists when "

@@ -67,25 +67,31 @@ I rather don't want to pay for Monthly services if this is not needed, I rather 
       * [How does it work?](#how-does-it-work-7)
       * [Configuration](#configuration-7)
       * [Example output](#example-output-6)
-   * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy-)
+   * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy)
       * [What does it do?](#what-does-it-do-8)
       * [How does it work?](#how-does-it-work-8)
-   * [Watchlist Hodloo bot helper named watchlist_hodloo.py ](#watchlist-hodloo-bot-helper-named-watchlist_hodloopy-)
+      * [Configuration](#configuration-8)
+   * [Watchlist Hodloo bot helper named watchlist_hodloo.py ](#watchlist-hodloo-bot-helper-named-watchlist_hodloopy)
       * [What does it do?](#what-does-it-do-9)
       * [How does it work?](#how-does-it-work-9)
-   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
-      * [What does it do?](#what-does-it-do-10)
       * [Configuration](#configuration-9)
-      * [Example output](#example-output-7)
-   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
-      * [What does it do?](#what-does-it-do-11)
+   * [Watchlist Telegram bot helper named watchlist_telegram.py ](#watchlist-telegram-bot-helper-named-watchlist_telegrampy)
+      * [What does it do?](#what-does-it-do-10)
       * [How does it work?](#how-does-it-work-10)
       * [Configuration](#configuration-10)
-      * [Example output](#example-output-8)
-   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
+   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
+      * [What does it do?](#what-does-it-do-11)
+      * [Configuration](#configuration-11)
+      * [Example output](#example-output-7)
+   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
       * [What does it do?](#what-does-it-do-12)
       * [How does it work?](#how-does-it-work-11)
-      * [Configuration](#configuration-11)
+      * [Configuration](#configuration-12)
+      * [Example output](#example-output-8)
+   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
+      * [What does it do?](#what-does-it-do-13)
+      * [How does it work?](#how-does-it-work-12)
+      * [Configuration](#configuration-13)
    * [Binance account Setup](#binance-account-setup)
    * [FTX account Setup](#ftx-account-setup)
    * [3Commas account Setup](#3commas-account-setup)
@@ -676,8 +682,8 @@ Example: (keys are bogus)
 timezone = Europe/Amsterdam
 debug = False
 logrotate = 14
-usdt-botids = [123456,129011]
-btc-botids = [789012]
+usdt-botids = [ 123456, 129011 ]
+btc-botids = [ 789012 ]
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 tgram-phone-number = +316512345678
@@ -763,8 +769,8 @@ Example: (keys are bogus)
 timezone = Europe/Amsterdam
 debug = False
 logrotate = 14
-usdt-botid = 123456
-btc-botid = 789012
+usdt-botid = [ 123456 ]
+btc-botid = [ 789012 ]
 3c-apikey = 4mzhnpio6la4h1158ylt2
 3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
 tgram-phone-number = +316512345678
@@ -872,6 +878,99 @@ usdt-botids = [12345, 67890]
 
 ![Watchlist](images/watchlist_hodloo.png)
 
+
+## Watchlist Telegram bot helper named `watchlist_telegram.py`
+Type = start deal trigger
+
+### What does it do?
+
+Combination of watchlist and watchlist_hodloo because you need multiple phone numbers to run multiple scripts using a Telegram connection. So, this script combines (for now) these two scripts into one.
+
+### How does it work?
+
+This script does exactly what is already described at [watchlist](#what-does-it-do-7) and [watchlist_hodloo](#what-does-it-do-8). Improvement has been made for discovery of the correct Telegram channels to listen to and a little bit more flexible configuration.
+
+Author of this script is [amargedon](https://github.com/amargedon).
+
+### Configuration
+
+The `watchlist` bot helper config file uses this layout:
+
+-   **timezone** - timezone. (default is 'Europe/Amsterdam')
+-   **debug** - set to true to enable debug logging to file. (default is False)
+-   **logrotate** - number of days to keep logs. (default = 7)
+-   **3c-apikey** - your 3Commas API key value.
+-   **3c-apisecret** - your 3Commas API key secret value.
+-   **tgram-phone-number** - your Telegram phone number, needed for first time authorisation code. (session will be cached in watchlist.session)
+-   **tgram-api-id** - your telegram API id.
+-   **tgram-api-hash** - your telegram API hash.
+-   **notifications** - set to true to enable notifications. (default = False)
+-   **notify-urls** - one or a list of apprise notify urls, each in " " seperated with commas. See [Apprise website](https://github.com/caronc/apprise) for more information.
+
+-   *[custom]*
+-   **channel-name** - name of the chat channel to monitor.
+-   **usdt-botids** - a list of bot (USDT multipair) id's to use. (can also be using BUSD)
+-   **btc-botids** -  a list of bot (BTC multipair) id's to use.
+
+-   *[hodloo_5]*
+-   **exchange** - exchange channel to monitor on Telegram (Bittrex, Binance or Kucoin).
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+-   *[hodloo_10]*
+-   **exchange** - exchange channel to monitor on Telegram (Bittrex, Binance or Kucoin).
+-   **bnb-botids** - list of zero or more botids for deals with BNB as base.
+-   **btc-botids** - list of zero or more botids for deals with BTC as base.
+-   **busd-botids** - list of zero or more botids for deals with BUSD as base.
+-   **eth-botids** - list of zero or more botids for deals with ETH as base.
+-   **eur-botids** - list of zero or more botids for deals with EUR as base.
+-   **usdt-botids** - list of zero or more botids for deals with USDT as base.
+
+
+Example: (keys are bogus)
+```
+[settings]
+timezone = Europe/Amsterdam
+debug = False
+logrotate = 14
+3c-apikey = 4mzhnpio6la4h1158ylt2
+3c-apisecret = 4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt4mzhnpio6la4h1158ylt
+tgram-phone-number = +316512345678
+tgram-api-id = 1234566
+tgram-api-hash = o6la4h1158ylt4mzhnpio6la
+tgram-channel = mytriggerchannel
+notifications = True
+notify-urls = [ "tgram://9995888120:BoJPor6opeHyxx5VVZPX-BoJPor6opeHyxx5VVZPX/" ]
+exchange = Binance
+mode = Telegram
+
+[custom]
+channel-name = MyChannel
+usdt-botids = [ 123456, 129011 ]
+btc-botids = [ 789012 ]
+
+[hodloo_5]
+exchange = Binance
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+
+[hodloo_10]
+exchange = Bittrex
+bnb-botids = [12345, 67890]
+btc-botids = [12345, 67890]
+busd-botids = [12345, 67890]
+eth-botids = [12345, 67890]
+eur-botids = [12345, 67890]
+usdt-botids = [12345, 67890]
+```
 
 ## Take profit bot helper named `tpincrement.py`
 Type = takeprofit adjuster
@@ -1129,7 +1228,7 @@ AccountsRead: Required to get connected exchanges to ensure that pairs are valid
 There are two sets of Telegram related settings.
 
 #### Watchlist
-One is used by `watchlist.py` to connect to the telegram API.
+One is used by `watchlist.py`, `watchlist_hodloo` or `watchlist_telegram` to connect to the telegram API.
 
 To get the Telegram App ID and hash you have to create an application ,
 
