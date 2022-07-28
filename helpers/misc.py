@@ -235,7 +235,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                                 rowcolums[key].text.replace(" BTC", "").replace(",", "")
                             )
                     else:
-                        pairdata[value] = rowcolums[key].text.replace("\n", "")
+                        pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
 
                 logger.debug(f"Rank {rank}: {pairdata}")
                 pairs.append(pairdata)

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
+    format_pair,
     get_botassist_data,
     populate_pair_lists,
     remove_excluded_pairs,
@@ -51,6 +52,8 @@ def load_config():
         "maxaltrankscore": 1500,
         "allowmaxdealchange": False,
         "allowbotstopstart": False,
+        "maxvolatility": 0.0,
+        "allowpairconversion": False,
         "list": "binance_spot_usdt_winner_60m",
     }
 
@@ -116,6 +119,22 @@ def upgrade_config(thelogger, theapi, cfg):
 
                 thelogger.info("Upgraded the configuration file (maxaltrankscore)")
 
+            if not cfg.has_option(cfgsection, "maxvolatility"):
+                cfg.set(cfgsection, "maxvolatility", "0.0")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (maxvolatility)")
+
+            if not cfg.has_option(cfgsection, "allowpairconversion"):
+                cfg.set(cfgsection, "allowpairconversion", "False")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (allowpairconversion)")
+
     return cfg
 
 
@@ -136,6 +155,8 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     # Get deal settings for this bot
     mingalaxyscore = float(config.get(cfg_section, "mingalaxyscore", fallback=0.0))
     maxaltrankscore = int(config.get(cfg_section, "maxaltrankscore", fallback=1500))
+    maxvolatility = float(config.get(cfg_section, "maxvolatility", fallback=0.0))
+    allowpairconversion = config.getboolean(cfg_section, "allowpairconversion", fallback=False)
     originalmaxdeals = int(config.get(cfg_section, "originalmaxdeals"))
     allowmaxdealchange = config.getboolean(
         cfg_section, "allowmaxdealchange", fallback=False
@@ -186,14 +207,24 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
             )
             continue
 
+        if "volatility" in pairdata and maxvolatility > 0.0 and float(pairdata["volatility"]) > maxvolatility:
+            logger.debug(
+                "Pair '%s' with volatility %s above maximum volatility %s"
+                % (pairdata["pair"], pairdata["volatility"], str(maxvolatility))
+            )
+            continue
+
         # Populate lists
         populate_pair_lists(pairdata["pair"], blacklist, blackpairs, badpairs, newpairs, tickerlist)
 
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
-    logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
-    )
+    if len(newpairs) == 0 and allowpairconversion and len(badpairs) > 0:
+        newpairs = convert_pairs(tickerlist, base, marketcode, badpairs)
+    else:
+        logger.debug(
+            "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
+        )
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
@@ -234,6 +265,33 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
             f"None of the 3c-tools bot-assist suggested pairs have been found on "
             f"the {exchange} ({marketcode}) exchange!"
         )
+
+
+def convert_pairs(allowedpairs, base, marketcode, pairlist):
+    """Convert the pairs to pairs acceptable by the bot."""
+
+    convertedpairs = list()
+
+    for pair in pairlist:
+        if "PERP" in pair:
+            pair = pair.replace("-PERP", "")
+        
+        pairsplit = pair.split("_")
+        currentbase = pairsplit[0]
+        coin = pairsplit[1]
+
+        if currentbase in coin:
+            coin = coin.replace(currentbase, "")
+        
+        newpair = format_pair(logger, marketcode, base, coin)
+        if newpair in allowedpairs:
+            convertedpairs.append(newpair)
+        else:
+            logger.debug(
+                f"Converted pair {newpair} not in allowedlist"
+            )
+
+    return convertedpairs
 
 
 # Start application

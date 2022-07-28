@@ -362,6 +362,8 @@ This is the layout of the config file used by the `botassistexplorer.py` bot hel
 -   **originalmaxdeals** - the max number of active deals you want to have in your bot.
 -   **allowmaxdealchange** - indicates if the max number of active deals in the bot may be changed to a lower value.
 -   **allowbotstopstart** - indicates if the bot may be stopped when there are zero trading pairs, and may be started when there are trading pairs again.
+-   **maxvolatility** - max volatility percentage allowed for a pair (if this data is available in the configured list)
+-   **allowpairconversion** - try to convert pairs, for example when using a futures list on a spot bot (make sure to check the pairs and monitor for a while!)
 -   **list** - the part behind the 'list=' parameter in the url of 3c-tools bot-assist-explorer, you can find it here: https://www.3c-tools.com/markets/bot-assist-explorer
 
 
@@ -386,6 +388,8 @@ maxaltrankscore = 1500
 originalmaxdeals = 8
 allowmaxdealchange = True
 allowbotstopstart = True
+maxvolatility = 10.0
+allowpairconversion = False
 list = binance_spot_usdt_winner_60m
 ```
 
