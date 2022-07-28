@@ -267,7 +267,7 @@ def get_shared_bot_data(logger, bot_id, bot_secret):
             data = page.json()
 
     except json.decoder.JSONDecodeError as err:
-        logger.error("Shared bot data is not valid json: %s" % err)
+        logger.error(f"Shared bot data ({bot_id}) is not valid json")
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching 3C shared bot data failed with error: %s" % err)
 
