@@ -104,16 +104,18 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     return lccoins
 
 
-def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
+def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
+    errorcode = -1
+    errormessage = ""
 
     # Construct query for CoinMarketCap data
     parms = {
         "start": start_number,
         "limit": limit,
-        "convert": "BTC",
+        "convert": convert,
         "aux": "cmc_rank",
     }
 
@@ -127,27 +129,30 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
             params=parms,
             headers=headrs,
         )
-        result.raise_for_status()
+
         data = result.json()
 
-        if "data" in data.keys():
-            for i, cmc in enumerate(data["data"], start=1):
-                cmc["rank"] = i
-                logger.debug(
-                    f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}  "
-                    f"'{cmc['name']:25}' volume_24h:{cmc['quote']['BTC']['volume_24h']:12.2f}  "
-                    f"volume_change_24h:{cmc['quote']['BTC']['volume_change_24h']:5.2f}  "
-                    f"market_cap:{cmc['quote']['BTC']['market_cap']:12.2f}"
-                )
-            cmcdict = data["data"]
-
+        if result.ok:
+            if "data" in data.keys():
+                for i, cmc in enumerate(data["data"], start=1):
+                    cmc["rank"] = i
+                    logger.debug(
+                        f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}"
+                        f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}"
+                        f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f} "
+                        f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
+                    )
+                cmcdict = data["data"]
+        else:
+            errorcode = data['status']['error_code']
+            errormessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
         return {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
 
-    return cmcdict
+    return errorcode, errormessage, cmcdict
 
 
 def check_deal(cursor, dealid):
@@ -166,8 +171,6 @@ def format_pair(logger, marketcode, base, coin):
         pair = f"{base}_{coin}-PERP"
     else:
         pair = f"{base}_{coin}"
-
-    logger.debug("New pair constructed: %s" % pair)
 
     return pair
 
