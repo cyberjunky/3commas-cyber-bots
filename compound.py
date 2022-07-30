@@ -107,6 +107,7 @@ def upgrade_config(thelogger, theapi, cfg):
 
 def get_logged_profit_for_bot(bot_id):
     """Get the sum of all logged profit"""
+
     data = cursor.execute(
         f"SELECT sum(profit) FROM deals WHERE botid = {bot_id}"
     ).fetchone()[0]
@@ -169,16 +170,19 @@ def update_bot_order_volumes(
 
         if max_safety_orders >= 1:
             logger.info(
-                f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
-                f"₿{round(new_base_order_volume, rounddigits)}\nChanged SO from "
-                f"₿{round(safety_order_volume, rounddigits)} to ₿{round(new_safety_order_volume, rounddigits)}",
+                f"Compounded ₿{round(profit_sum, rounddigits)} in profit "
+                f"from {deals_count} deal(s) made by '{bot_name}'\n"
+                f"Changed BO from ₿{round(base_order_volume, rounddigits)} to "
+                f"₿{round(new_base_order_volume, rounddigits)}\n"
+                f"Changed SO from ₿{round(safety_order_volume, rounddigits)} to "
+                f"₿{round(new_safety_order_volume, rounddigits)}",
                 True,
             )
         else:
             logger.info(
-                f"Compounded ₿{round(profit_sum, rounddigits)} in profit from {deals_count} deal(s) "
-                f"made by '{bot_name}'\nChanged BO from ₿{round(base_order_volume, rounddigits)} to "
+                f"Compounded ₿{round(profit_sum, rounddigits)} in profit "
+                f"from {deals_count} deal(s) made by '{bot_name}'\n"
+                f"Changed BO from ₿{round(base_order_volume, rounddigits)} to "
                 f"₿{round(new_base_order_volume, rounddigits)}",
                 True,
             )
@@ -240,8 +244,8 @@ def get_bot_values(thebot):
         startso = data[1]
         startactivedeals = data[2]
         logger.info(
-            "Fetched bot start BO, SO values and max. active deals: %s %s %s"
-            % (startbo, startso, startactivedeals)
+            f"Fetched bot start BO '{startbo}', SO values '{startso}' and "
+            f"max. active deals '{startactivedeals}'"
         )
     else:
         # Store values in database
@@ -254,8 +258,8 @@ def get_bot_values(thebot):
         )
 
         logger.info(
-            "Stored bot start BO, SO values and max. active deals: %s %s %s"
-            % (startbo, startso, startactivedeals)
+            f"Stored bot start BO '{startbo}', SO values '{startso}' and "
+            f"max. active deals '{startactivedeals}'"
         )
         db.commit()
 
@@ -310,11 +314,12 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
         rounddigits = get_round_digits(thebot["pairs"][0])
 
         logger.info(
-            f"Changed max. active deals from: %s to %s for bot\n'{bot_name}'\n"
+            f"Changed max. active deals from {max_active_deals} to "
+            f"{new_max_deals} for bot\n'{bot_name}'\n"
             f"Changed BO from ${round(base_order_volume, rounddigits)} to "
-            f"${round(org_base_order, rounddigits)}\nChanged SO from "
-            f"${round(safety_order_volume, rounddigits)} to ${round(org_safety_order, rounddigits)}"
-            % (max_active_deals, new_max_deals)
+            f"${round(org_base_order, rounddigits)}\n"
+            f"Changed SO from ${round(safety_order_volume, rounddigits)} to "
+            f"${round(org_safety_order, rounddigits)}"
         )
     else:
         if error and "msg" in error:
@@ -378,11 +383,12 @@ def update_bot_max_safety_orders(
         rounddigits = get_round_digits(thebot["pairs"][0])
 
         logger.info(
-            f"Changed max. active safety orders from: %s to %s for bot\n'{bot_name}'\n"
+            f"Changed max. active safety orders from {max_safety_orders} to "
+            f"{new_max_safety_orders} for bot\n'{bot_name}'\n"
             f"Changed BO from ${round(base_order_volume, rounddigits)} to "
-            f"${round(org_base_order, rounddigits)}\nChanged SO from "
-            f"${round(safety_order_volume, rounddigits)} to ${round(org_safety_order, rounddigits)}"
-            % (max_safety_orders, max_safety_orders)
+            f"${round(org_base_order, rounddigits)}\n"
+            f"Changed SO from ${round(safety_order_volume, rounddigits)} to "
+            f"${round(org_safety_order, rounddigits)}"
         )
     else:
         if error and "msg" in error:
@@ -463,11 +469,15 @@ def compound_bot(cfg, thebot):
         new_max_safety_orders = max_safety_orders
         if profitusedtocompound > profit_needed_to_add_so:
             new_max_safety_orders = max_safety_orders + 1
+        else:
+            logger.info(
+                f"{profit_needed_to_add_so} profit required for additional Safety Order..."
+            )
 
         if new_max_safety_orders > user_defined_max_safety_orders:
             logger.info(
-                f"Already reached max set number of safety orders ({user_defined_max_safety_orders}), "
-                f"skipping deal compounding"
+                f"Already reached max set number of safety orders "
+                f"({user_defined_max_safety_orders}), skipping deal compounding"
             )
 
         if new_max_safety_orders > max_safety_orders:
@@ -532,10 +542,18 @@ def compound_bot(cfg, thebot):
             <= user_defined_max_active_deals
         ):
             logger.info(
-                "Enough profit has been made to add a deal and lower BO & SO to their orginal values"
+                "Enough profit has been made to add a deal and lower BO & SO to "
+                "their orginal values"
             )
             # Update the bot
             update_bot_max_deals(thebot, startbo, startso, new_max_active_deals)
+        elif (
+            new_max_active_deals == current_active_deals
+        ):
+            requiredprofit = totalusedperdeal - (profitusedtocompound % totalusedperdeal)
+            logger.info(
+                f"{requiredprofit} profit required for additional deal..."
+            )
 
     if deals:
         (deals_count, profit_sum) = process_deals(deals)
@@ -624,11 +642,10 @@ def compound_bot(cfg, thebot):
             )
         else:
             logger.info(
-                f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!",
-                True,
+                f"{bot_name}\nNo (new) profit made, no BO/SO value updates needed!"
             )
     else:
-        logger.info(f"{bot_name}\nNo (new) deals found for this bot!", True)
+        logger.info(f"{bot_name}\nNo (new) deals found for this bot!")
 
 
 def init_compound_db():
@@ -779,5 +796,5 @@ while True:
                 False
             )
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
