@@ -327,10 +327,7 @@ while True:
 
                 if botdata:
                     process_shared_bot_data(config, botdata, botid)
-                else:
-                    logger.error(
-                        f"Error occurred, no shared data to process for bot {botid}!"
-                    )
+                # No else case, exceptions are handled inside get_shared_bot_data
             else:
                 logger.error(
                     f"No data fetched for section '{section}'. Check if bot still exists when "

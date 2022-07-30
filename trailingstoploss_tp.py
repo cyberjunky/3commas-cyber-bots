@@ -11,8 +11,18 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal, unix_timestamp_to_string, wait_time_interval
-from helpers.threecommas import init_threecommas_api
+from helpers.database import (
+    get_next_process_time,
+    set_next_process_time
+)
+from helpers.misc import (
+    check_deal, 
+    unix_timestamp_to_string, 
+    wait_time_interval
+)
+from helpers.threecommas import (
+    init_threecommas_api
+)
 
 def load_config():
     """Create default or load existing config file."""
@@ -578,39 +588,6 @@ def remove_all_deals(bot_id):
     db.commit()
 
 
-def get_bot_next_process_time(bot_id):
-    """Get the next processing time for the specified bot."""
-
-    dbrow = cursor.execute(
-            f"SELECT next_processing_timestamp FROM bots WHERE botid = {bot_id}"
-        ).fetchone()
-
-    nexttime = int(time.time())
-    if dbrow is not None:
-        nexttime = dbrow["next_processing_timestamp"]
-    else:
-        # Record missing, create one
-        set_bot_next_process_time(bot_id, nexttime)
-
-    return nexttime
-
-
-def set_bot_next_process_time(bot_id, new_time):
-    """Set the next processing time for the specified bot."""
-
-    logger.debug(
-        f"Next processing for bot {bot_id} not before "
-        f"{unix_timestamp_to_string(new_time, '%Y-%m-%d %H:%M:%S')}."
-    )
-
-    db.execute(
-        f"REPLACE INTO bots (botid, next_processing_timestamp) "
-        f"VALUES ({bot_id}, {new_time})"
-    )
-
-    db.commit()
-
-
 def add_deal_in_db(deal_id, bot_id, tp_percentage, readable_sl_percentage, readable_tp_percentage):
     """Add deal (short or long) to database."""
 
@@ -798,7 +775,7 @@ while True:
 
             # Walk through all bots configured
             for bot in botids:
-                nextprocesstime = get_bot_next_process_time(bot)
+                nextprocesstime = get_next_process_time(db, "bots", "botid", bot)
 
                 # Only process the bot if it's time for the next interval, or
                 # time exceeds the check interval (clock has changed somehow)
@@ -817,7 +794,7 @@ while True:
                         newtime = starttime + (
                                 check_interval if bot_deals_to_monitor == 0 else monitor_interval
                             )
-                        set_bot_next_process_time(bot, newtime)
+                        set_next_process_time(db, "bots", "botid", bot, newtime)
 
                         deals_to_monitor += bot_deals_to_monitor
                     else:

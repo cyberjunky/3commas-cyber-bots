@@ -3,10 +3,13 @@
 import argparse
 import configparser
 import json
+from math import fabs
 import os
+import sqlite3
 import sys
 import time
 from pathlib import Path
+from helpers.database import get_next_process_time, set_next_process_time
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
@@ -14,6 +17,7 @@ from helpers.misc import (
     get_coinmarketcap_data,
     populate_pair_lists,
     remove_excluded_pairs,
+    unix_timestamp_to_string,
     wait_time_interval,
 )
 from helpers.threecommas import (
@@ -34,7 +38,6 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
-        "timeinterval": 86400,
         "debug": False,
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
@@ -47,6 +50,11 @@ def load_config():
         "botids": [12345, 67890],
         "start-number": 1,
         "end-number": 200,
+        "timeinterval": 86400,
+        "max-percent-compared-to": "USD",
+        "max-percent-change-1h": 0.0,
+        "max-percent-change-24h": 0.0,
+        "max-percent-change-7d": 0.0,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -95,7 +103,111 @@ def upgrade_config(thelogger, cfg):
 
         thelogger.info("Upgraded the configuration file")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("cmc_"):
+            if not cfg.has_option(cfgsection, "max-percent-change-1h"):
+                cfg.set(cfgsection, "max-percent-compared-to", "USD")
+                cfg.set(cfgsection, "max-percent-change-1h", "0.0")
+                cfg.set(cfgsection, "max-percent-change-24h", "0.0")
+                cfg.set(cfgsection, "max-percent-change-7d", "0.0")
+                cfg.set(cfgsection, "timeinterval", cfg.get("settings", "timeinterval"))
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info(
+                    "Upgraded the configuration file (max-percent-change)"
+                )
+
     return cfg
+
+
+def open_cmc_db():
+    """Create or open database to store data."""
+
+    try:
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
+        dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
+
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
+    except sqlite3.OperationalError:
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
+
+        dbcursor.execute(
+            "CREATE TABLE IF NOT EXISTS sections ("
+            "sectionid STRING Primary Key, "
+            "next_processing_timestamp INT"
+            ")"
+        )
+
+        logger.info("Database tables created successfully")
+
+    return dbconnection
+
+
+def coinmarketcap_filter(cmcdata, cmc_id):
+    """Filter data based on percent change"""
+
+    filtereddata = cmcdata
+
+    comparedto = config.get(cmc_id, "max-percent-compared-to")
+    maxpercent1h = float(config.get(cmc_id, "max-percent-change-1h"))
+    maxpercent24h = float(config.get(cmc_id, "max-percent-change-24h"))
+    maxpercent7d = float(config.get(cmc_id, "max-percent-change-7d"))
+
+    removedlist = []
+
+    for entry in cmcdata:
+        try:
+            coin = entry["symbol"]
+
+            coinpercent1h = fabs(float(entry["quote"][comparedto]["percent_change_1h"]))
+            coinpercent24h = fabs(float(entry["quote"][comparedto]["percent_change_24h"]))
+            coinpercent7d = fabs(float(entry["quote"][comparedto]["percent_change_7d"]))
+
+            removecoin = False
+            if maxpercent1h != 0.0 and coinpercent1h > maxpercent1h:
+                removecoin = True
+
+            if maxpercent24h != 0.0 and coinpercent24h > maxpercent24h:
+                removecoin = True
+
+            if maxpercent7d != 0.0 and coinpercent7d > maxpercent7d:
+                removecoin = True
+
+            if removecoin:
+                filtereddata.remove(entry)
+                removedlist.append(coin)
+
+                logger.debug(
+                    f"Removing coin {coin}. 1h: {coinpercent1h}/{maxpercent1h}, "
+                    f"24h: {coinpercent24h}/{maxpercent24h}, 7d: {coinpercent7d}/{maxpercent7d}"
+                )
+            else:
+                logger.debug(
+                    f"Kept coin {coin}. 1h: {coinpercent1h}/{maxpercent1h}, "
+                    f"24h: {coinpercent24h}/{maxpercent24h}, 7d: {coinpercent7d}/{maxpercent7d}"
+                )
+        except KeyError as err:
+            logger.error(
+                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
+                % err
+            )
+            return cmcdata
+
+    removedcount = len(removedlist)
+    if removedcount > 0:
+        logger.info(
+            f"Removed {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
+        )
+
+    return filtereddata
 
 
 def coinmarketcap_pairs(thebot, cmcdata):
@@ -237,6 +349,10 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
+# Initialize or open the database
+db = open_cmc_db()
+cursor = db.cursor()
+
 # Refresh coin pairs based on CoinMarketCap data
 while True:
 
@@ -250,40 +366,87 @@ while True:
     # Update the blacklist
     blacklist = load_blacklist(logger, api, blacklistfile)
 
+    # Current time to determine which sections to process
+    starttime = int(time.time())
+
     for section in config.sections():
         if section.startswith("cmc_"):
-            # Bot configuration for section
-            botids = json.loads(config.get(section, "botids"))
+            sectiontimeinterval = int(config.get(section, "timeinterval"))
+            nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
-            # Download CoinMarketCap data
-            startnumber = int(config.get(section, "start-number"))
-            endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
-            coinmarketcap_data = get_coinmarketcap_data(
-                logger, config.get("settings", "cmc-apikey"), startnumber, endnumber
-            )
+            # Only process the section if it's time for the next interval, or
+            # time exceeds the check interval (clock has changed somehow)
+            if starttime >= nextprocesstime or (
+                    abs(nextprocesstime - starttime) > sectiontimeinterval
+            ):
+                # Bot configuration for section
+                botids = json.loads(config.get(section, "botids"))
 
-            if coinmarketcap_data:
-                # Walk through all bots configured
-                for bot in botids:
-                    error, data = api.request(
-                        entity="bots",
-                        action="show",
-                        action_id=str(bot),
+                # Download CoinMarketCap data
+                startnumber = int(config.get(section, "start-number"))
+                endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
+                convert = config.get(section, "max-percent-compared-to")
+
+                convertlist = ("BTC", "ETH", "EUR", "USD")
+                if convert not in convertlist:
+                    logger.error(
+                        f"Percent change ('{convert}') must be one of the following: "
+                        f"{convertlist}"
                     )
-                    if data:
-                        coinmarketcap_pairs(data, coinmarketcap_data)
-                    else:
-                        if error and "msg" in error:
-                            logger.error("Error occurred updating bots: %s" % error["msg"])
+                    continue
+
+                data = get_coinmarketcap_data(
+                    logger, config.get("settings", "cmc-apikey"), startnumber, endnumber, convert
+                )
+
+                # Check if CMC replied with an error
+                if data[0] != -1:
+                    logger.error(
+                        f"Received error {data[0]}: {data[1]}. "
+                        f"Stop processing and retry in 24h again."
+                    )
+                    timeint = 86400
+
+                    # And exit loop so we can wait 24h before trying again
+                    break
+
+                # Get actual CMC data and process further
+                coinmarketcap_data = data[2]
+
+                if coinmarketcap_data:
+                    # Filter data according to configuration
+                    coinmarketcap_data = coinmarketcap_filter(coinmarketcap_data, section)
+
+                    # Walk through all bots configured
+                    for bot in botids:
+                        error, data = api.request(
+                            entity="bots",
+                            action="show",
+                            action_id=str(bot),
+                        )
+                        if data:
+                            coinmarketcap_pairs(data, coinmarketcap_data)
                         else:
-                            logger.error("Error occurred updating bots")
+                            if error and "msg" in error:
+                                logger.error("Error occurred updating bots: %s" % error["msg"])
+                            else:
+                                logger.error("Error occurred updating bots")
+
+                    # Determine new time to process this section
+                    newtime = starttime + sectiontimeinterval
+                    set_next_process_time(db, "sections", "sectionid", section, newtime)
+                else:
+                    logger.error("Error occurred during fetch of CMC data")
             else:
-                logger.error("Error occurred during fetch of CMC data")
-        elif section not in ("settings"):
+                logger.debug(
+                    f"Section {section} will be processed after "
+                    f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}."
+                )
+        elif section != "settings":
             logger.warning(
                 f"Section '{section}' not processed (prefix 'cmc_' missing)!",
                 False
             )
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break
