@@ -207,7 +207,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
             )
             continue
 
-        if "volatility" in pairdata and maxvolatility > 0.0 and float(pairdata["volatility"]) > maxvolatility:
+        if "volatility" in pairdata and float(pairdata["volatility"]) > maxvolatility > 0.0:
             logger.debug(
                 "Pair '%s' with volatility %s above maximum volatility %s"
                 % (pairdata["pair"], pairdata["volatility"], str(maxvolatility))
@@ -220,7 +220,7 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
     if len(newpairs) == 0 and allowpairconversion and len(badpairs) > 0:
-        newpairs = convert_pairs(tickerlist, base, marketcode, badpairs)
+        newpairs = convert_pairs(tickerlist, base, marketcode, blacklist, badpairs)
     else:
         logger.debug(
             "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
@@ -267,28 +267,33 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
         )
 
 
-def convert_pairs(allowedpairs, base, marketcode, pairlist):
+def convert_pairs(ticker_list, base, marketcode, black_list, pair_list):
     """Convert the pairs to pairs acceptable by the bot."""
 
     convertedpairs = list()
 
-    for pair in pairlist:
+    for pair in pair_list:
         if "PERP" in pair:
             pair = pair.replace("-PERP", "")
-        
+
         pairsplit = pair.split("_")
         currentbase = pairsplit[0]
         coin = pairsplit[1]
 
         if currentbase in coin:
             coin = coin.replace(currentbase, "")
-        
+
         newpair = format_pair(logger, marketcode, base, coin)
-        if newpair in allowedpairs:
-            convertedpairs.append(newpair)
+        if newpair in ticker_list:
+            if newpair not in black_list:
+                convertedpairs.append(newpair)
+            else:
+                logger.debug(
+                    f"Converted pair {newpair} in blacklist"
+                )
         else:
             logger.debug(
-                f"Converted pair {newpair} not in allowedlist"
+                f"Converted pair {newpair} not in tickerlist"
             )
 
     return convertedpairs
@@ -408,15 +413,16 @@ while True:
                         if boterror and "status_code" in boterror:
                             if boterror["status_code"] == 404:
                                 logger.error(
-                                    "Error occurred updating bots: bot with id '%s' was not found" % botid
+                                    f"Error occurred updating bots: bot with "
+                                    f"id '{botid}' was not found"
                                 )
                             else:
                                 logger.error(
-                                    "Error occurred updating bots: %s" % boterror["msg"]
+                                    f"Error occurred updating bots: {boterror['msg']}"
                                 )
                         elif boterror and "msg" in boterror:
                             logger.error(
-                                "Error occurred updating bots: %s" % boterror["msg"]
+                                f"Error occurred updating bots: {boterror['msg']}"
                             )
                         else:
                             logger.error("Error occurred updating bots")
