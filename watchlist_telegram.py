@@ -175,23 +175,23 @@ async def handle_forex_smarttrade_event(event):
             logger.debug(f"Received Entry message: {data}", True)
 
             coin = None
-            msgentries = []
+            #msgentries = []
             msgstoploss = nan
             msgtargets = []
 
             for line in data:
                 if "BUYING" in line:
                     coin = line.replace("BUYING #", "")
-                elif "Entry" in line:
-                    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
+                #elif "Entry" in line:
+                #    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
                 elif "Stoploss" in line:
                     msgstoploss = float(line.split("-")[1].replace("$", ""))
                 elif "Target" in line:
-                    msgtargets = line.replace("Targets - ", "").split("-").replace("$", "")
+                    msgtargets = line.replace("Targets - ", "").split("-")
 
             logger.info(
                 f"Received concrete smarttrade with for {coin} with "
-                f"entries '{msgentries}', stoploss '{msgstoploss}' and targets '{msgtargets}'",
+                f"stoploss '{msgstoploss}' and targets '{msgtargets}'",
                 True
             )
 
@@ -202,19 +202,20 @@ async def handle_forex_smarttrade_event(event):
                 f"Position {position} created."
             )
 
-            tpsteps = list()
             tpstepvolume = 100.0 / len(msgtargets)
             logger.debug(
                 f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
             )
 
+            tpsteps = list()
             for msgtarget in msgtargets:
                 step = {}
                 if "(" in msgtarget:
-                    step["price"] = msgtarget.split("(")[0]
+                    step["price"] = msgtarget.split("(")[0].replace("$", "")
                 else:
-                    step["price"] = msgtarget
+                    step["price"] = msgtarget.replace("$", "")
                 step["volume"] = tpstepvolume
+                tpsteps.append(step)
 
             takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
             logger.debug(
@@ -264,7 +265,7 @@ async def handle_cryptosignal_smarttrade_event(event):
                 elif "SL:" in line:
                     msgstoploss = float(line.split(":")[1].replace("$", ""))
                 elif "Targets:" in line:
-                    msgtargets = line.replace("Targets: ", "").split("-").replace("$", "")
+                    msgtargets = line.replace("Targets: ", "").split("-")
 
             logger.info(
                 f"Received concrete smarttrade with for {pair} with "
@@ -284,19 +285,33 @@ async def handle_cryptosignal_smarttrade_event(event):
                 f"Position {position} created."
             )
 
-            tpsteps = list()
             tpstepvolume = 100.0 / len(msgtargets)
             logger.debug(
                 f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
             )
 
+            btcsatoshireq = False
+
+            tpsteps = list()
             for msgtarget in msgtargets:
                 step = {}
                 if "(" in msgtarget:
-                    step["price"] = msgtarget.split("(")[0]
-                else:
-                    step["price"] = msgtarget
-                step["volume"] = tpstepvolume
+                    msgtarget = msgtarget.split("(")[0]
+
+                if "satoshi" in msgtarget:
+                    msgtarget = msgtarget.replace("satoshi", "")
+                    btcsatoshireq = True
+
+                if "$" in msgtarget:
+                    msgtarget = msgtarget.replace("$", "")
+
+                step["price"] = float(msgtarget)
+                step["volume"] = float(tpstepvolume)
+                tpsteps.append(step)
+
+            if btcsatoshireq:
+                for tpstep in tpsteps:
+                    tpstep["price"] *= 0.00000001
 
             takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
             logger.debug(

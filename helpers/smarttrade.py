@@ -1,6 +1,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 
-from math import nan
+from math import isnan
 
 
 def construct_smarttrade_position(position_type, order_type, value):
@@ -44,17 +44,22 @@ def construct_smarttrade_stoploss(order_type, price):
     """Create the stop_loss content for a smarttrade"""
 
     stop_loss = {
-        "enabled": True if price != nan else False,
-        "order_type": order_type,
-        "price": {
-            "value": price
-        },
-        "conditional": {
-            "price": {
-                "value": price,
-                "type":"bid",
-            },
-        },
+        "enabled": False
     }
+
+    if not isnan(price):
+        stop_loss = {
+            "enabled": True,
+            "order_type": order_type,
+            "price": {
+                "value": price
+            },
+            "conditional": {
+                "price": {
+                    "value": price,
+                    "type":"bid",
+                },
+            },
+        }
 
     return stop_loss
