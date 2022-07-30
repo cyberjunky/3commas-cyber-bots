@@ -7,15 +7,25 @@ import os
 import sys
 import time
 from pathlib import Path
+from turtle import pos
 
 from telethon import TelegramClient, events
 
 from helpers.logging import Logger, NotificationHandler
+from helpers.smarttrade import (
+    construct_smarttrade_position, 
+    construct_smarttrade_stoploss, 
+    construct_smarttrade_takeprofit
+)
 from helpers.threecommas import (
     init_threecommas_api,
-    load_blacklist
+    load_blacklist,
+    open_threecommas_smarttrade
 )
-from helpers.watchlist import prefetch_marketcodes, process_botlist
+from helpers.watchlist import (
+    prefetch_marketcodes, 
+    process_botlist
+)
 
 def load_config():
     """Create default or load existing config file."""
@@ -154,18 +164,25 @@ async def handle_smarttrade_event(event):
     # Parse the event and do some error checking
     data = event.raw_text.splitlines()
 
+    logger.debug(
+        f"Converted raw text {event.raw_text} to {data}"
+    )
+
     try:
         if data[0] in ("Short", "Long"):
             logger.debug(f"Received Short or Long message: {data}", True)
-        elif "Entry 1" in data:
-            logger.debug("Received Entry message: {data}", True)
+        elif "Entry" in event.message.text and "Target" in event.message.text:
+            logger.debug(f"Received Entry message: {data}", True)
 
+            pair = None
             entries = []
             stoploss = ""
             targets = []
 
             for line in data:
-                if "Entry" in line:
+                if "USD" in line or "BTC" in line:
+                    pair = line
+                elif "Entry" in line:
                     entries.append(line.split("-")[1])
                 elif "Stoploss" in line:
                     stoploss = line.split("-")[1]
@@ -182,6 +199,10 @@ async def handle_smarttrade_event(event):
         return
 
     return
+
+
+def start_smarttrade():
+    """Start a SmartTrade"""
 
 
 async def handle_hodloo_event(category, event):
@@ -309,7 +330,27 @@ for hlcategory in ("5", "10"):
     for hlbase in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
         allbotids += get_hodloo_botids(hlcategory, hlbase)
 
-marketcodes = prefetch_marketcodes(logger, api, allbotids)
+#marketcodes = prefetch_marketcodes(logger, api, allbotids)
+
+tpsteps = list()
+
+firststep = {}
+firststep["price"] = 30000.0
+firststep["volume"] = 50
+
+secondstep = {}
+secondstep["price"] = 40000.0
+secondstep["volume"] = 50
+
+tpsteps.append(firststep)
+tpsteps.append(secondstep)
+
+position = construct_smarttrade_position("buy", "market", 0.001)
+takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
+stoploss = construct_smarttrade_stoploss(True, "limit", 15000.0)
+open_threecommas_smarttrade(logger, api, "29981012", "USDT_BTC", position, takeprofit, stoploss)
+
+sys.exit(1)
 
 # Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)

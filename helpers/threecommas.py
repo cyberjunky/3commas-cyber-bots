@@ -461,3 +461,91 @@ def close_threecommas_deal(logger, api, dealid, pair):
         )
 
     return data
+
+
+def open_threecommas_smarttrade(logger, api, accountid, pair, position, take_profit, stop_loss):
+    """Close deal with certain id."""
+
+    #payload = {
+    #    "account_id": accountid,
+    #    "pair": pair,
+    #    "leverage": {
+    #        "enabled": "false",
+    #    },
+    #    "position": {
+    #        "type": "buy",
+    #        "order_type": "market",
+    #        "units": {
+    #            "value": 0.001
+    #        },
+    #    },
+    #    "take_profit": {
+    #        "enabled": "true",
+    #        "steps": [
+    #            {
+    #                "order_type": "market",
+    #                "price": {
+    #                    "value": 30000.0,
+    #                    "type": "bid"
+    #                },
+    #                "volume": 50
+    #            },
+    #            {
+    #                "order_type": "market",
+    #                "price": {
+    #                    "value": 40000,
+    #                    "type": "bid"
+    #                },
+    #                "volume": 50
+    #            },
+    #        ]
+    #    },
+    #    "stop_loss": {
+    #        "enabled": "true",
+    #        "order_type": "limit",
+    #        "price": {
+    #            "value": 15000.0
+    #        },
+    #        "conditional": {
+    #            "price": {
+    #                "value": 15000.0,
+    #                "type":"bid",
+    #            },          
+    #        },
+    #    }
+    #}
+
+    payload = {
+        "account_id": accountid,
+        "pair": pair,
+        "leverage": {
+            "enabled": "false",
+        },
+        "position": position,
+        "take_profit": take_profit,
+        "stop_loss": stop_loss
+    }
+
+    data = None
+    error, data = api.request(
+        entity="smart_trades_v2",
+        action="new",
+        payload=payload,
+        additional_headers={"Forced-Mode": "paper"},
+    )
+
+    if error:
+        if "msg" in error:
+            logger.error(
+                "Error occurred while opening smarttrade: %s" % error["msg"],
+            )
+        else:
+            logger.error("Error occurred while opening smarttrade")
+    else:
+        logger.info(
+            "Open smarttrade for pair '%s'"
+            % (pair),
+            True,
+        )
+
+    return data
