@@ -510,7 +510,7 @@ def open_threecommas_smarttrade(logger, api, accountid, pair, position, take_pro
     #            "price": {
     #                "value": 15000.0,
     #                "type":"bid",
-    #            },          
+    #            },
     #        },
     #    }
     #}
@@ -537,15 +537,17 @@ def open_threecommas_smarttrade(logger, api, accountid, pair, position, take_pro
     if error:
         if "msg" in error:
             logger.error(
-                "Error occurred while opening smarttrade: %s" % error["msg"],
+                f"Error occurred while opening smarttrade: {error['msg']}",
             )
         else:
             logger.error("Error occurred while opening smarttrade")
     else:
         logger.info(
-            "Open smarttrade for pair '%s'"
-            % (pair),
-            True,
+            f"Opened smarttrade for pair '{pair}'.",
+            True
+        )
+        logger.debug(
+            f"Received data for deal: {data}"
         )
 
     return data

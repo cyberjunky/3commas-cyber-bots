@@ -3,18 +3,18 @@
 import argparse
 import configparser
 import json
+from math import nan
 import os
 import sys
 import time
 from pathlib import Path
-from turtle import pos
 
 from telethon import TelegramClient, events
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.smarttrade import (
-    construct_smarttrade_position, 
-    construct_smarttrade_stoploss, 
+    construct_smarttrade_position,
+    construct_smarttrade_stoploss,
     construct_smarttrade_takeprofit
 )
 from helpers.threecommas import (
@@ -23,7 +23,7 @@ from helpers.threecommas import (
     open_threecommas_smarttrade
 )
 from helpers.watchlist import (
-    prefetch_marketcodes, 
+    prefetch_marketcodes,
     process_botlist
 )
 
@@ -153,11 +153,11 @@ async def handle_custom_event(event):
     )
 
 
-async def handle_smarttrade_event(event):
+async def handle_forex_smarttrade_event(event):
     """Handle the received Telegram event"""
 
     logger.debug(
-        "Received message on smarttrade: '%s'"
+        "Received message on Forex smarttrade: '%s'"
         % (event.message.text.replace("\n", " - "))
     )
 
@@ -174,35 +174,167 @@ async def handle_smarttrade_event(event):
         elif "Entry" in event.message.text and "Target" in event.message.text:
             logger.debug(f"Received Entry message: {data}", True)
 
-            pair = None
-            entries = []
-            stoploss = ""
-            targets = []
+            coin = None
+            msgentries = []
+            msgstoploss = nan
+            msgtargets = []
 
             for line in data:
-                if "USD" in line or "BTC" in line:
-                    pair = line
+                if "BUYING" in line:
+                    coin = line.replace("BUYING #", "")
                 elif "Entry" in line:
-                    entries.append(line.split("-")[1])
+                    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
                 elif "Stoploss" in line:
-                    stoploss = line.split("-")[1]
+                    msgstoploss = float(line.split("-")[1].replace("$", ""))
                 elif "Target" in line:
-                    targets = line.replace("Targets - ", "").split("-")
-            
+                    msgtargets = line.replace("Targets - ", "").split("-").replace("$", "")
+
             logger.info(
-                f"Received concrete smarttrade with entries '{entries}', "
-                f"stoploss '{stoploss}' and targets '{targets}'",
+                f"Received concrete smarttrade with for {coin} with "
+                f"entries '{msgentries}', stoploss '{msgstoploss}' and targets '{msgtargets}'",
                 True
             )
-    except IndexError:
-        logger.debug("Invalid message or index used")
+
+            positionsize = config.getfloat("smt_forex", "amount-usdt")
+            position = construct_smarttrade_position("buy", "market", positionsize)
+
+            logger.debug(
+                f"Position {position} created."
+            )
+
+            tpsteps = list()
+            tpstepvolume = 100.0 / len(msgtargets)
+            logger.debug(
+                f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
+            )
+
+            for msgtarget in msgtargets:
+                step = {}
+                if "(" in msgtarget:
+                    step["price"] = msgtarget.split("(")[0]
+                else:
+                    step["price"] = msgtarget
+                step["volume"] = tpstepvolume
+
+            takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
+            logger.debug(
+                f"Takeprofit {takeprofit} created."
+            )
+
+            stoploss = construct_smarttrade_stoploss("limit", msgstoploss)
+            logger.debug(
+                f"Stoploss {stoploss} created."
+            )
+
+            open_threecommas_smarttrade(logger, api, "29981012", f"USDT_{coin}", position, takeprofit, stoploss)
+    except Exception as e:
+        logger.debug(f"Exception occured: {e}")
         return
 
     return
 
 
+async def handle_cryptosignal_smarttrade_event(event):
+    """Handle the received Telegram event"""
+
+    logger.debug(
+        "Received message on CryptoSignal smarttrade: '%s'"
+        % (event.message.text.replace("\n", " - "))
+    )
+
+    # Parse the event and do some error checking
+    data = event.raw_text.splitlines()
+
+    logger.debug(
+        f"Converted raw text {event.raw_text} to {data}"
+    )
+
+    try:
+        if "Targets" in event.message.text:
+            logger.debug(f"Received Targets message: {data}", True)
+
+            pair = None
+            msgstoploss = nan
+            msgtargets = []
+
+            for line in data:
+                if "/USDT" in line or "/BTC" in line:
+                    pairlines = line.split(" ")
+                    pair = pairlines[0]
+                elif "SL:" in line:
+                    msgstoploss = float(line.split(":")[1].replace("$", ""))
+                elif "Targets:" in line:
+                    msgtargets = line.replace("Targets: ", "").split("-").replace("$", "")
+
+            logger.info(
+                f"Received concrete smarttrade with for {pair} with "
+                f"stoploss '{msgstoploss}' and targets '{msgtargets}'",
+                True
+            )
+
+            base = pair.split("/")[1]
+            coin = pair.split("/")[0]
+
+            positionsize = config.getfloat("smt_cryptosignal", "amount-usdt")
+            if base == "BTC":
+                positionsize = config.getfloat("smt_cryptosignal", "amount-btc")
+            position = construct_smarttrade_position("buy", "market", positionsize)
+
+            logger.debug(
+                f"Position {position} created."
+            )
+
+            tpsteps = list()
+            tpstepvolume = 100.0 / len(msgtargets)
+            logger.debug(
+                f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
+            )
+
+            for msgtarget in msgtargets:
+                step = {}
+                if "(" in msgtarget:
+                    step["price"] = msgtarget.split("(")[0]
+                else:
+                    step["price"] = msgtarget
+                step["volume"] = tpstepvolume
+
+            takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
+            logger.debug(
+                f"Takeprofit {takeprofit} created."
+            )
+
+            stoploss = construct_smarttrade_stoploss("limit", msgstoploss)
+            logger.debug(
+                f"Stoploss {stoploss} created."
+            )
+
+            open_threecommas_smarttrade(logger, api, "29981012", f"{base}_{coin}", position, takeprofit, stoploss)
+    except Exception as e:
+        logger.debug(f"Exception occured: {e}")
+        return
+
+    return
+
 def start_smarttrade():
     """Start a SmartTrade"""
+
+    tpsteps = list()
+
+    firststep = {}
+    firststep["price"] = 30000.0
+    firststep["volume"] = 50
+
+    secondstep = {}
+    secondstep["price"] = 40000.0
+    secondstep["volume"] = 50
+
+    tpsteps.append(firststep)
+    tpsteps.append(secondstep)
+
+    position = construct_smarttrade_position("buy", "market", 0.001)
+    takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
+    stoploss = construct_smarttrade_stoploss(True, "limit", 15000.0)
+    open_threecommas_smarttrade(logger, api, "29981012", "USDT_BTC", position, takeprofit, stoploss)
 
 
 async def handle_hodloo_event(category, event):
@@ -330,27 +462,7 @@ for hlcategory in ("5", "10"):
     for hlbase in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
         allbotids += get_hodloo_botids(hlcategory, hlbase)
 
-#marketcodes = prefetch_marketcodes(logger, api, allbotids)
-
-tpsteps = list()
-
-firststep = {}
-firststep["price"] = 30000.0
-firststep["volume"] = 50
-
-secondstep = {}
-secondstep["price"] = 40000.0
-secondstep["volume"] = 50
-
-tpsteps.append(firststep)
-tpsteps.append(secondstep)
-
-position = construct_smarttrade_position("buy", "market", 0.001)
-takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
-stoploss = construct_smarttrade_stoploss(True, "limit", 15000.0)
-open_threecommas_smarttrade(logger, api, "29981012", "USDT_BTC", position, takeprofit, stoploss)
-
-sys.exit(1)
+marketcodes = prefetch_marketcodes(logger, api, allbotids)
 
 # Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)
@@ -365,8 +477,11 @@ client = TelegramClient(
 customchannelname = config.get("custom", "channel-name")
 customchannelid = -1
 
-smtchannelname = config.get("smt", "channel-name")
-smtchannelid = -1
+smtforexchannelname = config.get("smt_forex", "channel-name")
+smtforexchannelid = -1
+
+smtcryptosignalchannelname = config.get("smt_cryptosignal", "channel-name")
+smtcryptosignalchannelid = -1
 
 hl5channelname = f"Hodloo {hl5exchange} 5%"
 hl5channelid = -1
@@ -382,8 +497,10 @@ for dialog in client.iter_dialogs():
 
         if dialog.title == customchannelname:
             customchannelid = dialog.id
-        elif dialog.title == smtchannelname:
-            smtchannelid = dialog.id
+        elif dialog.title == smtforexchannelname:
+            smtforexchannelid = dialog.id
+        elif dialog.title == smtcryptosignalchannelname:
+            smtcryptosignalchannelid = dialog.id
         elif dialog.title == hl5channelname:
             hl5channelid = dialog.id
         elif dialog.title == hl10channelname:
@@ -392,7 +509,8 @@ for dialog in client.iter_dialogs():
 logger.debug(
     f"Overview of resolved channel names: "
     f"Custom '{customchannelname}' to {customchannelid}, "
-    f"Smarttrade '{smtchannelname}' to {smtchannelid}, "
+    f"Forex Smarttrade '{smtforexchannelname}' to {smtforexchannelid}, "
+    f"Crypto Signal Smarttrade '{smtcryptosignalchannelname}' to {smtcryptosignalchannelid}, "
     f"Hodloo '{hl5channelname}' to {hl5channelid}, "
     f"Hodloo '{hl10channelname}' to {hl10channelid}"
 )
@@ -411,16 +529,29 @@ if customchannelid != -1:
         notification.send_notification()
 
 
-if smtchannelid != -1:
+if smtforexchannelid != -1:
     logger.info(
-        f"Listening to updates from '{smtchannelname}' (id={smtchannelid}) ...",
+        f"Listening to updates from '{smtforexchannelname}' (id={smtforexchannelid}) ...",
         True
     )
-    @client.on(events.NewMessage(chats=smtchannelid))
-    async def callback_smarttrade(event):
+    @client.on(events.NewMessage(chats=smtforexchannelid))
+    async def callback_forex_smarttrade(event):
         """Receive Telegram message."""
 
-        await handle_smarttrade_event(event)
+        await handle_forex_smarttrade_event(event)
+        notification.send_notification()
+
+
+if smtcryptosignalchannelid != -1:
+    logger.info(
+        f"Listening to updates from '{smtcryptosignalchannelname}' (id={smtcryptosignalchannelid}) ...",
+        True
+    )
+    @client.on(events.NewMessage(chats=smtcryptosignalchannelid))
+    async def callback_cryptosignal_smarttrade(event):
+        """Receive Telegram message."""
+
+        await handle_cryptosignal_smarttrade_event(event)
         notification.send_notification()
 
 

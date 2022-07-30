@@ -1,10 +1,13 @@
 """Cyberjunky's 3Commas bot helpers."""
 
-def construct_smarttrade_position(type, order_type, value):
+from math import nan
+
+
+def construct_smarttrade_position(position_type, order_type, value):
     """Create the position content for a smarttrade"""
 
     position = {
-        "type": type,
+        "type": position_type,
         "order_type": order_type,
         "units": {
             "value": value
@@ -37,11 +40,11 @@ def construct_smarttrade_takeprofit(enabled, order_type, step_list):
     return take_profit
 
 
-def construct_smarttrade_stoploss(enabled, order_type, price):
+def construct_smarttrade_stoploss(order_type, price):
     """Create the stop_loss content for a smarttrade"""
 
     stop_loss = {
-        "enabled": enabled,
+        "enabled": True if price != nan else False,
         "order_type": order_type,
         "price": {
             "value": price
@@ -50,7 +53,7 @@ def construct_smarttrade_stoploss(enabled, order_type, price):
             "price": {
                 "value": price,
                 "type":"bid",
-            },          
+            },
         },
     }
 
