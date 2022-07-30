@@ -79,7 +79,7 @@ async def handle_custom_event(event):
         f"Received message on {exchange}% for {base}_{coin}"
     )
 
-    if exchange.lower not in ("binance", "ftx", "kucoin"):
+    if exchange.lower() not in ("binance", "ftx", "kucoin"):
         logger.debug(
             f"Exchange '{exchange}' is not yet supported."
         )
