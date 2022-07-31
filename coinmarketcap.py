@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+import copy
 import json
 from math import fabs
 import os
@@ -154,7 +155,7 @@ def open_cmc_db():
 def coinmarketcap_filter(cmcdata, cmc_id):
     """Filter data based on percent change"""
 
-    filtereddata = cmcdata
+    filtereddata = copy.deepcopy(cmcdata)
 
     comparedto = config.get(cmc_id, "max-percent-compared-to")
     maxpercent1h = float(config.get(cmc_id, "max-percent-change-1h"))
