@@ -526,6 +526,10 @@ def open_threecommas_smarttrade(logger, api, accountid, pair, position, take_pro
         "stop_loss": stop_loss
     }
 
+    logger.debug(
+        f"Sending new on smart_trades_v2 for pair {pair}: {payload}"
+    )
+
     data = None
     error, data = api.request(
         entity="smart_trades_v2",

@@ -171,7 +171,7 @@ async def handle_forex_smarttrade_event(event):
     try:
         if data[0] in ("Short", "Long"):
             logger.debug(f"Received Short or Long message: {data}", True)
-        elif "Entry" in event.message.text and "Target" in event.message.text:
+        elif "Targets" in event.message.text:
             logger.debug(f"Received Entry message: {data}", True)
 
             coin = None
@@ -180,8 +180,11 @@ async def handle_forex_smarttrade_event(event):
             msgtargets = []
 
             for line in data:
-                if "BUYING" in line:
-                    coin = line.replace("BUYING #", "")
+                if "#" in line:
+                    linedata = line.split(" ")
+                    for l in linedata:
+                        if "#" in l:
+                            coin = l.replace("#", "")
                 #elif "Entry" in line:
                 #    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
                 elif "Stoploss" in line:
