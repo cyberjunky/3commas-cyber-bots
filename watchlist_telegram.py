@@ -18,6 +18,7 @@ from helpers.smarttrade import (
     construct_smarttrade_takeprofit
 )
 from helpers.threecommas import (
+    get_threecommas_currency_rate,
     init_threecommas_api,
     load_blacklist,
     open_threecommas_smarttrade
@@ -182,6 +183,11 @@ async def handle_forex_smarttrade_event(event):
             for line in data:
                 if "#" in line:
                     linedata = line.split(" ")
+
+                    logger.debug(
+                        f"'#' found in data, parsing {linedata}"
+                    )
+
                     for l in linedata:
                         if "#" in l:
                             coin = l.replace("#", "")
@@ -193,12 +199,22 @@ async def handle_forex_smarttrade_event(event):
                     msgtargets = line.replace("Targets - ", "").split("-")
 
             logger.info(
-                f"Received concrete smarttrade with for {coin} with "
+                f"Received concrete smarttrade for {coin} with "
                 f"stoploss '{msgstoploss}' and targets '{msgtargets}'",
                 True
             )
 
-            positionsize = config.getfloat("smt_forex", "amount-usdt")
+            pair = f"USDT_{coin}"
+
+            currentprice = get_threecommas_currency_rate(logger, api, "binance", pair)
+
+            amount = config.getfloat("smt_forex", "amount-usdt")
+            positionsize = amount / currentprice
+
+            logger.debug(
+                f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
+            )
+
             position = construct_smarttrade_position("buy", "market", positionsize)
 
             logger.debug(
@@ -230,7 +246,7 @@ async def handle_forex_smarttrade_event(event):
                 f"Stoploss {stoploss} created."
             )
 
-            open_threecommas_smarttrade(logger, api, "29981012", f"USDT_{coin}", position, takeprofit, stoploss)
+            open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
     except Exception as e:
         logger.debug(f"Exception occured: {e}")
         return
@@ -264,6 +280,7 @@ async def handle_cryptosignal_smarttrade_event(event):
             for line in data:
                 if "/USDT" in line or "/BTC" in line:
                     pairlines = line.split(" ")
+                    logger.debug(f"USDT or BTC found, parsing {pairlines}")
                     pair = pairlines[0]
                 elif "SL:" in line:
                     msgstoploss = float(line.split(":")[1].replace("$", ""))
@@ -278,10 +295,20 @@ async def handle_cryptosignal_smarttrade_event(event):
 
             base = pair.split("/")[1]
             coin = pair.split("/")[0]
+            pair = f"{base}_{coin}"
 
-            positionsize = config.getfloat("smt_cryptosignal", "amount-usdt")
+            currentprice = get_threecommas_currency_rate(logger, api, "binance", pair)
+
+            amount = config.getfloat("smt_cryptosignal", "amount-usdt")
             if base == "BTC":
-                positionsize = config.getfloat("smt_cryptosignal", "amount-btc")
+                amount = config.getfloat("smt_cryptosignal", "amount-btc")
+
+            positionsize = amount / currentprice
+
+            logger.debug(
+                f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
+            )
+
             position = construct_smarttrade_position("buy", "market", positionsize)
 
             logger.debug(
@@ -326,7 +353,7 @@ async def handle_cryptosignal_smarttrade_event(event):
                 f"Stoploss {stoploss} created."
             )
 
-            open_threecommas_smarttrade(logger, api, "29981012", f"{base}_{coin}", position, takeprofit, stoploss)
+            open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
     except Exception as e:
         logger.debug(f"Exception occured: {e}")
         return

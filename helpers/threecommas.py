@@ -1,4 +1,5 @@
 """Cyberjunky's 3Commas bot helpers."""
+from math import isnan, nan
 from py3cw.request import Py3CW
 
 
@@ -69,25 +70,33 @@ def get_threecommas_blacklist(logger, api):
 def get_threecommas_btcusd(logger, api):
     """Get current USDT_BTC value to calculate BTC volume24h in USDT."""
 
-    price = 60000
+    price = get_threecommas_currency_rate(logger, api, "binance", "USDT_BTC")
+    if isnan(price):
+        price = 60000
+
+    return price
+
+
+def get_threecommas_currency_rate(logger, api, market_code, pair):
+    """Get current price of pair on selected market."""
+
+    price = nan
     error, data = api.request(
         entity="accounts",
         action="currency_rates",
-        payload={"market_code": "binance", "pair": "USDT_BTC"},
+        payload={"market_code": market_code, "pair": pair},
     )
     if data:
-        logger.info("Fetched 3Commas BTC price OK (%s USDT)" % data["last"])
         price = data["last"]
+        logger.info(f"Fetched 3Commas price OK ({price})")
     else:
         if error and "msg" in error:
             logger.error(
-                "Fetching 3Commas BTC price in USDT failed with error: %s"
-                % error["msg"]
+                f"Fetching 3Commas price failed with error: {error['msg']}"
             )
         else:
             logger.error("Fetching 3Commas BTC price in USDT failed")
 
-    logger.debug("Current price of BTC is %s USDT" % price)
     return price
 
 
