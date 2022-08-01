@@ -62,7 +62,7 @@ A script which allows you to change the pairs of your 3Commas bot(s) at regular 
 [BotAssistExplorer Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotAssistExplorer)
 
 
-## Stoploss trailing
+## Stoploss and Profit trailing
 
 Change stoploss and/or takeprofit settings of your bot(s) using their running deals statistics.
 
