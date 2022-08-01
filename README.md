@@ -1,6 +1,6 @@
 # 3Commas Cyber Bot Helpers <a href="https://github.com/cyberjunky/3commas-cyber-bots/blob/main/README.md#donate"><img src="https://img.shields.io/badge/Donate-PayPal-green.svg" height="40" align="right"></a> 
 
-A collection of 3Commas bot helpers I wrote. (collection will grow over time)
+A collection of 3Commas bot helper scripts I wrote. (collection will grow over time)
 
 <img src="images/robots.jpg"></a> 
 
@@ -19,18 +19,19 @@ SOFTWARE.
 > Always test your setup and settings with your PAPER ACCOUNT first!
 
 ## Overview
-This repository contains several Python scripts (bot helpers) which can be used to make your 3Commas bots more powerful and hopefully more profitable.
+This repository contains several Python scripts (bot helpers) which can be used to make your 3Commas bots more powerful -and hopefully more profitable-.
 
 You can find a small description of each one below.  
-Each script has it's own documentation page in the wiki to describe in more detail what it can do and how to use it.
-
+They have their own documentation page in the wiki describing what it can do and how to use it in more detail .
 
 ## Why did you build these bot helpers?
 
 Since I rather don't want to pay for Monthly services if this is not needed I started to write some scripts myself, learning more about Crypto along the way.
 
 
-## Pair Changers
+## Bot Pair changers
+
+Change pairs of your bot(s) matching configured rankings and/or thresholds.
 
 ### AltRank (altrank.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) AltRank rankings.
@@ -53,25 +54,33 @@ A script which allows you to change the pairs of your 3Commas bot(s) at regular 
 [BotAssistExplorer Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotAssistExplorer)
 
 
-   * [Futures trailing stoploss bot helper named trailingstoploss.py](#futures-trailing-stoploss-bot-helper-named-trailingstoplosspy)
-      * [What does it do?](#what-does-it-do-4)
-      * [How does it work?](#how-does-it-work-4)
-      * [Configuration](#configuration-4)
-   * [DCA Trailing stoploss and profit bot helper named trailingstoploss_tp.py](#dca-trailing-stoploss-and-profit-bot-helper-named-trailingstoploss_tppy)
-      * [What does it do?](#what-does-it-do-5)
-      * [How does it work?](#how-does-it-work-5)
-      * [Configuration](#configuration-5)
-      * [Example output](#example-output-4)
-   * [Compound bot helper named compound.py](#compound-bot-helper-named-compoundpy)
-      * [What does it do?](#what-does-it-do-6)
-      * [How does it work?](#how-does-it-work-6)
-      * [Configuration](#configuration-6)
-      * [Example output](#example-output-5)
-   * [Watchlist bot helper named watchlist.py](#watchlist-bot-helper-named-watchlistpy)
-      * [What does it do?](#what-does-it-do-7)
-      * [How does it work?](#how-does-it-work-7)
-      * [Configuration](#configuration-7)
-      * [Example output](#example-output-6)
+## Stoploss trailing
+
+Change stoploss and/or takeprofit settings of your bot(s) using their running deals statistics.
+
+### Futures Trailing stoploss (trailingstoploss.py)
+A script which tracks active Future deals from your 3Commas bot(s) and change the stoploss when the profit thresholds are reached.
+
+[TrailingStopLoss Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss)
+
+### DCA Trailing stoploss and profit (trailingstoploss_tp.py)
+Same for DCA type deals but also including an implementation of a trailing take profit.
+
+[TrailingStopLoss_and_TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss_and_TakeProfit)
+
+
+## Compounding
+
+Add any profits made to your bot(s)
+
+### Compound (compound.py)
+This scripts checks closed deals of specified bot(s) at regular intervals and compounds any profits made, respecting BO/SO ratios or even change Maximum deal settings if configured.
+
+
+## Watchlists
+
+Trigger starting and/or stopping of bot deals using external trigger messages.
+
    * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy)
       * [What does it do?](#what-does-it-do-8)
       * [How does it work?](#how-does-it-work-8)
@@ -93,6 +102,9 @@ A script which allows you to change the pairs of your 3Commas bot(s) at regular 
       * [How does it work?](#how-does-it-work-11)
       * [Configuration](#configuration-12)
       * [Example output](#example-output-8)
+
+
+
    * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
       * [What does it do?](#what-does-it-do-13)
       * [How does it work?](#how-does-it-work-12)
