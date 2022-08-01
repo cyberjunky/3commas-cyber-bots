@@ -74,7 +74,9 @@ A script which tracks active Future deals from your 3Commas bot(s) and change th
 ### DCA Trailing stoploss and profit (trailingstoploss_tp.py)
 Same for DCA type deals but also including an implementation of a trailing take profit.
 
-[TrailingStopLoss_and_TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss_and_TakeProfit)
+![Trailingstoploss_tp](images/trailingstoploss_tp.png)
+
+[TrailingStopLoss and TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss_and_TakeProfit)
 
 
 ## Compounding
