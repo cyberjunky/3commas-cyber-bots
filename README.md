@@ -17,54 +17,42 @@ SOFTWARE.
 > My code is [MIT Licensed](LICENSE), read it please.
 
 > Always test your setup and settings with your PAPER ACCOUNT first!
- 
+
+## Overview
+This repository contains several Python scripts (bot helpers) which can be used to make your 3Commas bots more powerful and hopefully more profitable.
+
+You can find a small description of each one below.  
+Each script has it's own documentation page in the wiki to describe in more detail what it can do and how to use it.
+
+
 ## Why did you build these bot helpers?
 
 Since I rather don't want to pay for Monthly services if this is not needed I started to write some scripts myself, learning more about Crypto along the way.
 
-This repository contains several scripts (bot helpers) which can be usefull to make your 3Commas bots more powerful/profitable.
 
-Each script has it's own wiki page to describe in more detail what it can do and how to use it.
+## Pair Changers
 
-## AltRank
-A script which allows you to change the pairs of your 3Commas bot(s) using LunarCrush's AltRank rankings.
+### AltRank (altrank.py)
+A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) AltRank rankings.
 
-[AltRank Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/AltRank)
+[AltRank Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/AltRank)
 
-## GalaxyScore
-A script which allows you to change the pairs of your 3Commas bot(s) using LunarCrush's GalaxyScore rankings.
+### GalaxyScore (galaxyscore.py)
+A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) GalaxyScore rankings.
 
-[GalaxyScore Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/GalaxyScore)
+[GalaxyScore Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/GalaxyScore)
 
-## CoinMarketCap
-A script which allows you to change the pairs of your 3Commas bot(s) using CoinMarketCap's rankings.
+### CoinMarketCap (coinmarketcap.py)
+A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [CoinMarketCap](https://coinmarketcap.com) rankings.
 
-[CoinMarketCap Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/CoinMarketCap)
+[CoinMarketCap Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/CoinMarketCap)
 
-## Table of Contents
+### BotAssistExplorer (botassistexplorer.py)
+A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [3CTools's BotAssistExplorer](https://www.3c-tools.com/markets/bot-assist-explorer) rankings.
 
-* [3Commas Cyber Bot Helpers ](#3commas-cyber-bot-helpers-)
+[BotAssistExplorer Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotAssistExplorer)
 
-   * [GalaxyScore bot helper named galaxyscore.py](#galaxyscore-bot-helper-named-galaxyscorepy)
-      * [What does it do?](#what-does-it-do)
-      * [How does it work?](#how-does-it-work)
-      * [Configuration](#configuration)
-      * [Example output](#example-output)
-   * [AltRank bot helper named altrank.py](#altrank-bot-helper-named-altrankpy)
-      * [What does it do?](#what-does-it-do-1)
-      * [How does it work?](#how-does-it-work-1)
-      * [Configuration](#configuration-1)
-      * [Example output](#example-output-1)
-   * [CoinMarketCap bot helper named coinmarketcap.py](#coinmarketcap-bot-helper-named-coinmarketcappy)
-      * [What does it do?](#what-does-it-do-2)
-      * [How does it work?](#how-does-it-work-2)
-      * [Configuration](#configuration-2)
-      * [Example output](#example-output-2)
-   * [3C-tools BotAssistExplorer bot helper named botassistexplorer.py](#3c-tools-botassistexplorer-bot-helper-named-botassistexplorerpy)
-      * [What does it do?](#what-does-it-do-3)
-      * [How does it work?](#how-does-it-work-3)
-      * [Configuration](#configuration-3)
-      * [Example output](#example-output-3)
+
    * [Futures trailing stoploss bot helper named trailingstoploss.py](#futures-trailing-stoploss-bot-helper-named-trailingstoplosspy)
       * [What does it do?](#what-does-it-do-4)
       * [How does it work?](#how-does-it-work-4)
