@@ -36,20 +36,28 @@ Change pairs of your bot(s) matching configured rankings and/or thresholds.
 ### AltRank (altrank.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) AltRank rankings.
 
+![AltRank](images/altrank.png)
+
 [AltRank Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/AltRank)
 
 ### GalaxyScore (galaxyscore.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) GalaxyScore rankings.
+
+![GalaxyScore](images/galaxyscore.png)
 
 [GalaxyScore Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/GalaxyScore)
 
 ### CoinMarketCap (coinmarketcap.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [CoinMarketCap](https://coinmarketcap.com) rankings.
 
+![CoinMarketCap](images/coinmarketcap.png)
+
 [CoinMarketCap Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/CoinMarketCap)
 
 ### BotAssistExplorer (botassistexplorer.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [3CTools's BotAssistExplorer](https://www.3c-tools.com/markets/bot-assist-explorer) rankings.
+
+![BotAssistExplorer](images/botassistexplorer.png)
 
 [BotAssistExplorer Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotAssistExplorer)
 
