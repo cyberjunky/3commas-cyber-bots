@@ -20,14 +20,31 @@ SOFTWARE.
  
 ## Why did you build these bot helpers?
 
-I rather don't want to pay for Monthly services if this is not needed, I rather invest it in crypto. (or Coffee to program) And I also want to learn how things work in the Crypto world.
+Since I rather don't want to pay for Monthly services if this is not needed I started to write some scripts myself, learning more about Crypto along the way.
 
+This repository contains several scripts (bot helpers) which can be usefull to make your 3Commas bots more powerful/profitable.
+
+Each script has it's own wiki page to describe in more detail what it can do and how to use it.
+
+## AltRank
+A script which allows you to change the pairs of your 3Commas bot(s) using LunarCrush's AltRank rankings.
+
+[AltRank Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/AltRank)
+
+## GalaxyScore
+A script which allows you to change the pairs of your 3Commas bot(s) using LunarCrush's GalaxyScore rankings.
+
+[GalaxyScore Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/GalaxyScore)
+
+## CoinMarketCap
+A script which allows you to change the pairs of your 3Commas bot(s) using CoinMarketCap's rankings.
+
+[CoinMarketCap Documention](https://github.com/cyberjunky/3commas-cyber-bots/wiki/CoinMarketCap)
 
 ## Table of Contents
 
 * [3Commas Cyber Bot Helpers ](#3commas-cyber-bot-helpers-)
-   * [Disclaimer](#disclaimer)
-   * [Why did you build these bot helpers?](#why-did-you-build-these-bot-helpers)
+
    * [GalaxyScore bot helper named galaxyscore.py](#galaxyscore-bot-helper-named-galaxyscorepy)
       * [What does it do?](#what-does-it-do)
       * [How does it work?](#how-does-it-work)
