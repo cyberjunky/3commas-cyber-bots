@@ -86,6 +86,7 @@ Add any profits made to your bot(s)
 ### Compound (compound.py)
 This scripts checks closed deals of specified bot(s) at regular intervals and compounds any profits made, respecting BO/SO ratios or even change Maximum deal settings if configured.
 
+[Compound Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Compound)
 
 ## Watchlists
 
@@ -95,15 +96,22 @@ Trigger starting and/or stopping of bot deals using external trigger messages.
 ### Watchlist (watchlist.py)
 This will monitor a specific Telegram chat channel (https://t.me/wiseanalize) and sent a 'start new deal' trigger to the linked bot(s) for that pair.
 
+[Watchlist Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist)
 
 ### Watchlist 100eyes (watchlist_100eyes.py)
 This will monitor a Telegram chat channels provided by (https://www.100-eyes.com/) and sent a 'start new deal' trigger to the linked bot(s) for that pair.
 
+[Watchlist 100eyes Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist-100eyes)
+
 ### Watchlist Hodloo (watchlist_hodloo.py)
 It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/alerts/) and sent a 'start new deal' trigger to the linked bot for that pair.
 
+[Watchlist Hodloo Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist-Hodloo)
+
 ### Watchlist Telegran (watchlist_telegram.py)
 Combination of watchlist and watchlist_hodloo script.
+
+[Watchlist Telegram Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist-Telegram)
 
 
 ## Binance account Setup
