@@ -91,34 +91,20 @@ This scripts checks closed deals of specified bot(s) at regular intervals and co
 
 Trigger starting and/or stopping of bot deals using external trigger messages.
 
-   * [Watchlist bot helper named watchlist_100eyes.py ](#watchlist-bot-helper-named-watchlist_100eyespy)
-      * [What does it do?](#what-does-it-do-8)
-      * [How does it work?](#how-does-it-work-8)
-      * [Configuration](#configuration-8)
-   * [Watchlist Hodloo bot helper named watchlist_hodloo.py ](#watchlist-hodloo-bot-helper-named-watchlist_hodloopy)
-      * [What does it do?](#what-does-it-do-9)
-      * [How does it work?](#how-does-it-work-9)
-      * [Configuration](#configuration-9)
-   * [Watchlist Telegram bot helper named watchlist_telegram.py ](#watchlist-telegram-bot-helper-named-watchlist_telegrampy)
-      * [What does it do?](#what-does-it-do-10)
-      * [How does it work?](#how-does-it-work-10)
-      * [Configuration](#configuration-10)
-   * [Take profit bot helper named tpincrement.py](#take-profit-bot-helper-named-tpincrementpy)
-      * [What does it do?](#what-does-it-do-11)
-      * [Configuration](#configuration-11)
-      * [Example output](#example-output-7)
-   * [Deal cluster bot helper named dealcluster.py](#deal-cluster-bot-helper-named-dealclusterpy)
-      * [What does it do?](#what-does-it-do-12)
-      * [How does it work?](#how-does-it-work-11)
-      * [Configuration](#configuration-12)
-      * [Example output](#example-output-8)
+
+### Watchlist (watchlist.py)
+This will monitor a specific Telegram chat channel (https://t.me/wiseanalize) and sent a 'start new deal' trigger to the linked bot(s) for that pair.
 
 
+### Watchlist 100eyes (watchlist_100eyes.py)
+This will monitor a Telegram chat channels provided by (https://www.100-eyes.com/) and sent a 'start new deal' trigger to the linked bot(s) for that pair.
 
-   * [Bot Watcher bot helper named botwatcher.py](#bot-watcher-bot-helper-named-botwatcherpy)
-      * [What does it do?](#what-does-it-do-13)
-      * [How does it work?](#how-does-it-work-12)
-      * [Configuration](#configuration-13)
+### Watchlist Hodloo (watchlist_hodloo.py)
+It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/alerts/) and sent a 'start new deal' trigger to the linked bot for that pair.
+
+### Watchlist Telegran (watchlist_telegram.py)
+Combination of watchlist and watchlist_hodloo script.
+
 
 ## Binance account Setup
 
