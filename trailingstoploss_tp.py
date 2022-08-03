@@ -46,6 +46,7 @@ def load_config():
     cfgsectionconfig = list()
     cfgsectionconfig.append({
         "activation-percentage": "2.0",
+        "activation-so-count": "0",
         "initial-stoploss-percentage": "0.5",
         "sl-timeout": "0",
         "sl-increment-factor": "0.0",
@@ -82,6 +83,7 @@ def upgrade_config(thelogger, cfg):
         cfg["tsl_tp_default"] = {
             "botids": cfg.get("settings", "botids"),
             "activation-percentage": cfg.get("settings", "activation-percentage"),
+            "activation-so-count": cfg.get("settings", "activation-so-count"),
             "initial-stoploss-percentage": cfg.get("settings", "initial-stoploss-percentage"),
             "sl-increment-factor": cfg.get("settings", "sl-increment-factor"),
             "tp-increment-factor": cfg.get("settings", "tp-increment-factor"),
@@ -103,6 +105,7 @@ def upgrade_config(thelogger, cfg):
             cfgsectionconfig = list()
             cfgsectionconfig.append({
                 "activation-percentage": cfg.get(cfgsection, "activation-percentage"),
+                "activation-so-count": cfg.get("settings", "activation-so-count"),
                 "initial-stoploss-percentage": cfg.get(cfgsection, "initial-stoploss-percentage"),
                 "sl-increment-factor": cfg.get(cfgsection, "sl-increment-factor"),
                 "tp-increment-factor": cfg.get(cfgsection, "tp-increment-factor"),
@@ -122,11 +125,12 @@ def upgrade_config(thelogger, cfg):
         if cfgsection.startswith("tsl_tp_") and cfg.has_option(cfgsection, "config"):
             jsonconfiglist = list()
             for configsectionconfig in json.loads(cfg.get(cfgsection, "config")):
-                if "sl-timeout" not in configsectionconfig:
+                if "activation-so-count" not in configsectionconfig:
                     cfgsectionconfig = {
                         "activation-percentage": configsectionconfig.get("activation-percentage"),
+                        "activation-so-count": "0",
                         "initial-stoploss-percentage": configsectionconfig.get("initial-stoploss-percentage"),
-                        "sl-timeout": "0",
+                        "sl-timeout": configsectionconfig.get("sl-timeout"),
                         "sl-increment-factor": configsectionconfig.get("sl-increment-factor"),
                         "tp-increment-factor": configsectionconfig.get("tp-increment-factor"),
                     }
@@ -138,7 +142,7 @@ def upgrade_config(thelogger, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Updates section %s to add sl-timeout" % cfgsection)
+                thelogger.info("Updates section %s to add activation-so-count" % cfgsection)
     return cfg
 
 
@@ -274,6 +278,12 @@ def process_deals(thebot, section_config):
                     )
 
                 if not existing_deal and actual_profit_config:
+                    if not deal['completed_safety_orders_count'] >= int(actual_profit_config.get("activation-so-count")):
+                        logger.debug(
+                            f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} has lower active safety orders then "
+                            f"configured"
+                        )
+                        continue
                     monitored_deals = +1
 
                     handle_new_deal(thebot, deal, actual_profit_config)
