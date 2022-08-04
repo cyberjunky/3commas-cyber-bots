@@ -76,7 +76,7 @@ Same for DCA type deals but also including an implementation of a trailing take 
 
 ![Trailingstoploss_tp](images/trailingstoploss_tp.png)
 
-[TrailingStopLoss and TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss_and_TakeProfit)
+[TrailingStopLoss and TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss-and-TakeProfit)
 
 
 ## Compounding
