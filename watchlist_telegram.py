@@ -5,6 +5,7 @@ import configparser
 import json
 from math import nan
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -190,13 +191,25 @@ async def handle_forex_smarttrade_event(event):
 
                     for l in linedata:
                         if "#" in l:
-                            coin = l.replace("#", "")
+                            pair = l.replace("#", "")
+
+                            if "/" in pair:
+                                coin = pair.split("/")[0]
+                            else:
+                                coin = pair
+
+                            break
                 #elif "Entry" in line:
                 #    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
-                elif "Stoploss" in line:
-                    msgstoploss = float(line.split("-")[1].replace("$", ""))
+                elif "Stoploss" or "SL:" in line:
+                    #msgstoploss = float(line.split("-")[1].replace("$", ""))
+                    content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
+                    if content is not None:
+                        msgstoploss = re.string
                 elif "Target" in line:
-                    msgtargets = line.replace("Targets - ", "").split("-")
+                    #msgtargets = line.replace("Targets - ", "").split("-")
+                    content = line.split("(")[0]
+                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
 
             logger.info(
                 f"Received concrete smarttrade for {coin} with "
@@ -229,10 +242,7 @@ async def handle_forex_smarttrade_event(event):
             tpsteps = list()
             for msgtarget in msgtargets:
                 step = {}
-                if "(" in msgtarget:
-                    step["price"] = msgtarget.split("(")[0].replace("$", "")
-                else:
-                    step["price"] = msgtarget.replace("$", "")
+                step["price"] = msgtarget
                 step["volume"] = tpstepvolume
                 tpsteps.append(step)
 
@@ -277,15 +287,25 @@ async def handle_cryptosignal_smarttrade_event(event):
             msgstoploss = nan
             msgtargets = []
 
+            btcsatoshireq = False
+
             for line in data:
                 if "/USDT" in line or "/BTC" in line:
                     pairlines = line.split(" ")
                     logger.debug(f"USDT or BTC found, parsing {pairlines}")
                     pair = pairlines[0]
-                elif "SL:" in line:
-                    msgstoploss = float(line.split(":")[1].replace("$", ""))
-                elif "Targets:" in line:
-                    msgtargets = line.replace("Targets: ", "").split("-")
+                elif "Stoploss" or "SL:" in line:
+                    #msgstoploss = float(line.split("-")[1].replace("$", ""))
+                    content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
+                    if content is not None:
+                        msgstoploss = re.string
+                elif "Target" in line:
+                    if "satoshi" in msgtarget:
+                        btcsatoshireq = True
+
+                    #msgtargets = line.replace("Targets - ", "").split("-")
+                    content = line.split("(")[0]
+                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
 
             logger.info(
                 f"Received concrete smarttrade with for {pair} with "
@@ -320,28 +340,16 @@ async def handle_cryptosignal_smarttrade_event(event):
                 f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
             )
 
-            btcsatoshireq = False
-
             tpsteps = list()
             for msgtarget in msgtargets:
                 step = {}
-                if "(" in msgtarget:
-                    msgtarget = msgtarget.split("(")[0]
-
-                if "satoshi" in msgtarget:
-                    msgtarget = msgtarget.replace("satoshi", "")
-                    btcsatoshireq = True
-
-                if "$" in msgtarget:
-                    msgtarget = msgtarget.replace("$", "")
 
                 step["price"] = float(msgtarget)
+                if btcsatoshireq:
+                    step["price"] *= 0.00000001
                 step["volume"] = float(tpstepvolume)
-                tpsteps.append(step)
 
-            if btcsatoshireq:
-                for tpstep in tpsteps:
-                    tpstep["price"] *= 0.00000001
+                tpsteps.append(step)
 
             takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
             logger.debug(
