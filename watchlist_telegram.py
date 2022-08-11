@@ -204,11 +204,13 @@ async def handle_forex_smarttrade_event(event):
                 elif "Stoploss" or "SL:" in line:
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
                     content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
+                    logger.info(f"Stoploss found in {line}. Regex returned {content}")
                     if content is not None:
                         msgstoploss = content.string
                 elif "Target" in line:
                     #msgtargets = line.replace("Targets - ", "").split("-")
                     content = line.split("(")[0]
+                    logger.info(f"Target found in {line}. Split for regex is {content}")
                     msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
 
             logger.info(
@@ -219,7 +221,7 @@ async def handle_forex_smarttrade_event(event):
 
             pair = f"USDT_{coin}"
 
-            currentprice = get_threecommas_currency_rate(logger, api, "binance", pair)
+            currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
 
             amount = config.getfloat("smt_forex", "amount-usdt")
             positionsize = amount / currentprice
@@ -297,6 +299,7 @@ async def handle_cryptosignal_smarttrade_event(event):
                 elif "Stoploss" or "SL:" in line:
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
                     content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
+                    logger.info(f"Stoploss or SL found in {line}. Regex returned {content}")
                     if content is not None:
                         msgstoploss = content.string
                 elif "Target" in line:
@@ -305,6 +308,7 @@ async def handle_cryptosignal_smarttrade_event(event):
 
                     #msgtargets = line.replace("Targets - ", "").split("-")
                     content = line.split("(")[0]
+                    logger.info(f"Target found in {line}. Split for regex is {content}")
                     msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
 
             logger.info(
@@ -317,7 +321,7 @@ async def handle_cryptosignal_smarttrade_event(event):
             coin = pair.split("/")[0]
             pair = f"{base}_{coin}"
 
-            currentprice = get_threecommas_currency_rate(logger, api, "binance", pair)
+            currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
 
             amount = config.getfloat("smt_cryptosignal", "amount-usdt")
             if base == "BTC":
