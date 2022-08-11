@@ -161,7 +161,7 @@ def check_deal(cursor, dealid):
     return cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
 
 
-def format_pair(logger, marketcode, base, coin):
+def format_pair(marketcode, base, coin):
     """Format pair depending on exchange."""
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
@@ -291,7 +291,7 @@ def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs)
         for coin in excludedcoins:
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(logger, marketcode, base, coin)
+            pair = format_pair(marketcode, base, coin)
             if newpairs.count(pair) > 0:
                 newpairs.remove(pair)
 
