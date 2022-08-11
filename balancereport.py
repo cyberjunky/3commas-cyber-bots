@@ -8,8 +8,6 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pandas as pd
-
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
     calculate_deal_funds,
@@ -189,22 +187,21 @@ def create_summary(bot_list, funds_list):
 
     summary_list = []
 
-    botdf = pd.DataFrame(
-        bot_list, columns=["name", "strategy", "quote", "current", "max"]
-    )
-
     for currency in funds_list.keys():
         rounddigits = get_round_digits(currency)
 
         correctedbalance = round(funds_list[currency], rounddigits)
-        currentbotusage = round(
-            botdf.query(f"quote == '{currency}' and strategy == 'long'")['current'].sum(),
-            rounddigits
-        )
-        maxbotusage = round(
-            botdf.query(f"quote == '{currency}' and strategy == 'long'")['max'].sum(),
-            rounddigits
-        )
+
+        currentbotusage = 0.0
+        maxbotusage = 0.0
+        for bot in bot_list:
+            if bot["quote"] == currency and bot["strategy"] == "long":
+                currentbotusage += bot["current"]
+                maxbotusage += bot["max"]
+
+        currentbotusage = round(currentbotusage, rounddigits)
+        maxbotusage = round(maxbotusage, rounddigits)
+
         free = round(correctedbalance - maxbotusage, rounddigits)
         freepercentage = 0.0
         if free > 0.0:
@@ -331,12 +328,6 @@ while True:
             # Collect bot and deal data
             botlist = process_account_bots(account["id"])
             if len(botlist) > 0:
-                if debug:
-                    df = pd.DataFrame(
-                        botlist, columns=["name", "strategy", "quote", "current", "max"]
-                    )
-                    print(df.to_string(index=False))
-
                 # Correct funds based on deal data
                 accountfundslist = correct_fund_usage(botlist, accountfundslist)
                 logger.info(
@@ -345,12 +336,6 @@ while True:
 
                 # Create summary based on the funds and log it
                 summary = create_summary(botlist, accountfundslist)
-                if debug:
-                    df = pd.DataFrame(
-                        summary,
-                        columns=["currency", "balance", "current-bot-usage", "max-bot-usage", "free", "free %"]
-                    )
-                    print(df.to_string(index=False))
 
                 currencyoverview = ""
                 for entry in summary:
