@@ -205,7 +205,7 @@ async def handle_forex_smarttrade_event(event):
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
                     content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
                     if content is not None:
-                        msgstoploss = re.string
+                        msgstoploss = content.string
                 elif "Target" in line:
                     #msgtargets = line.replace("Targets - ", "").split("-")
                     content = line.split("(")[0]
@@ -298,7 +298,7 @@ async def handle_cryptosignal_smarttrade_event(event):
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
                     content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
                     if content is not None:
-                        msgstoploss = re.string
+                        msgstoploss = content.string
                 elif "Target" in line:
                     if "satoshi" in msgtarget:
                         btcsatoshireq = True
