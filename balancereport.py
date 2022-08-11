@@ -11,11 +11,15 @@ from pathlib import Path
 import pandas as pd
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import wait_time_interval
+from helpers.misc import calculate_deal_funds, get_round_digits, wait_time_interval
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_balance,
     get_threecommas_account_balance_chart_data,
+    get_threecommas_account_table_balance,
     get_threecommas_accounts,
+    get_threecommas_bots,
+    get_threecommas_deals,
     init_threecommas_api,
 )
 
@@ -42,6 +46,165 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def create_account_balance(account_id):
+    """Create the account balance"""
+
+    list_of_funds = {}
+
+    balance = get_threecommas_account_table_balance(logger, api, account_id)
+    for currency in balance:
+        code = currency["currency_code"]
+
+        if code not in ("BUSD","EUR","USD", "USDT","BTC", "BNB", "ETH"):
+            continue
+
+        # Position is the total, including reserved but excluding active deals (for
+        # which the currency has been exchanged and will come back after closing the deal)
+        position = currency["position"]
+
+        list_of_funds[code] = position
+
+    return list_of_funds
+
+def process_bot_deals(bot_id, strategy):
+    """Process the deals of the bot"""
+
+    currentdealfunds = 0.0
+
+    deals = get_threecommas_deals(logger, api, bot_id, "active")
+    if deals is None:
+        logger.info(
+            f"No deals active for bot {bot_id}"
+        )
+        return currentdealfunds
+    
+    for deal in deals:
+        if strategy == "long":
+            currentdealfunds += float(deal["bought_volume"])
+        else:
+            currentdealfunds += float(deal["sold_volume"])
+
+    return currentdealfunds
+
+
+def process_account_bots(account_id):
+    """Process the bots of the account"""
+
+    list_of_bots = []
+
+    bots = get_threecommas_bots(logger, api, account_id)
+
+    if bots is None:
+        logger.debug(
+            f"No bots found for account {account_id}"
+        )
+        return list_of_bots
+
+    for botdata in bots:
+        botname = botdata["name"]
+
+        activedeals = int(botdata["active_deals_count"])
+        enabled = bool(botdata["is_enabled"])
+        if not enabled and activedeals == 0:
+            logger.debug(
+                f"'{botname}' not enabled and no active deals. Skipping."
+            )
+            continue
+
+        startbo = float(botdata["base_order_volume"])
+        startso = float(botdata["safety_order_volume"])
+        activedeals = botdata["max_active_deals"]
+        max_safety_orders = float(botdata["max_safety_orders"])
+        martingale_volume_coefficient = float(
+            botdata["martingale_volume_coefficient"]
+        )  # Safety order volume scale
+
+        strategy = botdata["strategy"]
+        botpair = botdata["pairs"][0]
+        quote = botpair.split("_")[0]
+        rounddigits = get_round_digits(botpair)
+
+        dealfunds = calculate_deal_funds(startbo, startso, max_safety_orders, martingale_volume_coefficient)
+        botfunds = round(activedeals * dealfunds, rounddigits)
+
+        currentdealfunds = process_bot_deals(botdata["id"], strategy)
+
+        logger.debug(
+            f"'{botname}' max usage {botfunds} based on {dealfunds} * {activedeals}. "
+            f"Currently used funds: {currentdealfunds}"
+        )
+
+        botdict = {
+            "name": botdata["name"],
+            "strategy": strategy,
+            "quote": quote,
+            "current": currentdealfunds,
+            "max": botfunds
+        }
+        list_of_bots.append(botdict)
+
+    return list_of_bots
+
+
+def correct_fund_usage(bot_list, funds_list):
+    """Calculate the fund usage"""
+
+    for bot in bot_list:
+        quote = bot["quote"]
+        strategy = bot["strategy"]
+        funds = bot["current"]
+
+        quotefunds = 0.0
+        if quote in funds_list: 
+            quotefunds = funds_list[quote]
+        
+        if strategy == "long":
+            quotefunds += funds
+
+            # User could have added manual SO's, substract that amount from the total funds
+            exceedmax = funds - bot["max"]
+            if exceedmax > 0.0:
+                quotefunds -= exceedmax
+        else:
+            quotefunds -= funds
+        
+        logger.debug(
+            f"{quote}: changed to {quotefunds} based on strategy {strategy} and current funds {funds} of bot {bot['name']}"
+        )
+
+        funds_list[quote] = quotefunds
+    
+    return funds_list
+
+
+def create_summary(bot_list, funds_list):
+    """Create summary"""
+
+    summary_list = []
+
+    df = pd.DataFrame(
+        bot_list, columns=["name", "strategy", "quote", "current", "max"]
+    )
+
+    for currency in funds_list.keys():
+        correctedbalance = funds_list[currency]
+        maxbotusage = df.query(f"quote == '{currency}' and strategy == 'long'")['max'].sum()
+        free = correctedbalance - maxbotusage
+        freepercentage = round((free / correctedbalance) * 100.0, 2)
+
+        currencydict = {
+            "currency": currency,
+            "balance": correctedbalance,
+            "current-bot-usage": df.query(f"quote == '{currency}' and strategy == 'long'")['current'].sum(),
+            "max-bot-usage": maxbotusage,
+            "free": free,
+            "free %": freepercentage
+        }
+        summary_list.append(currencydict)
+
+    return summary_list
 
 
 # Start application
@@ -112,7 +275,7 @@ while True:
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     today = (datetime.now()).strftime("%Y-%m-%d")
 
-    list_of_dicts = []
+    list_of_accounts = []
 
     # Fetch all accounts
     for account in accounts:
@@ -135,18 +298,60 @@ while True:
                 )
             else:
                 gain_percentage = "NA"
-            thisdict = {
+
+            accountdict = {
                 "Name": balance["name"],
                 "Exchange": balance["exchange_name"],
                 "USD": round(float(historical_balance[-1]["usd"]), 0),
                 "Gain USD": round(gain_amount, 0),
                 "Gain %": gain_percentage,
             }
-            list_of_dicts.append(thisdict)
+            list_of_accounts.append(accountdict)
+
+            # Get current funds of the account
+            accountfundslist = create_account_balance(account["id"])
+            logger.info(
+                f"List of funds: {accountfundslist}"
+            )
+
+            # Collect bot and deal data
+            botlist = process_account_bots(account["id"])
+            df = pd.DataFrame(
+                botlist, columns=["name", "strategy", "quote", "current", "max"]
+            )
+            print(df.to_string(index=False))
+
+            # Correct funds based on deal data
+            accountfundslist = correct_fund_usage(botlist, accountfundslist)
+            logger.info(
+                f"List of corrected funds: {accountfundslist}"
+            )
+
+            summary = create_summary(botlist, accountfundslist)
+            df = pd.DataFrame(
+                summary, columns=["currency", "balance", "current-bot-usage", "max-bot-usage", "free", "free %"]
+            )
+            print(df.to_string(index=False))
+
+            logger.info(
+                f"Report for exchange: {balance['name']}\n"
+                f"USD value: {round(float(historical_balance[-1]['usd']), 0)}. Change with yesterday {round(gain_amount, 0)} ({gain_percentage}%)",
+                True
+            )
+
+            for entry in summary:
+                logger.info(
+                    f"- {entry['currency']}: {entry['free']} / {entry['balance']} ({entry['free %']}% free)",
+                    True
+                )
+
         except IndexError:
             pass
+
+        break
+
     df = pd.DataFrame(
-        list_of_dicts, columns=["Name", "Exchange", "USD", "Gain USD", "Gain %"]
+        list_of_accounts, columns=["Name", "Exchange", "USD", "Gain USD", "Gain %"]
     )
     print(df.to_string(index=False))
 
