@@ -201,17 +201,17 @@ async def handle_forex_smarttrade_event(event):
                             break
                 #elif "Entry" in line:
                 #    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
-                elif "Stoploss" or "SL:" in line:
+                elif "Stoploss" in line or "SL:" in line:
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
-                    content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
-                    logger.info(f"Stoploss found in {line}. Regex returned {content}")
-                    if content is not None:
-                        msgstoploss = content.string
+                    slcontent = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", line)
+                    logger.info(f"Stoploss found in {line}. Regex returned {slcontent}")
+                    if slcontent is not None:
+                        msgstoploss = slcontent.group()
                 elif "Target" in line:
                     #msgtargets = line.replace("Targets - ", "").split("-")
-                    content = line.split("(")[0]
-                    logger.info(f"Target found in {line}. Split for regex is {content}")
-                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
+                    tpcontent = line.split("(")[0]
+                    logger.info(f"Target found in {line}. Split for regex is {tpcontent}")
+                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", tpcontent)
 
             logger.info(
                 f"Received concrete smarttrade for {coin} with "
@@ -296,20 +296,21 @@ async def handle_cryptosignal_smarttrade_event(event):
                     pairlines = line.split(" ")
                     logger.debug(f"USDT or BTC found, parsing {pairlines}")
                     pair = pairlines[0]
-                elif "Stoploss" or "SL:" in line:
+                    logger.debug(f"USDT or BTC found, parsing {pairlines} and found pair {pair}")
+                elif "Stoploss" in line or "SL:" in line:
                     #msgstoploss = float(line.split("-")[1].replace("$", ""))
-                    content = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", line)
-                    logger.info(f"Stoploss or SL found in {line}. Regex returned {content}")
-                    if content is not None:
-                        msgstoploss = content.string
+                    slcontent = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", line)
+                    logger.info(f"Stoploss or SL found in {line}. Regex returned {slcontent}")
+                    if slcontent is not None:
+                        msgstoploss = slcontent.group()
                 elif "Target" in line:
                     if "satoshi" in msgtarget:
                         btcsatoshireq = True
 
                     #msgtargets = line.replace("Targets - ", "").split("-")
-                    content = line.split("(")[0]
-                    logger.info(f"Target found in {line}. Split for regex is {content}")
-                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2}", content)
+                    tpcontent = line.split("(")[0]
+                    logger.info(f"Target found in {line}. Split for regex is {tpcontent}")
+                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", tpcontent)
 
             logger.info(
                 f"Received concrete smarttrade with for {pair} with "

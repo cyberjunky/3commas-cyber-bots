@@ -25,10 +25,10 @@ def construct_smarttrade_takeprofit(enabled, order_type, step_list):
         step = {
             "order_type": order_type,
             "price": {
-                "value": stepentry["price"],
+                "value": float(stepentry["price"]),
                 "type": "bid"
             },
-            "volume": stepentry["volume"]
+            "volume": float(stepentry["volume"])
         }
         steps.append(step)
 
@@ -52,11 +52,11 @@ def construct_smarttrade_stoploss(order_type, price):
             "enabled": True,
             "order_type": order_type,
             "price": {
-                "value": price
+                "value": float(price)
             },
             "conditional": {
                 "price": {
-                    "value": price,
+                    "value": float(price),
                     "type":"bid",
                 },
             },
