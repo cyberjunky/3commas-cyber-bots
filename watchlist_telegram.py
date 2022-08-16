@@ -16,7 +16,8 @@ from helpers.logging import Logger, NotificationHandler
 from helpers.smarttrade import (
     construct_smarttrade_position,
     construct_smarttrade_stoploss,
-    construct_smarttrade_takeprofit
+    construct_smarttrade_takeprofit,
+    is_valid_smarttrade
 )
 from helpers.threecommas import (
     get_threecommas_currency_rate,
@@ -172,95 +173,13 @@ async def handle_forex_smarttrade_event(event):
 
     try:
         if data[0] in ("Short", "Long"):
-            logger.debug(f"Received Short or Long message: {data}", True)
+            logger.debug(f"Received Forex Short or Long message: {data}", True)
         elif "Targets" in event.message.text:
-            logger.debug(f"Received Entry message: {data}", True)
+            logger.debug(f"Received Forex message: {data}", True)
 
-            coin = None
-            #msgentries = []
-            msgstoploss = nan
-            msgtargets = []
-
-            for line in data:
-                if "#" in line:
-                    linedata = line.split(" ")
-
-                    logger.debug(
-                        f"'#' found in data, parsing {linedata}"
-                    )
-
-                    for l in linedata:
-                        if "#" in l:
-                            pair = l.replace("#", "")
-
-                            if "/" in pair:
-                                coin = pair.split("/")[0]
-                            else:
-                                coin = pair
-
-                            break
-                #elif "Entry" in line:
-                #    msgentries.append(line.split("-")[1].replace("CMP", "").replace("$", ""))
-                elif "Stoploss" in line or "SL:" in line:
-                    #msgstoploss = float(line.split("-")[1].replace("$", ""))
-                    slcontent = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", line)
-                    logger.info(f"Stoploss found in {line}. Regex returned {slcontent}")
-                    if slcontent is not None:
-                        msgstoploss = slcontent.group()
-                elif "Target" in line:
-                    #msgtargets = line.replace("Targets - ", "").split("-")
-                    tpcontent = line.split("(")[0]
-                    logger.info(f"Target found in {line}. Split for regex is {tpcontent}")
-                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", tpcontent)
-
-            logger.info(
-                f"Received concrete smarttrade for {coin} with "
-                f"stoploss '{msgstoploss}' and targets '{msgtargets}'",
-                True
-            )
-
-            pair = f"USDT_{coin}"
-
-            currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
-
-            amount = config.getfloat("smt_forex", "amount-usdt")
-            positionsize = amount / currentprice
-
-            logger.debug(
-                f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
-            )
-
-            position = construct_smarttrade_position("buy", "market", positionsize)
-
-            logger.debug(
-                f"Position {position} created."
-            )
-
-            tpstepvolume = 100.0 / len(msgtargets)
-            logger.debug(
-                f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
-            )
-
-            tpsteps = list()
-            for msgtarget in msgtargets:
-                step = {}
-                step["price"] = msgtarget
-                step["volume"] = tpstepvolume
-                tpsteps.append(step)
-
-            takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
-            logger.debug(
-                f"Takeprofit {takeprofit} created."
-            )
-
-            stoploss = construct_smarttrade_stoploss("limit", msgstoploss)
-            logger.debug(
-                f"Stoploss {stoploss} created."
-            )
-
-            open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
-    except Exception as e:
-        logger.debug(f"Exception occured: {e}")
+            parse_smarttrade_event(data)
+    except Exception as exception:
+        logger.debug(f"Exception occured: {exception}")
         return
 
     return
@@ -277,101 +196,155 @@ async def handle_cryptosignal_smarttrade_event(event):
     # Parse the event and do some error checking
     data = event.raw_text.splitlines()
 
-    logger.debug(
-        f"Converted raw text {event.raw_text} to {data}"
-    )
-
     try:
         if "Targets" in event.message.text:
-            logger.debug(f"Received Targets message: {data}", True)
+            logger.debug(f"Received CryptoSignal message: {data}", True)
 
-            pair = None
-            msgstoploss = nan
-            msgtargets = []
-
-            btcsatoshireq = False
-
-            for line in data:
-                if "/USDT" in line or "/BTC" in line:
-                    pairlines = line.split(" ")
-                    logger.debug(f"USDT or BTC found, parsing {pairlines}")
-                    pair = pairlines[0]
-                    logger.debug(f"USDT or BTC found, parsing {pairlines} and found pair {pair}")
-                elif "Stoploss" in line or "SL:" in line:
-                    #msgstoploss = float(line.split("-")[1].replace("$", ""))
-                    slcontent = re.search("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", line)
-                    logger.info(f"Stoploss or SL found in {line}. Regex returned {slcontent}")
-                    if slcontent is not None:
-                        msgstoploss = slcontent.group()
-                elif "Target" in line:
-                    if "satoshi" in msgtarget:
-                        btcsatoshireq = True
-
-                    #msgtargets = line.replace("Targets - ", "").split("-")
-                    tpcontent = line.split("(")[0]
-                    logger.info(f"Target found in {line}. Split for regex is {tpcontent}")
-                    msgtargets = re.findall("[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", tpcontent)
-
-            logger.info(
-                f"Received concrete smarttrade with for {pair} with "
-                f"stoploss '{msgstoploss}' and targets '{msgtargets}'",
-                True
-            )
-
-            base = pair.split("/")[1]
-            coin = pair.split("/")[0]
-            pair = f"{base}_{coin}"
-
-            currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
-
-            amount = config.getfloat("smt_cryptosignal", "amount-usdt")
-            if base == "BTC":
-                amount = config.getfloat("smt_cryptosignal", "amount-btc")
-
-            positionsize = amount / currentprice
-
-            logger.debug(
-                f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
-            )
-
-            position = construct_smarttrade_position("buy", "market", positionsize)
-
-            logger.debug(
-                f"Position {position} created."
-            )
-
-            tpstepvolume = 100.0 / len(msgtargets)
-            logger.debug(
-                f"Calculated step volume of {tpstepvolume} based on len {len(msgtargets)}"
-            )
-
-            tpsteps = list()
-            for msgtarget in msgtargets:
-                step = {}
-
-                step["price"] = float(msgtarget)
-                if btcsatoshireq:
-                    step["price"] *= 0.00000001
-                step["volume"] = float(tpstepvolume)
-
-                tpsteps.append(step)
-
-            takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
-            logger.debug(
-                f"Takeprofit {takeprofit} created."
-            )
-
-            stoploss = construct_smarttrade_stoploss("limit", msgstoploss)
-            logger.debug(
-                f"Stoploss {stoploss} created."
-            )
-
-            open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
-    except Exception as e:
-        logger.debug(f"Exception occured: {e}")
+            parse_smarttrade_event(data)
+    except Exception as exception:
+        logger.debug(f"Exception occured: {exception}")
         return
 
     return
+
+
+def parse_smarttrade_event(event_data):
+    """Parse the data of an event and extract smarttrade data"""
+
+    pair = None
+    entries = list()
+    targets = list()
+    stoploss = nan
+
+    logger.info(f"Parsing received event data: {event_data}")
+
+    for event_line in event_data:
+        if "/USDT" in event_line or "/BTC" in event_line or "#" in event_line:
+            pair = parse_smarttrade_pair(event_line)
+        elif "Target" in event_line:
+            targets = parse_smarttrade_target(event_line)
+        elif "Stoploss" in event_line or "SL:" in event_line:
+            stoploss = parse_smarttrade_stoploss(event_line)
+
+    logger.info(
+        f"Received concrete smarttrade with for {pair} with "
+        f"stoploss '{stoploss}' and targets '{targets}'",
+        True
+    )
+
+    currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
+
+    if is_valid_smarttrade(logger, currentprice, entries, targets, stoploss):
+        amount = config.getfloat("smt_cryptosignal", "amount-usdt")
+        if "BTC" in pair:
+            amount = config.getfloat("smt_cryptosignal", "amount-btc")
+
+        positionsize = amount / currentprice
+        logger.debug(
+            f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
+        )
+
+        position = construct_smarttrade_position("buy", "market", positionsize)
+        logger.debug(
+            f"Position {position} created."
+        )
+
+        takeprofit = construct_smarttrade_takeprofit(True, "limit", targets)
+        logger.debug(
+            f"Takeprofit {takeprofit} created."
+        )
+
+        stoploss = construct_smarttrade_stoploss("limit", stoploss)
+        logger.debug(
+            f"Stoploss {stoploss} created."
+        )
+
+        open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
+    else:
+        logger.error(
+            f"Cannot start smarttrade because of invalid data)"
+        )
+
+
+def parse_smarttrade_pair(data):
+    """Parse data and extract pair data"""
+
+    pair = None
+    coin = None
+
+    if "/USDT" in data or "/BTC" in data:
+        pairdata = data.split(" ")[0].split("/")
+        base = pairdata[1]
+        coin = pairdata[0]
+    elif "#" in data:
+        base = "USDT"
+        pairdata = data.split(" ")
+        logger.info(f"Parsing pairdata {pairdata}")
+
+        for line in pairdata:
+            if "#" in line:
+                coinorpair = line.replace("#", "")
+
+                if "/" in coinorpair:
+                    coin = coinorpair.split('/')[0]
+                else:
+                    coin = coinorpair
+
+                break
+
+    pair = f"{base}_{coin}"
+
+    logger.info(f"Pair '{pair}' found in {data} (base: {base}, coin: {coin}).")
+
+    return pair
+
+
+def parse_smarttrade_entrie(data):
+    """Parse data and extract entrie(s) data"""
+
+
+def parse_smarttrade_target(data):
+    """Parse data and extract target(s) data"""
+
+    targetsteps = list()
+
+    convertsatoshi = False
+    if "satoshi" in data:
+        convertsatoshi = True
+
+    tpdata = re.findall(r"[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", data.split("(")[0])
+
+    tpstepvolume = 100.0 / len(tpdata)
+    logger.debug(
+        f"Calculated step volume of {tpstepvolume} based on len {len(tpdata)}"
+    )
+
+    for takeprofit in tpdata:
+        step = {}
+        step["price"] = float(takeprofit)
+        if convertsatoshi:
+            step["price"] *= 0.00000001
+        step["volume"] = float(tpstepvolume)
+        targetsteps.append(step)
+
+    logger.info(f"Targets '{targetsteps}' found in {data} (regex returned {tpdata}).")
+
+    return targetsteps
+
+
+def parse_smarttrade_stoploss(data):
+    """Parse data and extract stoploss data"""
+
+    stoploss = nan
+
+    sldata = re.search(r"[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", data)
+    if sldata is not None:
+        stoploss = float(sldata.group())
+
+    logger.info(f"Stoploss of '{stoploss}' found in {data} (regex returned {sldata}).")
+
+    return stoploss
+
 
 def start_smarttrade():
     """Start a SmartTrade"""
@@ -438,6 +411,37 @@ def get_hodloo_botids(category, base):
     """Get list of botids from configuration based on category and base"""
 
     return json.loads(config.get(f"hodloo_{category}", f"{base.lower()}-botids"))
+
+
+def run_tests():
+    """Some tests which can be run to test data processing"""
+
+    logger.info("Running some test cases. Should not happen when running for you!!!")
+
+    data = list()
+    data.append(r'LTO/BTC')
+    data.append(r'LTO Network has established itself as Europeâ€™s leading blockchain with strong real-world usage.')
+    data.append(r'Technically lying above strong support. RSI is in the oversold region. MACD is showing bullish momentum. It will pump hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
+    data.append(r'')
+    data.append(r'Targets: 493-575-685-795 satoshi')
+    parse_smarttrade_event(data)
+
+    data.clear()
+    data.append(r'LTO/USDT lying above strong support. Stochastic is giving a buying signal. It will bounce hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
+    data.append(r'')
+    data.append(r'Targets: $0.1175-0.1575-0.2015-0.2565')
+    data.append(r'SL: $0.0952')
+    parse_smarttrade_event(data)
+
+    data.clear()
+    data.append(r'Longing #SAND')
+    data.append(r'Lev - 5x')
+    data.append(r'Single Entry around CMP1.354')
+    data.append(r'Stoploss - H4 close below 1.3$')
+    data.append(r'Targets - 1.385 - 1.42 - 1.48 - 1.72 (25% Each)')
+    data.append(r'@Forex_Tradings')
+    parse_smarttrade_event(data)
+
 
 
 # Start application
@@ -510,6 +514,10 @@ if hl10exchange not in ("Bittrex", "Binance", "Kucoin"):
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+
+# Code to enable testing instead of waiting for events.
+#run_tests()
+#sys.exit(0)
 
 # Prefetch marketcodes for all bots
 # - Custom bots

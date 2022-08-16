@@ -3,6 +3,22 @@
 from math import isnan
 
 
+def is_valid_smarttrade(logger, price, entries, targets, stoploss):
+    """Validate smarttrade data"""
+
+    isvalid = True
+
+    if not isnan(stoploss) and stoploss >= price:
+        logger.warning(f"Current price {price} equal or below stoploss {stoploss}!")
+        isvalid = False
+
+    if not len(targets):
+        logger.warning(f"No targets set!")
+        isvalid = False
+
+    return isvalid
+
+
 def construct_smarttrade_position(position_type, order_type, value):
     """Create the position content for a smarttrade"""
 
