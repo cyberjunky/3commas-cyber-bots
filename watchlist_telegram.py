@@ -17,6 +17,7 @@ from helpers.smarttrade import (
     construct_smarttrade_position,
     construct_smarttrade_stoploss,
     construct_smarttrade_takeprofit,
+    get_smarttrade_direction,
     is_valid_smarttrade
 )
 from helpers.threecommas import (
@@ -234,17 +235,26 @@ def parse_smarttrade_event(event_data):
 
     currentprice = float(get_threecommas_currency_rate(logger, api, "binance", pair))
 
-    if is_valid_smarttrade(logger, currentprice, entries, targets, stoploss):
+    direction = get_smarttrade_direction(targets)
+    logger.info(
+        f"Direction is '{direction}'."
+    )
+
+    if is_valid_smarttrade(logger, currentprice, entries, targets, stoploss, direction):
         amount = config.getfloat("smt_cryptosignal", "amount-usdt")
         if "BTC" in pair:
             amount = config.getfloat("smt_cryptosignal", "amount-btc")
 
-        positionsize = amount / currentprice
+        positionsize = amount
+        if not ("USDT" in pair and "BTC" in pair):
+            positionsize /= currentprice
+
         logger.debug(
             f"Calculated position {positionsize} based on amount {amount} and price {currentprice}"
         )
 
-        position = construct_smarttrade_position("buy", "market", positionsize)
+        positiontype = "buy" if direction == "long" else "sell"
+        position = construct_smarttrade_position(positiontype, "market", positionsize)
         logger.debug(
             f"Position {position} created."
         )
@@ -261,9 +271,7 @@ def parse_smarttrade_event(event_data):
 
         open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
     else:
-        logger.error(
-            f"Cannot start smarttrade because of invalid data)"
-        )
+        logger.error("Cannot start smarttrade because of invalid data)")
 
 
 def parse_smarttrade_pair(data):
@@ -274,8 +282,8 @@ def parse_smarttrade_pair(data):
 
     if "/USDT" in data or "/BTC" in data:
         pairdata = data.split(" ")[0].split("/")
-        base = pairdata[1]
-        coin = pairdata[0]
+        base = pairdata[1].replace("#", "")
+        coin = pairdata[0].replace("#", "")
     elif "#" in data:
         base = "USDT"
         pairdata = data.split(" ")
@@ -312,7 +320,7 @@ def parse_smarttrade_target(data):
     if "satoshi" in data:
         convertsatoshi = True
 
-    tpdata = re.findall(r"[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", data.split("(")[0])
+    tpdata = re.findall(r"[0-9]{1,5}[.,]\d{1,8}k?|[0-9]{2,}k?", data.split("(")[0])
 
     tpstepvolume = 100.0 / len(tpdata)
     logger.debug(
@@ -321,10 +329,16 @@ def parse_smarttrade_target(data):
 
     for takeprofit in tpdata:
         step = {}
-        step["price"] = float(takeprofit)
+
+        price = takeprofit
         if convertsatoshi:
-            step["price"] *= 0.00000001
-        step["volume"] = float(tpstepvolume)
+            price = float(price) * 0.00000001
+        if isinstance(price, str) and "k" in price:
+            price = float(price.replace("k", ""))
+            price *= 1000.0
+
+        step["price"] = price
+        step["volume"] = tpstepvolume
         targetsteps.append(step)
 
     logger.info(f"Targets '{targetsteps}' found in {data} (regex returned {tpdata}).")
@@ -337,9 +351,14 @@ def parse_smarttrade_stoploss(data):
 
     stoploss = nan
 
-    sldata = re.search(r"[0-9]{1,5}[.,]\d{1,8}|[0-9]{2,}", data)
+    sldata = re.search(r"[0-9]{1,5}[.,]\d{1,8}k?|[0-9]{2,}k?", data)
     if sldata is not None:
-        stoploss = float(sldata.group())
+        stoploss = sldata.group()
+        if "k" in stoploss:
+            stoploss = float(stoploss.replace("k", ""))
+            stoploss *= 1000.0
+        else:
+            stoploss = float(stoploss)
 
     logger.info(f"Stoploss of '{stoploss}' found in {data} (regex returned {sldata}).")
 
@@ -419,29 +438,43 @@ def run_tests():
     logger.info("Running some test cases. Should not happen when running for you!!!")
 
     data = list()
-    data.append(r'LTO/BTC')
-    data.append(r'LTO Network has established itself as Europeâ€™s leading blockchain with strong real-world usage.')
-    data.append(r'Technically lying above strong support. RSI is in the oversold region. MACD is showing bullish momentum. It will pump hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
-    data.append(r'')
-    data.append(r'Targets: 493-575-685-795 satoshi')
-    parse_smarttrade_event(data)
 
-    data.clear()
-    data.append(r'LTO/USDT lying above strong support. Stochastic is giving a buying signal. It will bounce hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
-    data.append(r'')
-    data.append(r'Targets: $0.1175-0.1575-0.2015-0.2565')
-    data.append(r'SL: $0.0952')
-    parse_smarttrade_event(data)
+    if True:
+        data.clear()
+        data.append(r'LTO/BTC')
+        data.append(r'LTO Network has established itself as Europeâ€™s leading blockchain with strong real-world usage.')
+        data.append(r'Technically lying above strong support. RSI is in the oversold region. MACD is showing bullish momentum. It will pump hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
+        data.append(r'')
+        data.append(r'Targets: 493-575-685-795 satoshi')
+        parse_smarttrade_event(data)
 
-    data.clear()
-    data.append(r'Longing #SAND')
-    data.append(r'Lev - 5x')
-    data.append(r'Single Entry around CMP1.354')
-    data.append(r'Stoploss - H4 close below 1.3$')
-    data.append(r'Targets - 1.385 - 1.42 - 1.48 - 1.72 (25% Each)')
-    data.append(r'@Forex_Tradings')
-    parse_smarttrade_event(data)
+    if True:
+        data.clear()
+        data.append(r'LTO/USDT lying above strong support. Stochastic is giving a buying signal. It will bounce hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
+        data.append(r'')
+        data.append(r'Targets: $0.1175-0.1575-0.2015-0.2565')
+        data.append(r'SL: $0.0952')
+        parse_smarttrade_event(data)
 
+    if True:
+        data.clear()
+        data.append(r'Longing #SAND')
+        data.append(r'Lev - 5x')
+        data.append(r'Single Entry around CMP1.354')
+        data.append(r'Stoploss - H4 close below 1.3$')
+        data.append(r'Targets - 1.385 - 1.42 - 1.48 - 1.72 (25% Each)')
+        data.append(r'@Forex_Tradings')
+        parse_smarttrade_event(data)
+
+    if True:
+        data.clear()
+        data.append(r'#BTC/USDT (Swing Short)')
+        data.append(r'Lev - 5x')
+        data.append(r'Entry 1 - 24350 (50%)')
+        data.append(r'Entry 2 - 25.5k (50%)')
+        data.append(r'Stoploss - Daily Close above 26k')
+        data.append(r'Targets - 23.5k - 22.6k - 21.5k - 20k - 17k')
+        parse_smarttrade_event(data) # Need to test
 
 
 # Start application
