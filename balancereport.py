@@ -73,6 +73,7 @@ def process_bot_deals(bot_id, strategy):
     """Process the deals of the bot"""
 
     currentdealfunds = 0.0
+    dealsofunds = 0.0
 
     deals = get_threecommas_deals(logger, api, bot_id, "active")
     if deals is None:
@@ -87,7 +88,10 @@ def process_bot_deals(bot_id, strategy):
         else:
             currentdealfunds += float(deal["sold_volume"])
 
-    return currentdealfunds
+        ## Still need to calculate the amount of funds additional SO's would require for each deal
+        ## Deals could have different SO settings than max usage of the bot
+
+    return currentdealfunds, dealsofunds
 
 
 def process_account_bots(account_id):
@@ -129,21 +133,35 @@ def process_account_bots(account_id):
         dealfunds = calculate_deal_funds(
             bovolume, sovolume, max_safety_orders, martingale_volume_coefficient
         )
-        botfunds = activedeals * dealfunds
+        maxfunds = activedeals * dealfunds
 
-        currentdealfunds = process_bot_deals(botdata["id"], strategy)
+        dealdata = process_bot_deals(botdata["id"], strategy)
+        currentdealfunds = dealdata[0]
+        currentdealsofunds = dealdata[1]
 
-        logger.debug(
-            f"'{botname}' max usage {botfunds} based on {dealfunds} * {activedeals}. "
-            f"Currently used funds: {currentdealfunds}"
-        )
+        # Bots which are enabled use the max funds based on the configuration. Bots which
+        # are disabled use only the funds based on the remaining active deals.
+        # TODO: improve this part and calculate SO funds for each deal. Only use the bot
+        # configuration for the number of open slots for a new deal as the deals could be
+        # different (eg when the bot configuration has changed in the mean time)
+        if enabled:
+            logger.debug(
+                f"'{botname}' max usage {maxfunds} based on {dealfunds} * {activedeals}. "
+                f"Currently used funds: {currentdealfunds}"
+            )
+        else:
+            maxfunds = currentdealfunds + currentdealsofunds
+            logger.debug(
+                f"'{botname}' disabled. Max usage is currently used funds "
+                f"{currentdealfunds} plus SO funds {currentdealsofunds}"
+            )
 
         botdict = {
             "name": botdata["name"],
             "strategy": strategy,
             "quote": quote,
             "current": currentdealfunds,
-            "max": botfunds
+            "max": maxfunds
         }
         list_of_bots.append(botdict)
 
