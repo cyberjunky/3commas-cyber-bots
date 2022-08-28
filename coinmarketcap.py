@@ -388,7 +388,7 @@ while True:
                 endnumber = 1 + (int(config.get(section, "end-number")) - startnumber)
                 convert = config.get(section, "max-percent-compared-to")
 
-                convertlist = ("BTC", "ETH", "EUR", "USD")
+                convertlist = ("BNB", "BTC", "ETH", "EUR", "USD")
                 if convert not in convertlist:
                     logger.error(
                         f"Percent change ('{convert}') must be one of the following: "

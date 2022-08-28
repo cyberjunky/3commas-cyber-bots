@@ -11,8 +11,17 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.misc import calculate_deal_funds, check_deal, get_round_digits, remove_prefix, wait_time_interval
-from helpers.threecommas import get_threecommas_deals, init_threecommas_api
+from helpers.misc import (
+    calculate_deal_funds,
+    check_deal,
+    get_round_digits,
+    remove_prefix,
+    wait_time_interval
+)
+from helpers.threecommas import (
+    get_threecommas_deals,
+    init_threecommas_api
+)
 
 
 def load_config():
@@ -170,20 +179,20 @@ def update_bot_order_volumes(
 
         if max_safety_orders >= 1:
             logger.info(
-                f"Compounded ₿{round(profit_sum, rounddigits)} in profit "
+                f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
                 f"from {deals_count} deal(s) made by '{bot_name}'\n"
-                f"Changed BO from ₿{round(base_order_volume, rounddigits)} to "
-                f"₿{round(new_base_order_volume, rounddigits)}\n"
-                f"Changed SO from ₿{round(safety_order_volume, rounddigits)} to "
-                f"₿{round(new_safety_order_volume, rounddigits)}",
+                f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
+                f"₿{new_base_order_volume:0.{rounddigits}f}\n"
+                f"Changed SO from ₿{safety_order_volume:0.{rounddigits}f} to "
+                f"₿{new_safety_order_volume:0.{rounddigits}f}",
                 True,
             )
         else:
             logger.info(
-                f"Compounded ₿{round(profit_sum, rounddigits)} in profit "
+                f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
                 f"from {deals_count} deal(s) made by '{bot_name}'\n"
-                f"Changed BO from ₿{round(base_order_volume, rounddigits)} to "
-                f"₿{round(new_base_order_volume, rounddigits)}",
+                f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
+                f"₿{new_base_order_volume:0.{rounddigits}f}",
                 True,
             )
     else:
@@ -316,10 +325,10 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
         logger.info(
             f"Changed max. active deals from {max_active_deals} to "
             f"{new_max_deals} for bot\n'{bot_name}'\n"
-            f"Changed BO from ${round(base_order_volume, rounddigits)} to "
-            f"${round(org_base_order, rounddigits)}\n"
-            f"Changed SO from ${round(safety_order_volume, rounddigits)} to "
-            f"${round(org_safety_order, rounddigits)}"
+            f"Changed BO from ${base_order_volume:0.{rounddigits}f} to "
+            f"${org_base_order:0.{rounddigits}f}\n"
+            f"Changed SO from ${safety_order_volume:0.{rounddigits}f} to "
+            f"${org_safety_order:0.{rounddigits}f}"
         )
     else:
         if error and "msg" in error:
@@ -385,10 +394,10 @@ def update_bot_max_safety_orders(
         logger.info(
             f"Changed max. active safety orders from {max_safety_orders} to "
             f"{new_max_safety_orders} for bot\n'{bot_name}'\n"
-            f"Changed BO from ${round(base_order_volume, rounddigits)} to "
-            f"${round(org_base_order, rounddigits)}\n"
-            f"Changed SO from ${round(safety_order_volume, rounddigits)} to "
-            f"${round(org_safety_order, rounddigits)}"
+            f"Changed BO from ${base_order_volume:0.{rounddigits}f} to "
+            f"${org_base_order:0.{rounddigits}f}\n"
+            f"Changed SO from ${safety_order_volume:0.{rounddigits}f} to "
+            f"${org_safety_order:0.{rounddigits}f}"
         )
     else:
         if error and "msg" in error:
@@ -574,7 +583,7 @@ def compound_bot(cfg, thebot):
                 total_so_funds = 0
 
             if max_safety_orders > 1:
-                for i in range(1, max_safety_orders):
+                for _ in range(1, max_safety_orders):
                     funds_so_needed *= float(martingale_volume_coefficient)
                     total_so_funds += funds_so_needed
 
@@ -776,7 +785,7 @@ while True:
                         logger.error("Error occurred updating bots")
             else:
                 logger.error("Invalid botid found: %s" % botid)
-        elif section not in ("settings"):
+        elif section not in "settings":
             logger.warning(
                 f"Section '{section}' not processed (prefix 'bot_' missing)!",
                 False
