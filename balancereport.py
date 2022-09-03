@@ -58,7 +58,7 @@ def create_account_balance(account_id):
     for currency in balancetable:
         code = currency["currency_code"]
 
-        if code not in ("BUSD","EUR","USD", "USDT","BTC", "BNB", "ETH"):
+        if code not in ("BUSD", "EUR", "USD", "USDT", "BTC", "BNB", "ETH"):
             continue
 
         # Position is the total, including reserved but excluding active deals (for
@@ -74,24 +74,66 @@ def process_bot_deals(bot_id, strategy):
 
     currentdealfunds = 0.0
     dealsofunds = 0.0
+    yesterdayprofit = 0.0
 
-    deals = get_threecommas_deals(logger, api, bot_id, "active")
-    if deals is None:
+    activedeals = get_threecommas_deals(logger, api, bot_id, "active")
+    if activedeals is None:
         logger.info(
             f"No deals active for bot {bot_id}"
         )
         return currentdealfunds
 
-    for deal in deals:
+    for activedeal in activedeals:
         if strategy == "long":
-            currentdealfunds += float(deal["bought_volume"])
+            currentdealfunds += float(activedeal["bought_volume"])
+
+            bovolume = float(activedeal["base_order_volume"])
+            sovolume = float(activedeal["safety_order_volume"])
+            completed_safety_orders = float(activedeal["completed_safety_orders_count"])
+            max_safety_orders = float(activedeal["max_safety_orders"])
+            martingale_volume_coefficient = float(
+                activedeal["martingale_volume_coefficient"]
+            )  # Safety order volume scale
+
+            if completed_safety_orders < max_safety_orders:
+                safetyfunds = calculate_deal_funds(
+                    bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_safety_orders + 1
+                )
+                logger.debug(
+                    f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} Safety Orders left for "
+                    f"which {safetyfunds} is required."
+                )
+                dealsofunds += safetyfunds
+            else:
+                logger.debug(
+                    f"Deal {activedeal['id']} has completed all {completed_safety_orders} Safety Orders. "
+                    f"No additional funds required."
+                )
+
+            ## Still need to calculate the amount of funds additional SO's would require for each deal
+            ## Deals could have different SO settings than max usage of the bot
+
         else:
-            currentdealfunds += float(deal["sold_volume"])
+            currentdealfunds += float(activedeal["sold_volume"])
 
-        ## Still need to calculate the amount of funds additional SO's would require for each deal
-        ## Deals could have different SO settings than max usage of the bot
+            # If short if for one of the major types (currencies as supported by this script),
+            # we should take those SO funds also into account
 
-    return currentdealfunds, dealsofunds
+    finisheddeals = get_threecommas_deals(logger, api, bot_id, "finished")
+    if finisheddeals is not None:
+        yesterday = f"{(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')}"
+
+        # TODO Ready for improvement, compare date in a better way by converting to a 
+        # datetime object and using that
+        for finisheddeal in finisheddeals:
+            if yesterday in finisheddeal["closed_at"]:
+                yesterdayprofit += float(finisheddeal["final_profit"])
+    
+    logger.debug(
+        f"Yesterday profit for {bot_id} is {yesterdayprofit}"
+    )
+
+    return currentdealfunds, dealsofunds, yesterdayprofit
 
 
 def process_account_bots(account_id):
@@ -120,7 +162,7 @@ def process_account_bots(account_id):
 
         bovolume = float(botdata["base_order_volume"])
         sovolume = float(botdata["safety_order_volume"])
-        activedeals = botdata["max_active_deals"]
+        maxactivedeals = botdata["max_active_deals"]
         max_safety_orders = float(botdata["max_safety_orders"])
         martingale_volume_coefficient = float(
             botdata["martingale_volume_coefficient"]
@@ -133,20 +175,22 @@ def process_account_bots(account_id):
         dealfunds = calculate_deal_funds(
             bovolume, sovolume, max_safety_orders, martingale_volume_coefficient
         )
-        maxfunds = activedeals * dealfunds
 
+        # First calculate the funds which will be used by future deals
+        maxfunds = (maxactivedeals - activedeals) * dealfunds
+
+        # Second calculate funds used by current active deals
         dealdata = process_bot_deals(botdata["id"], strategy)
         currentdealfunds = dealdata[0]
         currentdealsofunds = dealdata[1]
+        yesterdayprofitsum = dealdata[2]
 
-        # Bots which are enabled use the max funds based on the configuration. Bots which
-        # are disabled use only the funds based on the remaining active deals.
-        # TODO: improve this part and calculate SO funds for each deal. Only use the bot
-        # configuration for the number of open slots for a new deal as the deals could be
-        # different (eg when the bot configuration has changed in the mean time)
         if enabled:
+            maxfunds += currentdealfunds # Add currently used funds (BO + completed SO)
+            maxfunds += currentdealsofunds # Remaining SO not yet completed
             logger.debug(
-                f"'{botname}' max usage {maxfunds} based on {dealfunds} * {activedeals}. "
+                f"'{botname}' max usage {maxfunds} based on {dealfunds} * {maxactivedeals - activedeals} "
+                f"plus active deal SO funds {currentdealsofunds}. "
                 f"Currently used funds: {currentdealfunds}"
             )
         else:
@@ -161,7 +205,8 @@ def process_account_bots(account_id):
             "strategy": strategy,
             "quote": quote,
             "current": currentdealfunds,
-            "max": maxfunds
+            "max": maxfunds,
+            "yesterday_profit": yesterdayprofitsum
         }
         list_of_bots.append(botdict)
 
@@ -183,11 +228,14 @@ def correct_fund_usage(bot_list, funds_list):
         if strategy == "long":
             quotefunds += funds
 
-            # User could have added manual SO's, substract that amount from the total funds
+            # User could have added manual SO's on top of the configured SO, 
+            # substract that amount from the total funds
             exceedmax = funds - bot["max"]
             if exceedmax > 0.0:
                 quotefunds -= exceedmax
         else:
+            # Short bot fund usage must be substracted from the available amount of funds, because
+            # those funds are needed when the short deal closes. 
             quotefunds -= funds
 
         logger.debug(
@@ -208,28 +256,31 @@ def create_summary(bot_list, funds_list):
     for currency in funds_list.keys():
         rounddigits = get_round_digits(currency)
 
-        correctedbalance = round(funds_list[currency], rounddigits)
+        #correctedbalance = round(funds_list[currency], rounddigits)
 
         currentbotusage = 0.0
         maxbotusage = 0.0
+        yesterdayprofit = 0.0
         for bot in bot_list:
             if bot["quote"] == currency and bot["strategy"] == "long":
                 currentbotusage += bot["current"]
                 maxbotusage += bot["max"]
+                yesterdayprofit += bot["yesterday_profit"]
 
-        currentbotusage = round(currentbotusage, rounddigits)
-        maxbotusage = round(maxbotusage, rounddigits)
+        #currentbotusage = round(currentbotusage, rounddigits)
+        #maxbotusage = round(maxbotusage, rounddigits)
 
-        free = round(correctedbalance - maxbotusage, rounddigits)
+        free = round(funds_list[currency] - maxbotusage, rounddigits)
         freepercentage = 0.0
         if free > 0.0:
-            freepercentage = round((free / correctedbalance) * 100.0, 2)
+            freepercentage = round((free / funds_list[currency]) * 100.0, 2)
 
         currencydict = {
             "currency": currency,
-            "balance": correctedbalance,
+            "balance": funds_list[currency],
             "current-bot-usage": currentbotusage,
             "max-bot-usage": maxbotusage,
+            "yesterday-profit": yesterdayprofit,
             "free": free,
             "free %": freepercentage
         }
@@ -357,9 +408,13 @@ while True:
 
                 currencyoverview = ""
                 for entry in summary:
+                    rounddigits = get_round_digits(entry['currency'])
+
                     if currencyoverview:
                         currencyoverview += "\n"
-                    currencyoverview += f"- {entry['currency']}: {entry['free']} / {entry['balance']} ({entry['free %']}% free)"
+                    currencyoverview += f"{entry['currency']}\n"
+                    currencyoverview += f"- Balance: {entry['free']:0.{rounddigits}f} / {entry['balance']:0.{rounddigits}f} ({entry['free %']}% free)\n"
+                    currencyoverview += f"- Profit yesterday: {entry['yesterday-profit']:0.{rounddigits}f}"
 
                 if currencyoverview:
                     logger.info(currencyoverview, True)
