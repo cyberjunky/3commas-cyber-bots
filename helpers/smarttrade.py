@@ -16,8 +16,8 @@ def is_valid_smarttrade(logger, price, entries, targets, stoploss, direction):
             logger.warning(f"Current price {price} for short equal or above stoploss {stoploss}!")
             isvalid = False
 
-    if not len(targets):
-        logger.warning(f"No targets set!")
+    if not targets:
+        logger.warning("No targets set!")
         isvalid = False
 
     return isvalid
@@ -29,8 +29,8 @@ def get_smarttrade_direction(targets):
     direction = ""
 
     if len(targets) > 1:
-        firsttp = targets[0]["price"]
-        lasttp = targets[len(targets) - 1]["price"]
+        firsttp = float(targets[0]["price"])
+        lasttp = float(targets[len(targets) - 1]["price"])
 
         if firsttp < lasttp:
             direction = "long"
@@ -54,7 +54,7 @@ def construct_smarttrade_position(position_type, order_type, value):
     return position
 
 
-def construct_smarttrade_takeprofit(enabled, order_type, step_list):
+def construct_smarttrade_takeprofit(order_type, step_list):
     """Create the take_profit content for a smarttrade"""
 
     steps = []
@@ -70,7 +70,7 @@ def construct_smarttrade_takeprofit(enabled, order_type, step_list):
         steps.append(step)
 
     take_profit = {
-        "enabled": enabled,
+        "enabled": True,
         "steps": steps,
     }
 

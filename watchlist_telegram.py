@@ -23,7 +23,10 @@ from helpers.smarttrade import (
 from helpers.threecommas import (
     get_threecommas_currency_rate,
     init_threecommas_api,
-    load_blacklist,
+    load_blacklist
+)
+from helpers.threecommas_smarttrade import (
+    close_threecommas_smarttrade,
     open_threecommas_smarttrade
 )
 from helpers.watchlist import (
@@ -157,41 +160,87 @@ async def handle_custom_event(event):
     )
 
 
-async def handle_forex_smarttrade_event(event):
+#async def handle_forex_smarttrade_event(source, event):
+#    """Handle the received Telegram event"""
+#
+#    logger.debug(
+#        "Received message on Forex smarttrade: '%s'"
+#        % (event.message.text.replace("\n", " - "))
+#    )
+#
+#    # Parse the event and do some error checking
+#    data = event.raw_text.splitlines()
+#
+#    logger.debug(
+#        f"Converted raw text {event.raw_text} to {data}"
+#    )
+#
+#    try:
+#        if data[0] in ("Short", "Long"):
+#            logger.debug(f"Received Forex Short or Long message: {data}", True)
+#        elif "Targets" in event.message.text:
+#            logger.debug(f"Received Forex message: {data}", True)
+#
+#            parse_smarttrade_event(source, data)
+#    except Exception as exception:
+#        logger.debug(f"Exception occured: {exception}")
+#        return
+#
+#    return
+
+
+#async def handle_cryptosignal_smarttrade_event(source, event):
+#    """Handle the received Telegram event"""
+#
+#    logger.debug(
+#        "Received message on CryptoSignal smarttrade: '%s'"
+#        % (event.message.text.replace("\n", " - "))
+#    )
+#
+#    # Parse the event and do some error checking
+#    data = event.raw_text.splitlines()
+#
+#    try:
+#        if "Targets" in event.message.text:
+#            logger.debug(f"Received CryptoSignal message: {data}", True)
+#
+#            parse_smarttrade_event(source, data)
+#    except Exception as exception:
+#        logger.debug(f"Exception occured: {exception}")
+#        return
+#
+#    return
+
+
+#async def handle_cryptosignalleaks_smarttrade_event(source, event):
+#    """Handle the received Telegram event"""
+#
+#    logger.debug(
+#        "Received message on CryptoSignalLeaks smarttrade: '%s'"
+#        % (event.message.text.replace("\n", " - "))
+#    )
+#
+#    # Parse the event and do some error checking
+#    data = event.raw_text.splitlines()
+#
+#    try:
+#        if "Targets" in event.message.text:
+#            logger.debug(f"Received CryptoSignalLeaks message: {data}", True)
+#
+#            parse_smarttrade_event(source, data)
+#    except Exception as exception:
+#        logger.debug(f"Exception occured: {exception}")
+#        return
+#
+#    return
+
+
+async def handle_telegram_smarttrade_event(source, event):
     """Handle the received Telegram event"""
 
     logger.debug(
-        "Received message on Forex smarttrade: '%s'"
-        % (event.message.text.replace("\n", " - "))
-    )
-
-    # Parse the event and do some error checking
-    data = event.raw_text.splitlines()
-
-    logger.debug(
-        f"Converted raw text {event.raw_text} to {data}"
-    )
-
-    try:
-        if data[0] in ("Short", "Long"):
-            logger.debug(f"Received Forex Short or Long message: {data}", True)
-        elif "Targets" in event.message.text:
-            logger.debug(f"Received Forex message: {data}", True)
-
-            parse_smarttrade_event(data)
-    except Exception as exception:
-        logger.debug(f"Exception occured: {exception}")
-        return
-
-    return
-
-
-async def handle_cryptosignal_smarttrade_event(event):
-    """Handle the received Telegram event"""
-
-    logger.debug(
-        "Received message on CryptoSignal smarttrade: '%s'"
-        % (event.message.text.replace("\n", " - "))
+        "Received message on %s smarttrade: '%s'"
+        % source, (event.message.text.replace("\n", " - "))
     )
 
     # Parse the event and do some error checking
@@ -199,9 +248,9 @@ async def handle_cryptosignal_smarttrade_event(event):
 
     try:
         if "Targets" in event.message.text:
-            logger.debug(f"Received CryptoSignal message: {data}", True)
+            logger.debug(f"Received {source} message: {data}", True)
 
-            parse_smarttrade_event(data)
+            parse_smarttrade_event(source, data)
     except Exception as exception:
         logger.debug(f"Exception occured: {exception}")
         return
@@ -209,8 +258,10 @@ async def handle_cryptosignal_smarttrade_event(event):
     return
 
 
-def parse_smarttrade_event(event_data):
+def parse_smarttrade_event(source, event_data):
     """Parse the data of an event and extract smarttrade data"""
+
+    dealid = 0
 
     pair = None
     entries = list()
@@ -259,7 +310,7 @@ def parse_smarttrade_event(event_data):
             f"Position {position} created."
         )
 
-        takeprofit = construct_smarttrade_takeprofit(True, "limit", targets)
+        takeprofit = construct_smarttrade_takeprofit("limit", targets)
         logger.debug(
             f"Takeprofit {takeprofit} created."
         )
@@ -269,9 +320,31 @@ def parse_smarttrade_event(event_data):
             f"Stoploss {stoploss} created."
         )
 
-        open_threecommas_smarttrade(logger, api, "29981012", pair, position, takeprofit, stoploss)
+        note = f"Deal started based on signal from {source}"
+
+        data = open_threecommas_smarttrade(logger, api, "29981012", pair, note, position, takeprofit, stoploss)
+        dealid = handle_open_smarttrade_data(data)
     else:
         logger.error("Cannot start smarttrade because of invalid data)")
+
+    return dealid
+
+
+def handle_open_smarttrade_data(data):
+    """Handle the return data of 3C"""
+
+    dealid = 0
+
+    if data is not None:
+        dealid = data["id"]
+        pair = data["pair"]
+
+        logger.info(
+            f"Opened smarttrade {dealid} for pair '{pair}'.",
+            True
+        )
+
+    return dealid
 
 
 def parse_smarttrade_pair(data):
@@ -322,9 +395,10 @@ def parse_smarttrade_target(data):
 
     tpdata = re.findall(r"[0-9]{1,5}[.,]\d{1,8}k?|[0-9]{2,}k?", data.split("(")[0])
 
-    tpstepvolume = 100.0 / len(tpdata)
+    quotient, remainder = divmod(100, len(tpdata))
+
     logger.debug(
-        f"Calculated step volume of {tpstepvolume} based on len {len(tpdata)}"
+        f"Calculated quotient of {quotient} and remainder {remainder} based on len {len(tpdata)}"
     )
 
     for takeprofit in tpdata:
@@ -338,7 +412,14 @@ def parse_smarttrade_target(data):
             price *= 1000.0
 
         step["price"] = price
-        step["volume"] = tpstepvolume
+
+        # Volume is calculated based on number of targets. This could be a float result and result in a volume of less
+        # than 100% due to rounding. So, the quetient is calculated for every target and the remaining volume is added
+        # to the first target
+        step["volume"] = quotient
+        if len(targetsteps) == 0:
+            step["volume"] += remainder
+
         targetsteps.append(step)
 
     logger.info(f"Targets '{targetsteps}' found in {data} (regex returned {tpdata}).")
@@ -363,28 +444,6 @@ def parse_smarttrade_stoploss(data):
     logger.info(f"Stoploss of '{stoploss}' found in {data} (regex returned {sldata}).")
 
     return stoploss
-
-
-def start_smarttrade():
-    """Start a SmartTrade"""
-
-    tpsteps = list()
-
-    firststep = {}
-    firststep["price"] = 30000.0
-    firststep["volume"] = 50
-
-    secondstep = {}
-    secondstep["price"] = 40000.0
-    secondstep["volume"] = 50
-
-    tpsteps.append(firststep)
-    tpsteps.append(secondstep)
-
-    position = construct_smarttrade_position("buy", "market", 0.001)
-    takeprofit = construct_smarttrade_takeprofit(True, "limit", tpsteps)
-    stoploss = construct_smarttrade_stoploss(True, "limit", 15000.0)
-    open_threecommas_smarttrade(logger, api, "29981012", "USDT_BTC", position, takeprofit, stoploss)
 
 
 async def handle_hodloo_event(category, event):
@@ -439,24 +498,28 @@ def run_tests():
 
     data = list()
 
-    if True:
+    if False:
         data.clear()
         data.append(r'LTO/BTC')
         data.append(r'LTO Network has established itself as Europeâ€™s leading blockchain with strong real-world usage.')
         data.append(r'Technically lying above strong support. RSI is in the oversold region. MACD is showing bullish momentum. It will pump hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
         data.append(r'')
         data.append(r'Targets: 493-575-685-795 satoshi')
-        parse_smarttrade_event(data)
+        tradeid = parse_smarttrade_event("***** Manually testing the script *****", data)
+        time.sleep(10) #Pause for some time, allowing 3C to open the deal before we can close it
+        close_threecommas_smarttrade(logger, api, tradeid)
 
-    if True:
+    if False:
         data.clear()
         data.append(r'LTO/USDT lying above strong support. Stochastic is giving a buying signal. It will bounce hard from here. so now is the right time to build your position in it before breakout for massive profitsðŸ˜Š')
         data.append(r'')
         data.append(r'Targets: $0.1175-0.1575-0.2015-0.2565')
         data.append(r'SL: $0.0952')
-        parse_smarttrade_event(data)
+        tradeid = parse_smarttrade_event("***** Manually testing the script *****", data)
+        time.sleep(10) #Pause for some time, allowing 3C to open the deal before we can close it
+        close_threecommas_smarttrade(logger, api, tradeid)
 
-    if True:
+    if False:
         data.clear()
         data.append(r'Longing #SAND')
         data.append(r'Lev - 5x')
@@ -464,9 +527,11 @@ def run_tests():
         data.append(r'Stoploss - H4 close below 1.3$')
         data.append(r'Targets - 1.385 - 1.42 - 1.48 - 1.72 (25% Each)')
         data.append(r'@Forex_Tradings')
-        parse_smarttrade_event(data)
+        tradeid = parse_smarttrade_event("***** Manually testing the script *****", data)
+        time.sleep(10) #Pause for some time, allowing 3C to open the deal before we can close it
+        close_threecommas_smarttrade(logger, api, tradeid)
 
-    if True:
+    if False:
         data.clear()
         data.append(r'#BTC/USDT (Swing Short)')
         data.append(r'Lev - 5x')
@@ -474,8 +539,17 @@ def run_tests():
         data.append(r'Entry 2 - 25.5k (50%)')
         data.append(r'Stoploss - Daily Close above 26k')
         data.append(r'Targets - 23.5k - 22.6k - 21.5k - 20k - 17k')
-        parse_smarttrade_event(data) # Need to test
+        tradeid = parse_smarttrade_event("***** Manually testing the script *****", data) # Need to test
+        time.sleep(10) #Pause for some time, allowing 3C to open the deal before we can close it
+        close_threecommas_smarttrade(logger, api, tradeid)
 
+    if False:
+        data.clear()
+        data.append(r'#AAVE ')
+        data.append(r'Breakout Targets - 92 - 105 - 127 - 153 - 178 - 250 ')
+        tradeid = parse_smarttrade_event("***** Manually testing the script *****", data)
+        time.sleep(10) #Pause for some time, allowing 3C to open the deal before we can close it
+        close_threecommas_smarttrade(logger, api, tradeid)
 
 # Start application
 program = Path(__file__).stem
@@ -582,6 +656,9 @@ smtforexchannelid = -1
 smtcryptosignalchannelname = config.get("smt_cryptosignal", "channel-name")
 smtcryptosignalchannelid = -1
 
+smtcryptosignalleakschannelname = config.get("smt_cryptosignalleaks", "channel-name")
+smtcryptosignalleakschannelid = -1
+
 hl5channelname = f"Hodloo {hl5exchange} 5%"
 hl5channelid = -1
 
@@ -600,6 +677,8 @@ for dialog in client.iter_dialogs():
             smtforexchannelid = dialog.id
         elif dialog.title == smtcryptosignalchannelname:
             smtcryptosignalchannelid = dialog.id
+        elif dialog.title == smtcryptosignalleakschannelname:
+            smtcryptosignalleakschannelid = dialog.id
         elif dialog.title == hl5channelname:
             hl5channelid = dialog.id
         elif dialog.title == hl10channelname:
@@ -610,6 +689,7 @@ logger.debug(
     f"Custom '{customchannelname}' to {customchannelid}, "
     f"Forex Smarttrade '{smtforexchannelname}' to {smtforexchannelid}, "
     f"Crypto Signal Smarttrade '{smtcryptosignalchannelname}' to {smtcryptosignalchannelid}, "
+    f"Crypto Signal Leaks Smarttrade '{smtcryptosignalleakschannelname}' to {smtcryptosignalleakschannelid}, "
     f"Hodloo '{hl5channelname}' to {hl5channelid}, "
     f"Hodloo '{hl10channelname}' to {hl10channelid}"
 )
@@ -637,7 +717,7 @@ if smtforexchannelid != -1:
     async def callback_forex_smarttrade(event):
         """Receive Telegram message."""
 
-        await handle_forex_smarttrade_event(event)
+        await handle_telegram_smarttrade_event(smtforexchannelname, event)
         notification.send_notification()
 
 
@@ -650,7 +730,20 @@ if smtcryptosignalchannelid != -1:
     async def callback_cryptosignal_smarttrade(event):
         """Receive Telegram message."""
 
-        await handle_cryptosignal_smarttrade_event(event)
+        await handle_telegram_smarttrade_event(smtcryptosignalchannelname, event)
+        notification.send_notification()
+
+
+if smtcryptosignalleakschannelid != -1:
+    logger.info(
+        f"Listening to updates from '{smtcryptosignalleakschannelname}' (id={smtcryptosignalleakschannelid}) ...",
+        True
+    )
+    @client.on(events.NewMessage(chats=smtcryptosignalleakschannelid))
+    async def callback_cryptosignalleaks_smarttrade(event):
+        """Receive Telegram message."""
+
+        await handle_telegram_smarttrade_event(smtcryptosignalleakschannelname, event)
         notification.send_notification()
 
 
