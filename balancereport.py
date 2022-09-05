@@ -91,22 +91,24 @@ def process_bot_deals(bot_id, strategy):
 
                 bovolume = float(activedeal["base_order_volume"])
                 sovolume = float(activedeal["safety_order_volume"])
-                completed_safety_orders = float(activedeal["completed_safety_orders_count"])
-                max_safety_orders = float(activedeal["max_safety_orders"])
+                completed_manual_safety_orders = int(activedeal["completed_manual_safety_orders_count"])
+                completed_safety_orders = int(activedeal["completed_safety_orders_count"])
+                max_safety_orders = int(activedeal["max_safety_orders"])
                 martingale_volume_coefficient = float(
                     activedeal["martingale_volume_coefficient"]
                 )  # Safety order volume scale
 
-                if completed_safety_orders < max_safety_orders:
+                completed_configured_safety_orders = completed_safety_orders - completed_manual_safety_orders
+                if completed_configured_safety_orders < max_safety_orders:
                     safetyfunds = calculate_deal_funds(
-                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_safety_orders + 1
+                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_configured_safety_orders + 1
                     )
 
                     # Substract BO because it's already included in the 'bought_volume' above and we are only interested in SO funds
                     safetyfunds -= bovolume
 
                     logger.debug(
-                        f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} Safety Orders left for "
+                        f"Deal {activedeal['id']} has {max_safety_orders - completed_configured_safety_orders} Safety Orders left for "
                         f"which {safetyfunds} is required."
                     )
                     dealsofunds += safetyfunds
@@ -125,12 +127,12 @@ def process_bot_deals(bot_id, strategy):
     if finisheddeals is not None:
         yesterday = f"{(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')}"
 
-        # TODO Ready for improvement, compare date in a better way by converting to a 
+        # TODO Ready for improvement, compare date in a better way by converting to a
         # datetime object and using that
         for finisheddeal in finisheddeals:
             if yesterday in finisheddeal["closed_at"]:
                 yesterdayprofit += float(finisheddeal["final_profit"])
-    
+
     logger.debug(
         f"Yesterday profit for {bot_id} is {yesterdayprofit}"
     )
@@ -230,14 +232,14 @@ def correct_fund_usage(bot_list, funds_list):
         if strategy == "long":
             quotefunds += funds
 
-            # User could have added manual SO's on top of the configured SO, 
+            # User could have added manual SO's on top of the configured SO,
             # substract that amount from the total funds
             exceedmax = funds - bot["max"]
             if exceedmax > 0.0:
                 quotefunds -= exceedmax
         else:
             # Short bot fund usage must be substracted from the available amount of funds, because
-            # those funds are needed when the short deal closes. 
+            # those funds are needed when the short deal closes.
             quotefunds -= funds
 
         logger.debug(
