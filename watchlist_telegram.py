@@ -238,16 +238,13 @@ async def handle_custom_event(event):
 async def handle_telegram_smarttrade_event(source, event):
     """Handle the received Telegram event"""
 
-    logger.debug(
-        "Received message on %s smarttrade: '%s'"
-        % source, (event.message.text.replace("\n", " - "))
-    )
-
     # Parse the event and do some error checking
     data = event.raw_text.splitlines()
 
     try:
-        if "Targets" in event.message.text:
+        searchwords = ["Targets", "Target 1", "TP1", "SL"]
+        #if "Targets" in event.message.text:
+        if any(word in event.message.text for word in searchwords):
             logger.debug(f"Received {source} message: {data}", True)
 
             parse_smarttrade_event(source, data)
@@ -268,7 +265,7 @@ def parse_smarttrade_event(source, event_data):
     targets = list()
     stoploss = nan
 
-    logger.info(f"Parsing received event data: {event_data}")
+    logger.info(f"Parsing received event from '{source}': {event_data}")
 
     for event_line in event_data:
         if "/USDT" in event_line or "/BTC" in event_line or "#" in event_line:
