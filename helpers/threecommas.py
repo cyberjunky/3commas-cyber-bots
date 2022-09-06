@@ -459,7 +459,7 @@ def get_threecommas_deals(logger, api, botid, actiontype="finished"):
         else:
             logger.error("Error occurred while fetching deals")
     else:
-        logger.debug("Fetched the deals for bot OK (%s deals)" % len(data))
+        logger.debug("Fetched the deals for bot %s OK (%s deals)" % (botid, len(data)))
 
     return data
 

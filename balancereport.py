@@ -72,7 +72,7 @@ def create_account_balance(account_id):
 
     return list_of_funds
 
-def process_bot_deals(bot_id, strategy):
+def process_bot_deals(bot_id, bot_name, strategy):
     """Process the deals of the bot"""
 
     currentdealfunds = 0.0
@@ -82,59 +82,80 @@ def process_bot_deals(bot_id, strategy):
     activedeals = get_threecommas_deals(logger, api, bot_id, "active")
     if activedeals is None:
         logger.debug(
-            f"No deals active for bot {bot_id}"
+            f"No deals active for '{bot_name}'"
         )
     else:
+        logger.debug(
+            f"Processing active deals of bot '{bot_name}'..."
+        )
+
         for activedeal in activedeals:
             if strategy == "long":
                 currentdealfunds += float(activedeal["bought_volume"])
 
                 bovolume = float(activedeal["base_order_volume"])
                 sovolume = float(activedeal["safety_order_volume"])
-                completed_manual_safety_orders = int(activedeal["completed_manual_safety_orders_count"])
-                completed_safety_orders = int(activedeal["completed_safety_orders_count"])
-                max_safety_orders = int(activedeal["max_safety_orders"])
-                martingale_volume_coefficient = float(
-                    activedeal["martingale_volume_coefficient"]
-                )  # Safety order volume scale
+                completed_manual_safety_orders = int(activedeal["completed_manual_safety_orders_count"]) #Filled manual SO
+                completed_safety_orders = int(activedeal["completed_safety_orders_count"]) #Filled automatic SO (excluding manual)
+                max_safety_orders = int(activedeal["max_safety_orders"]) #Max automatic SO
+                current_active_safety_orders = int(activedeal["current_active_safety_orders_count"]) #Number of active SO
+                martingale_volume_coefficient = float(activedeal["martingale_volume_coefficient"])
 
-                completed_configured_safety_orders = completed_safety_orders - completed_manual_safety_orders
-                if completed_configured_safety_orders < max_safety_orders:
-                    safetyfunds = calculate_deal_funds(
-                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_configured_safety_orders + 1
+                activesofunds = 0.0
+                if completed_safety_orders < max_safety_orders:
+                    # Calculate required funds for remaining SO and active SO (which is less or equal to remaining)
+                    dealfunddata = calculate_deal_funds(
+                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_safety_orders + 1, current_active_safety_orders
                     )
+
+                    remainingsofunds = dealfunddata[0]
+                    activesofunds = dealfunddata[1]
 
                     # Substract BO because it's already included in the 'bought_volume' above and we are only interested in SO funds
-                    safetyfunds -= bovolume
+                    remainingsofunds -= bovolume
 
                     logger.debug(
-                        f"Deal {activedeal['id']} has {max_safety_orders - completed_configured_safety_orders} Safety Orders left for "
-                        f"which {safetyfunds} is required."
+                        f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} SO left; in total "
+                        f"{remainingsofunds} required and currently {activesofunds} in active SO."
                     )
-                    dealsofunds += safetyfunds
+                    dealsofunds += remainingsofunds
                 else:
                     logger.debug(
-                        f"Deal {activedeal['id']} has completed all {completed_safety_orders} Safety Orders. "
-                        f"No additional funds required."
+                        f"Deal {activedeal['id']} has completed {completed_safety_orders} SO and "
+                        f"{completed_manual_safety_orders} manual SO. No additional funds required."
+                    )
+
+                if current_active_safety_orders > 0:
+                    # There are SO active, which could be `automatic` from the configuration or manual.
+                    # Above the current active SO funds where calculated, so substract this from the
+                    # reserved funds and add the remaining sum (which must be for manual placed orders,
+                    # like a limit order) to the total amount of SO funds for this deal.
+                    reservedfunds = float(activedeal["reserved_quote_funds"])
+                    manualfunds = abs(activesofunds - reservedfunds)
+                    dealsofunds += manualfunds
+
+                    logger.debug(
+                        f"Deal {activedeal['id']} has {reservedfunds} funds reserved for {current_active_safety_orders} SO. "
+                        f"Funds for active SO are {activesofunds}, so {manualfunds} is manually placed."
                     )
             else:
                 currentdealfunds += float(activedeal["sold_volume"])
 
-                # If short if for one of the major types (currencies as supported by this script),
+                # If short is for one of the major types (currencies as supported by this script),
                 # we should take those SO funds also into account
 
     finisheddeals = get_threecommas_deals(logger, api, bot_id, "finished")
     if finisheddeals is not None:
-        yesterday = f"{(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')}"
+        yesterdaydate = f"{(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')}"
 
         # TODO Ready for improvement, compare date in a better way by converting to a
         # datetime object and using that
         for finisheddeal in finisheddeals:
-            if yesterday in finisheddeal["closed_at"]:
+            if yesterdaydate in finisheddeal["closed_at"]:
                 yesterdayprofit += float(finisheddeal["final_profit"])
 
     logger.debug(
-        f"Yesterday profit for {bot_id} is {yesterdayprofit}"
+        f"Yesterday profit of {yesterdayprofit} for '{bot_name}'"
     )
 
     return currentdealfunds, dealsofunds, yesterdayprofit
@@ -176,15 +197,16 @@ def process_account_bots(account_id):
         botpair = botdata["pairs"][0]
         quote = botpair.split("_")[0]
 
+        # Calculate remaining SO funds and ignore second return value (active SO funds)
         dealfunds = calculate_deal_funds(
             bovolume, sovolume, max_safety_orders, martingale_volume_coefficient
-        )
+        )[0]
 
         # First calculate the funds which will be used by future deals
         maxfunds = (maxactivedeals - activedeals) * dealfunds
 
         # Second calculate funds used by current active deals
-        dealdata = process_bot_deals(botdata["id"], strategy)
+        dealdata = process_bot_deals(botdata["id"], botname, strategy)
         currentdealfunds = dealdata[0]
         currentdealsofunds = dealdata[1]
         yesterdayprofitsum = dealdata[2]
@@ -243,7 +265,7 @@ def correct_fund_usage(bot_list, funds_list):
             quotefunds -= funds
 
         logger.debug(
-            f"{quote}: changed to {quotefunds} based on strategy {strategy} and current "
+            f"{quote}: changed to {quotefunds} based on strategy {strategy} and required "
             f"funds {funds} of bot {bot['name']}"
         )
 
@@ -258,10 +280,6 @@ def create_summary(bot_list, funds_list):
     summary_list = []
 
     for currency in funds_list.keys():
-        rounddigits = get_round_digits(currency)
-
-        #correctedbalance = round(funds_list[currency], rounddigits)
-
         currentbotusage = 0.0
         maxbotusage = 0.0
         yesterdayprofit = 0.0
@@ -271,10 +289,7 @@ def create_summary(bot_list, funds_list):
                 maxbotusage += bot["max"]
                 yesterdayprofit += bot["yesterday_profit"]
 
-        #currentbotusage = round(currentbotusage, rounddigits)
-        #maxbotusage = round(maxbotusage, rounddigits)
-
-        free = round(funds_list[currency] - maxbotusage, rounddigits)
+        free = funds_list[currency] - maxbotusage
         freepercentage = 0.0
         if free > 0.0:
             freepercentage = round((free / funds_list[currency]) * 100.0, 2)
@@ -368,6 +383,14 @@ while True:
         historical_balance = get_threecommas_account_balance_chart_data(
             logger, api, account["id"], yesterday, today
         )
+
+        if balance is None or historical_balance is None:
+            logger.warning(
+                f"Failed to fetch balance data for account {account['id']}. "
+                f"Skip for now and retry next time!"
+            )
+            continue
+
         logger.debug(historical_balance)
         logger.info(f"Fetching account data for {balance['name']}")
 
@@ -400,10 +423,10 @@ while True:
                     f"Can't collect & show more stats without fund(s) information."
                 )
                 continue
-            else:
-                logger.info(
-                    f"List of funds: {accountfundslist}"
-                )
+
+            logger.info(
+                f"List of funds: {accountfundslist}"
+            )
 
             # Collect bot and deal data
             botlist = process_account_bots(account["id"])

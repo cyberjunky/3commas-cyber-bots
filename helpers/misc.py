@@ -325,11 +325,15 @@ def unix_timestamp_to_string(timestamp, date_time_format):
     return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)
 
 
-def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from = 1):
+def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from = 1, count_funds_for = 1):
     """Calculate the max fund usage of a deal based on the bot settings"""
 
     # Always add start_base_order_size
     totalusedperdeal = start_bo
+
+    # Funds required for the specified next number of SO
+    nextsofunds = 0.0
+    nextsofundscounter = 0
 
     isafetyorder = 1
     while isafetyorder <= max_so:
@@ -342,11 +346,15 @@ def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficie
             total_safety_order_volume *= martingale_volume_coefficient
 
         # Only calculated the funds if current SO is higher than the `count_from`. This
-        # could be used to calculate the funds for an already started deal with 
+        # could be used to calculate the funds for an already started deal with
         # completed Safety Orders.
         if isafetyorder >= count_from:
             totalusedperdeal += total_safety_order_volume
 
+            if nextsofundscounter < count_funds_for:
+                nextsofunds += total_safety_order_volume
+                nextsofundscounter += 1
+
         isafetyorder += 1
 
-    return totalusedperdeal
+    return totalusedperdeal, nextsofunds
