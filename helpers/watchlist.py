@@ -92,7 +92,7 @@ def process_bot_deal(logger, api, blacklistfile, blacklist, marketcodes, thebot,
     logger.info("Exchange %s (%s) used" % (bot_exchange, marketcode))
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
-    pair = format_pair(logger, marketcode, base, coin)
+    pair = format_pair(marketcode, base, coin)
 
     deals = thebot["active_deals"]
     if trade == "LONG":

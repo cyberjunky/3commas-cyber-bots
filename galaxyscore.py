@@ -182,7 +182,7 @@ def lunarcrush_pairs(cfg, thebot):
             galaxyscore = entry["gs"]
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(logger, marketcode, base, coin)
+            pair = format_pair(marketcode, base, coin)
 
             acrscore = float(entry["acr"])
             volbtc = float(entry["volbtc"])

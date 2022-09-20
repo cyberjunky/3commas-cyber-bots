@@ -202,6 +202,33 @@ def get_threecommas_account_balance(logger, api, accountid):
     return None
 
 
+
+def get_threecommas_account_table_balance(logger, api, accountid):
+    """Get complete account balances."""
+
+    # Fetch account balance data for accountid, in real mode
+    error, data = api.request(
+        entity="accounts",
+        action="account_table_data",
+        action_id=str(accountid),
+        additional_headers={"Forced-Mode": "real"},
+    )
+    if data:
+        return data
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas account table balances data failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
+    else:
+        logger.error(
+            "Fetching 3Commas account table balances data failed for id %s", accountid
+        )
+
+    return None
+
+
 def get_threecommas_account_balance_chart_data(
     logger, api, accountid, begindate, enddate
 ):
@@ -441,7 +468,7 @@ def get_threecommas_deals(logger, api, botid, actiontype="finished"):
         else:
             logger.error("Error occurred while fetching deals")
     else:
-        logger.info("Fetched the deals for bot OK (%s deals)" % len(data))
+        logger.debug("Fetched the deals for bot %s OK (%s deals)" % (botid, len(data)))
 
     return data
 
@@ -470,3 +497,28 @@ def close_threecommas_deal(logger, api, dealid, pair):
         )
 
     return data
+
+
+def get_threecommas_bots(logger, api, accountid):
+    """Get account details."""
+
+    # Find bots data for accountid
+    error, data = api.request(
+        entity="bots",
+        action="",
+        payload= {
+            "account_id": accountid
+        }
+    )
+
+    if data:
+        return data
+
+    if error and "msg" in error:
+        logger.error(
+            "Fetching 3Commas bots data failed for id %s error: %s"
+            % (accountid, error["msg"])
+        )
+    # No else, there are just no bots for the account
+
+    return None
