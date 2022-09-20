@@ -136,19 +136,27 @@ def update_bot_order_volumes(
 ):
     """Update bot with new order volumes."""
 
+    bot_id = thebot["id"]
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
 
+    db.execute(
+        f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
+    )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, new_base_order_volume)
     )
     if max_safety_orders >= 1:
+        db.execute(
+            f"UPDATE bots SET lastcalcso = {new_safety_order_volume} WHERE botid = {bot_id}"
+        )
         logger.info(
             "Calculated SO volume changed from: %s to %s"
             % (safety_order_volume, new_safety_order_volume)
         )
+    db.commit()
 
     error, data = api.request(
         entity="bots",
@@ -277,6 +285,7 @@ def get_bot_values(thebot):
 def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals):
     """Update bot with new max deals and old bo/so values."""
 
+    bot_id = thebot["id"]
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
@@ -286,14 +295,24 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
         "Calculated max. active deals changed from: %s to %s"
         % (max_active_deals, new_max_deals)
     )
+
+    db.execute(
+        f"UPDATE bots SET lastcalcbo = {org_base_order} WHERE botid = {bot_id}"
+    )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, org_base_order)
+    )
+
+    db.execute(
+        f"UPDATE bots SET lastcalcso = {org_safety_order} WHERE botid = {bot_id}"
     )
     logger.info(
         "Calculated SO volume changed from: %s to %s"
         % (safety_order_volume, org_safety_order)
     )
+
+    db.commit()
 
     error, data = api.request(
         entity="bots",
@@ -674,7 +693,7 @@ def init_compound_db():
             "CREATE TABLE deals (dealid INT Primary Key, profit REAL, botid int)"
         )
         dbcursor.execute(
-            "CREATE TABLE bots (botid INT Primary Key, startbo REAL, startso REAL, startactivedeals int)"
+            "CREATE TABLE bots (botid INT Primary Key, startbo REAL, startso REAL, startactivedeals int, lastcalcbo REAL, lastcalcso REAL)"
         )
         logger.info("Database tables created successfully")
 
@@ -700,6 +719,13 @@ def upgrade_compound_db():
             "CREATE TABLE bots (botid INT Primary Key, startbo REAL, startso REAL, startactivedeals int)"
         )
         logger.info("Database schema upgraded (table bots)")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcbo real")
+        cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcso real")
+        logger.info("Database table bots upgraded (column lastcalcbo, lastcalcso)")
     except sqlite3.OperationalError:
         pass
 
