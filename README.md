@@ -34,7 +34,7 @@ Since I rather don't want to pay for Monthly services if this is not needed I st
 Get overview and statistics in order to get an overview and manage your account and funds easily.
 
 ### Balance Report (balancereport.py)
-A script which examins the connected exchanges, enabled bots and deals on your account. Based on al this data, an overview is generated of funds in use and the amount available.
+A script which examins the connected exchanges, bots and deals on your account. Based on al this data, an overview is generated of funds in use and the amount available.
 
 ![BalanceReport](images/balancereport.png)
 
