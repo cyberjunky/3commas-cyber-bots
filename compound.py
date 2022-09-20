@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+from hashlib import new
 import json
 import math
 import os
@@ -141,6 +142,10 @@ def update_bot_order_volumes(
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
+    #### Check from the database what the last stored values are
+    #### db_lastpassupdate = was the last update to BO executed or stored?
+    #### db_lastcalcbo = Last Calculated BO from Database
+    #### db_lastcalcso = Last Caclulated SO from Database
     db_lastpassupdate = cursor.execute(
         f"SELECT lastpassupdate FROM bots WHERE botid = {bot_id}"
     ).fetchone()
@@ -160,6 +165,11 @@ def update_bot_order_volumes(
         f"lastcalcso value in db is {db_lastcalcso}"
     )
 
+    if db_lastpassupdate is 'No':
+        new_base_order_volume2 = new_base_order_volume + db_lastcalcbo
+        logger.debug(
+            f"new_base_order_volume2 ({new_base_order_volume2}) is db_lastcalcbo ({db_lastcalcbo}) + new_base_order_volume ({new_base_order_volume})"
+        )
     db.execute(
         f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
     )
