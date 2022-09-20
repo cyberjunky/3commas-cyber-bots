@@ -12,6 +12,7 @@ from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
+    calculate_deal_funds,
     check_deal,
     get_round_digits,
     remove_prefix,
@@ -584,21 +585,7 @@ def compound_bot(cfg, thebot):
             thebot["martingale_volume_coefficient"]
         )  # Safety order volume scale
 
-        # Always add start_base_order_size
-        totalusedperdeal = startbo
-
-        isafetyorder = 1
-        while isafetyorder <= max_safety_orders:
-            # For the first Safety order, just use the startso
-            if isafetyorder == 1:
-                total_safety_order_volume = startso
-
-            # After the first SO, multiple the previous SO with the safety order volume scale
-            if isafetyorder > 1:
-                total_safety_order_volume *= martingale_volume_coefficient
-
-            totalusedperdeal += total_safety_order_volume
-            isafetyorder += 1
+        totalusedperdeal = calculate_deal_funds(startso, startbo, max_safety_orders, martingale_volume_coefficient)
 
         # Calculate % to compound (per bot)
         totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
