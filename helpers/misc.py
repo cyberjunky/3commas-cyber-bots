@@ -161,7 +161,7 @@ def check_deal(cursor, dealid):
     return cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
 
 
-def format_pair(marketcode, base, coin):
+def format_pair(logger, marketcode, base, coin):
     """Format pair depending on exchange."""
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
@@ -291,7 +291,7 @@ def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs)
         for coin in excludedcoins:
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(marketcode, base, coin)
+            pair = format_pair(logger, marketcode, base, coin)
             if newpairs.count(pair) > 0:
                 newpairs.remove(pair)
 
@@ -323,38 +323,3 @@ def unix_timestamp_to_string(timestamp, date_time_format):
     """Convert the given timestamp to a readable date/time in the specified format"""
 
     return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)
-
-
-def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from = 1, count_funds_for = 1):
-    """Calculate the max fund usage of a deal based on the bot settings"""
-
-    # Always add start_base_order_size
-    totalusedperdeal = start_bo
-
-    # Funds required for the specified next number of SO
-    nextsofunds = 0.0
-    nextsofundscounter = 0
-
-    isafetyorder = 1
-    while isafetyorder <= max_so:
-        # For the first Safety Order, just use the startso
-        if isafetyorder == 1:
-            total_safety_order_volume = start_so
-
-        # After the first SO, multiply the previous SO with the safety order volume scale
-        if isafetyorder > 1:
-            total_safety_order_volume *= martingale_volume_coefficient
-
-        # Only calculated the funds if current SO is higher than the `count_from`. This
-        # could be used to calculate the funds for an already started deal with
-        # completed Safety Orders.
-        if isafetyorder >= count_from:
-            totalusedperdeal += total_safety_order_volume
-
-            if nextsofundscounter < count_funds_for:
-                nextsofunds += total_safety_order_volume
-                nextsofundscounter += 1
-
-        isafetyorder += 1
-
-    return totalusedperdeal, nextsofunds
