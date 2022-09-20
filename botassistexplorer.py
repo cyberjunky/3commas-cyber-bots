@@ -283,7 +283,7 @@ def convert_pairs(ticker_list, base, marketcode, black_list, pair_list):
         if currentbase in coin:
             coin = coin.replace(currentbase, "")
 
-        newpair = format_pair(logger, marketcode, base, coin)
+        newpair = format_pair(marketcode, base, coin)
         if newpair in ticker_list:
             if newpair not in black_list:
                 convertedpairs.append(newpair)

@@ -86,7 +86,7 @@ def watchlist_100eyes_deal(thebot, base, coin):
         skipchecks = True
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
-    pair = format_pair(logger, marketcode, base, triggercoin)
+    pair = format_pair(marketcode, base, triggercoin)
 
     # Check if pair is on 3Commas blacklist
     if pair in blacklist:
