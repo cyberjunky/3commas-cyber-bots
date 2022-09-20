@@ -240,7 +240,7 @@ def coinmarketcap_pairs(thebot, cmcdata):
             coin = entry["symbol"]
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(logger, marketcode, base, coin)
+            pair = format_pair(marketcode, base, coin)
 
             # Populate lists
             populate_pair_lists(
