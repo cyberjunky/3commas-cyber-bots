@@ -148,27 +148,37 @@ def update_bot_order_volumes(
     #### db_lastcalcso = Last Caclulated SO from Database
     db_lastpassupdate = cursor.execute(
         f"SELECT lastpassupdate FROM bots WHERE botid = {bot_id}"
-    ).fetchone()
+    ).fetchone()[0]
     logger.debug(
         f"lastpassupdate value in db is {db_lastpassupdate}"
     )
     db_lastcalcbo = cursor.execute(
         f"SELECT lastcalcbo FROM bots WHERE botid = {bot_id}"
-    ).fetchone()
+    ).fetchone()[0]
     logger.debug(
         f"lastcalcbo value in db is {db_lastcalcbo}"
     )
     db_lastcalcso = cursor.execute(
         f"SELECT lastcalcso FROM bots WHERE botid = {bot_id}"
-    ).fetchone()
+    ).fetchone()[0]
     logger.debug(
         f"lastcalcso value in db is {db_lastcalcso}"
     )
 
-    if db_lastpassupdate is 'No':
-        new_base_order_volume2 = new_base_order_volume + db_lastcalcbo
+    bo_profit = new_base_order_volume - base_order_volume
+    so_profit = new_safety_order_volume - safety_order_volume
+    #### Check if the BO/SO was updated on the last pass
+    #### If not, add the value from the DB to the new BO
+    if db_lastpassupdate == 'No':
+        new_base_order_volume2 = (new_base_order_volume + db_lastcalcbo) - base_order_volume
+        new_base_order_volume3 = (base_order_volume + bo_profit)
+        new_base_order_volume4 = (db_lastcalcbo + bo_profit)
         logger.debug(
-            f"new_base_order_volume2 ({new_base_order_volume2}) is db_lastcalcbo ({db_lastcalcbo}) + new_base_order_volume ({new_base_order_volume})"
+            f"bo_profit is ({bo_profit}) \n"
+            f"so_profit is ({so_profit}) \n"
+            f"new_base_order_volume2 ({new_base_order_volume2}) is (db_lastcalcbo ({db_lastcalcbo}) + new_base_order_volume ({new_base_order_volume})) - ({base_order_volume}) \n"
+            f"new_base_order_volume3 ({new_base_order_volume3}) is base_order_volume ({base_order_volume}) + ({bo_profit}) \n"
+            f"new_base_order_volume4 ({new_base_order_volume4}) is db_lastcalcbo ({db_lastcalcbo}) + ({bo_profit}) \n"
         )
     db.execute(
         f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
@@ -602,7 +612,7 @@ def compound_bot(cfg, thebot):
         profitusedtocompound = totalprofitforbot * bot_profit_percentage
 
         new_max_active_deals = (
-            math.floor(profitusedtocompound / totalusedperdeal) + startactivedeals
+            math.floor(profitusedtocompound / totalusedperdeal[0]) + startactivedeals
         )
         current_active_deals = thebot["max_active_deals"]
 
