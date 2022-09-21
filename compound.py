@@ -142,6 +142,9 @@ def update_bot_order_volumes(
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
+    #### I know these are also down below, but to make calculation easier, I'm recalculating these
+    bo_profit = new_base_order_volume - base_order_volume
+    so_profit = new_safety_order_volume - safety_order_volume
     #### Check from the database what the last stored values are
     #### db_lastpassupdate = was the last update to BO executed or stored?
     #### db_lastcalcbo = Last Calculated BO from Database
@@ -165,20 +168,16 @@ def update_bot_order_volumes(
         f"lastcalcso value in db is {db_lastcalcso}"
     )
 
-    bo_profit = new_base_order_volume - base_order_volume
-    so_profit = new_safety_order_volume - safety_order_volume
     #### Check if the BO/SO was updated on the last pass
     #### If not, add the value from the DB to the new BO
     if db_lastpassupdate == 'No':
-        new_base_order_volume2 = (new_base_order_volume + db_lastcalcbo) - base_order_volume
-        new_base_order_volume3 = (base_order_volume + bo_profit)
-        new_base_order_volume4 = (db_lastcalcbo + bo_profit)
+        new_base_order_volume = (db_lastcalcbo + bo_profit)
+        new_safety_order_volume = (db_lastcalcso + so_profit)
         logger.debug(
-            f"bo_profit is ({bo_profit}) \n"
-            f"so_profit is ({so_profit}) \n"
-            f"new_base_order_volume2 ({new_base_order_volume2}) is (db_lastcalcbo ({db_lastcalcbo}) + new_base_order_volume ({new_base_order_volume})) - ({base_order_volume}) \n"
-            f"new_base_order_volume3 ({new_base_order_volume3}) is base_order_volume ({base_order_volume}) + ({bo_profit}) \n"
-            f"new_base_order_volume4 ({new_base_order_volume4}) is db_lastcalcbo ({db_lastcalcbo}) + ({bo_profit}) \n"
+            f"bo_profit is ({bo_profit})\n"
+            f"so_profit is ({so_profit})\n"
+            f"new_base_order_volume ({new_base_order_volume}) is db_lastcalcbo ({db_lastcalcbo}) + bo_profit ({bo_profit})\n"
+            f"new_safety_order_volume ({new_safety_order_volume}) is db_lastcalcso ({db_lastcalcso}) + so_profit ({so_profit})"
         )
     db.execute(
         f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
@@ -200,14 +199,15 @@ def update_bot_order_volumes(
     rounddigits = get_round_digits(thebot["pairs"][0])
     new_bo = round(new_base_order_volume, rounddigits)
     logger.debug(
-        f"new_bo is {new_bo}"
+        f"Calculated BO volume is {new_bo}"
     )
+    #### Check to see whether or not the new, rounded value of the BO is sufficient to be stored, if not, only store in the database
     if new_bo <= base_order_volume:
         logger.debug(
-            f"new_bo {new_bo} is smaller than or equal to base_order_volume {base_order_volume}"
+            f"Calculated BO volume {new_bo} is smaller than or equal to base_order_volume {base_order_volume}"
         )
         logger.info(
-            f"The new BO value would not increase with these deals, storing value in database"
+            f"The new BO value would not increase with these deals, only storing value in database"
         )
         db.execute(
             f"UPDATE bots SET lastpassupdate = 'No' WHERE botid = {bot_id}"
