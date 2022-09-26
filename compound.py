@@ -2,7 +2,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
-from hashlib import new
 import json
 import math
 import os
@@ -168,16 +167,18 @@ def update_bot_order_volumes(
         f"lastcalcso value in db is {db_lastcalcso}"
     )
 
+    rounddigits = get_round_digits(thebot["pairs"][0])
+
     #### Check if the BO/SO was updated on the last pass
     #### If not, add the value from the DB to the new BO
     if db_lastpassupdate == 'No':
         new_base_order_volume = (db_lastcalcbo + bo_profit)
         new_safety_order_volume = (db_lastcalcso + so_profit)
         logger.debug(
-            f"bo_profit is ({bo_profit})\n"
-            f"so_profit is ({so_profit})\n"
-            f"new_base_order_volume ({new_base_order_volume}) is db_lastcalcbo ({db_lastcalcbo}) + bo_profit ({bo_profit})\n"
-            f"new_safety_order_volume ({new_safety_order_volume}) is db_lastcalcso ({db_lastcalcso}) + so_profit ({so_profit})"
+            f"bo_profit is ({bo_profit:0.{rounddigits}f})\n"
+            f"so_profit is ({so_profit:0.{rounddigits}f})\n"
+            f"new_base_order_volume ({new_base_order_volume:0.{rounddigits}f}) is db_lastcalcbo ({db_lastcalcbo:0.{rounddigits}f}) + bo_profit ({bo_profit:0.{rounddigits}f})\n"
+            f"new_safety_order_volume ({new_safety_order_volume:0.{rounddigits}f}) is db_lastcalcso ({db_lastcalcso:0.{rounddigits}f}) + so_profit ({so_profit:0.{rounddigits}f})"
         )
     db.execute(
         f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
@@ -196,7 +197,6 @@ def update_bot_order_volumes(
         )
     db.commit()
 
-    rounddigits = get_round_digits(thebot["pairs"][0])
     new_bo = round(new_base_order_volume, rounddigits)
     logger.debug(
         f"Calculated BO volume is {new_bo}"
@@ -238,13 +238,12 @@ def update_bot_order_volumes(
             },
         )
         if data:
-            rounddigits = get_round_digits(thebot["pairs"][0])
+            db.execute(
+                f"UPDATE bots SET lastpassupdate = 'Yes' WHERE botid = {bot_id}"
+            )
+            db.commit()
 
             if max_safety_orders >= 1:
-                db.execute(
-                    f"UPDATE bots SET lastpassupdate = 'Yes' WHERE botid = {bot_id}"
-                )
-                db.commit()
                 logger.info(
                     f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
                     f"from {deals_count} deal(s) made by '{bot_name}'\n"
@@ -255,10 +254,6 @@ def update_bot_order_volumes(
                     True,
                 )
             else:
-                db.execute(
-                    f"UPDATE bots SET lastpassupdate = 'Yes' WHERE botid = {bot_id}"
-                )
-                db.commit()
                 logger.info(
                     f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
                     f"from {deals_count} deal(s) made by '{bot_name}'\n"
@@ -783,13 +778,8 @@ def upgrade_compound_db():
     try:
         cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcbo real")
         cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcso real")
-        logger.info("Database table bots upgraded (column lastcalcbo, lastcalcso)")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
         cursor.execute("ALTER TABLE bots ADD COLUMN lastpassupdate text")
-        logger.info("Database table bots upgraded (column lastpassupdate)")
+        logger.info("Database table bots upgraded (column lastcalcbo, lastcalcso, lastpassupdate)")
     except sqlite3.OperationalError:
         pass
 
