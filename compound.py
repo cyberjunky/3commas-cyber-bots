@@ -630,7 +630,7 @@ def compound_bot(cfg, thebot):
         elif (
             new_max_active_deals == current_active_deals
         ):
-            requiredprofit = totalusedperdeal - (profitusedtocompound % totalusedperdeal)
+            requiredprofit = totalusedperdeal[0] - (profitusedtocompound % totalusedperdeal[0])
             logger.info(
                 f"{requiredprofit} profit required for additional deal..."
             )
