@@ -13,9 +13,10 @@ from telethon import TelegramClient, events
 from helpers.logging import Logger, NotificationHandler
 from helpers.threecommas import (
     init_threecommas_api,
-    load_blacklist,
+    load_blacklist
 )
-from helpers.watchlist import prefetch_marketcodes, process_botlist
+from helpers.watchlist import prefetch_marketcodes
+from watchlist import process_botlist
 
 
 def load_config():
@@ -29,16 +30,33 @@ def load_config():
         "timezone": "Europe/Amsterdam",
         "debug": False,
         "logrotate": 7,
-        "usdt-botids": [12345, 67890],
-        "btc-botids": [12345, 67890],
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
         "tgram-phone-number": "Your Telegram Phone number",
-        "tgram-channel": "Telegram Channel to watch",
         "tgram-api-id": "Your Telegram API ID",
         "tgram-api-hash": "Your Telegram API Hash",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "exchange": "Bittrex / Binance / Kucoin",
+        "mode": "Telegram"
+    }
+
+    cfg["hodloo_5"] = {
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
+    }
+
+    cfg["hodloo_10"] = {
+        "bnb-botids": [12345, 67890],
+        "btc-botids": [12345, 67890],
+        "busd-botids": [12345, 67890],
+        "eth-botids": [12345, 67890],
+        "eur-botids": [12345, 67890],
+        "usdt-botids": [12345, 67890],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -47,64 +65,32 @@ def load_config():
     return None
 
 
-async def handle_custom_event(event):
+async def handle_hodloo_event(category, event):
     """Handle the received Telegram event"""
 
     logger.debug(
-        "Received telegram message '%s'"
-        % (event.message.text.replace("\n", " - "))
+        "Received telegram message on %s: '%s'"
+        % (category, event.message.text.replace("\n", " - "))
     )
 
     # Parse the event and do some error checking
     trigger = event.raw_text.splitlines()
 
-    try:
-        exchange = trigger[0].replace("\n", "")
-        pair = trigger[1].replace("#", "").replace("\n", "")
-        base = pair.split("_")[0].replace("#", "").replace("\n", "")
-        coin = pair.split("_")[1].replace("\n", "")
-
-        # Fix for future pair format
-        if coin.endswith(base) and len(coin) > len(base):
-            coin = coin.replace(base, "")
-
-        trade = trigger[2].replace("\n", "")
-        if trade == "LONG" and len(trigger) == 4 and trigger[3] == "CLOSE":
-            trade = "CLOSE"
-    except IndexError:
-        logger.debug("Invalid trigger message format!")
-        return
+    pair = trigger[0].replace("\n", "").replace("**", "")
+    base = pair.split("/")[1]
+    coin = pair.split("/")[0]
 
     logger.info(
-        f"Received message on {exchange}% for {base}_{coin}"
+        f"Received message on {category}% for {base}_{coin}"
     )
 
-    if exchange.lower() not in ("binance", "ftx", "kucoin"):
+    if base.lower() not in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
         logger.debug(
-            f"Exchange '{exchange}' is not yet supported."
+            f"{base}_{coin}: base '{base}' is not yet supported."
         )
         return
 
-    if trade not in ('LONG', 'CLOSE'):
-        logger.debug(f"Trade type '{trade}' is not supported yet!")
-        return
-    if base == "USDT":
-        botids = json.loads(config.get("settings", "usdt-botids"))
-        if len(botids) == 0:
-            logger.debug(
-                "No valid usdt-botids configured for '%s', disabled" % base
-            )
-            return
-    elif base == "BTC":
-        botids = json.loads(config.get("settings", "btc-botids"))
-        if len(botids) == 0:
-            logger.debug("No valid btc-botids configured for '%s', disabled" % base)
-            return
-    else:
-        logger.error(
-            "Error the base of pair '%s' being '%s' is not supported yet!" % (pair, base)
-        )
-        return
+    botids = get_botids(category, base)
 
     if len(botids) == 0:
         logger.debug(
@@ -113,8 +99,15 @@ async def handle_custom_event(event):
         return
 
     await client.loop.run_in_executor(
-        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodes, botids, coin, trade
+        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodes, botids, coin, "LONG"
     )
+
+
+def get_botids(category, base):
+    """Get list of botids from configuration based on category and base"""
+
+    return json.loads(config.get(f"hodloo_{category}", f"{base.lower()}-botids"))
+
 
 # Start application
 program = Path(__file__).stem
@@ -169,38 +162,67 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+# Which Exchange to use?
+exchange = config.get("settings", "exchange")
+if exchange not in ("Bittrex", "Binance", "Kucoin"):
+    logger.error(
+        f"Exchange {exchange} not supported. Must be 'Bittrex', 'Binance' or 'Kucoin'!"
+    )
+    sys.exit(0)
+
+# Which Mode to use?
+mode = config.get("settings", "mode")
+if mode not in ("Telegram", "Websocket"):
+    logger.error(
+        f"Mode {mode} not supported. Must be 'Telegram' or 'Websocket'!"
+    )
+    sys.exit(0)
+
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
 # Prefetch marketcodes for all bots
-botids = json.loads(config.get("settings", "usdt-botids")) + json.loads(config.get("settings", "btc-botids"))
+botids = list()
+for category in ("5", "10"):
+    for base in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
+        botids += get_botids(category, base)
 marketcodes = prefetch_marketcodes(logger, api, botids)
 
 # Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)
 
-# Watchlist telegram trigger
-client = TelegramClient(
-    f"{datadir}/{program}",
-    config.get("settings", "tgram-api-id"),
-    config.get("settings", "tgram-api-hash"),
-).start(config.get("settings", "tgram-phone-number"))
+if mode == "Telegram":
+    # Watchlist telegram trigger
+    client = TelegramClient(
+        f"{datadir}/{program}",
+        config.get("settings", "tgram-api-id"),
+        config.get("settings", "tgram-api-hash"),
+    ).start(config.get("settings", "tgram-phone-number"))
 
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 5%"))
+    async def callback_5(event):
+        """Receive Telegram message."""
 
-@client.on(events.NewMessage(chats=config.get("settings", "tgram-channel")))
-async def callback(event):
-    """Receive Telegram message."""
+        await handle_hodloo_event("5", event)
 
-    await handle_custom_event(event)
+        notification.send_notification()
 
+    @client.on(events.NewMessage(chats=f"Hodloo {exchange} 10%"))
+    async def callback_10(event):
+        """Receive Telegram message."""
+
+        await handle_hodloo_event("10", event)
+
+        notification.send_notification()
+
+    # Start telegram client
+    client.start()
+    logger.info(
+        f"Listening to telegram chat 'Hodloo {exchange} 5%' and "
+        f"'Hodloo {exchange} 10%' for triggers",
+        True,
+    )
     notification.send_notification()
 
-
-# Start telegram client
-client.start()
-logger.info(
-    "Listening to telegram chat '%s' for triggers"
-    % config.get("settings", "tgram-channel"),
-    True,
-)
-client.run_until_disconnected()
+    client.run_until_disconnected()
+# No else case, mode is already checked before this statement

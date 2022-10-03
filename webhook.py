@@ -147,7 +147,7 @@ def webhook_deal(thebot, coin, trade):
         skipchecks = True
 
     # Construct pair based on bot settings and marketcode (BTC stays BTC, but USDT can become BUSD)
-    pair = format_pair(logger, marketcode, base, coin)
+    pair = format_pair(marketcode, base, coin)
 
     # Check if pair is on 3Commas blacklist
     if pair in blacklist:

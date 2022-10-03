@@ -10,12 +10,14 @@ from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
+    format_pair,
     get_botassist_data,
     populate_pair_lists,
     remove_excluded_pairs,
     wait_time_interval,
 )
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_marketcode,
     get_threecommas_market,
     init_threecommas_api,
@@ -46,6 +48,12 @@ def load_config():
         "start-number": 1,
         "end-number": 200,
         "originalmaxdeals": 15,
+        "mingalaxyscore": 0.0,
+        "maxaltrankscore": 1500,
+        "allowmaxdealchange": False,
+        "allowbotstopstart": False,
+        "maxvolatility": 0.0,
+        "allowpairconversion": False,
         "list": "binance_spot_usdt_winner_60m",
     }
 
@@ -90,6 +98,43 @@ def upgrade_config(thelogger, theapi, cfg):
 
                 thelogger.info("Upgraded the configuration file (added deal changing)")
 
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("botassist_"):
+            if not cfg.has_option(cfgsection, "mingalaxyscore"):
+                cfg.set(cfgsection, "mingalaxyscore", "0.0")
+                cfg.set(cfgsection, "allowbotstopstart", "False")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info(
+                    "Upgraded the configuration file (mingalaxyscore and bot stop-start)"
+                )
+
+            if not cfg.has_option(cfgsection, "maxaltrankscore"):
+                cfg.set(cfgsection, "maxaltrankscore", "1500")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (maxaltrankscore)")
+
+            if not cfg.has_option(cfgsection, "maxvolatility"):
+                cfg.set(cfgsection, "maxvolatility", "0.0")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (maxvolatility)")
+
+            if not cfg.has_option(cfgsection, "allowpairconversion"):
+                cfg.set(cfgsection, "allowpairconversion", "False")
+
+                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    cfg.write(cfgfile)
+
+                thelogger.info("Upgraded the configuration file (allowpairconversion)")
+
     return cfg
 
 
@@ -108,14 +153,21 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
     newmaxdeals = False
 
     # Get deal settings for this bot
+    mingalaxyscore = float(config.get(cfg_section, "mingalaxyscore", fallback=0.0))
+    maxaltrankscore = int(config.get(cfg_section, "maxaltrankscore", fallback=1500))
+    maxvolatility = float(config.get(cfg_section, "maxvolatility", fallback=0.0))
+    allowpairconversion = config.getboolean(cfg_section, "allowpairconversion", fallback=False)
     originalmaxdeals = int(config.get(cfg_section, "originalmaxdeals"))
     allowmaxdealchange = config.getboolean(
         cfg_section, "allowmaxdealchange", fallback=False
     )
+    allowbotstopstart = config.getboolean(
+        cfg_section, "allowbotstopstart", fallback=False
+    )
 
-    logger.info("Bot base currency: %s" % base)
-    logger.debug("Bot minimal 24h BTC volume: %s" % minvolume)
-    logger.debug("Bot allowmaxdealchange setting: %s" % allowmaxdealchange)
+    logger.info(f"'{thebot['name']}' base currency: {base}")
+    logger.debug(f"'{thebot['name']}' minimal 24h BTC volume: {minvolume}")
+    logger.debug(f"'{thebot['name']}' allowmaxdealchange setting: {allowmaxdealchange}")
 
     # Start from scratch
     newpairs = list()
@@ -129,15 +181,36 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     # Load tickerlist for this exchange
     tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    logger.info(f"'{thebot['name']}' exchange: {exchange} ({marketcode})")
 
     # Parse bot-assist data
     for pairdata in botassistdata:
         # Check if coin has minimum 24h volume as set in bot
-        if pairdata["volume"] < minvolume:
+        if pairdata["24h volume"] < minvolume:
             logger.debug(
                 "Pair '%s' does not have enough 24h BTC volume (%s), skipping"
-                % (pairdata["pair"], str(pairdata["volume"]))
+                % (pairdata["pair"], str(pairdata["24h volume"]))
+            )
+            continue
+
+        if "galaxy-score" in pairdata and float(pairdata["galaxy-score"]) < mingalaxyscore:
+            logger.debug(
+                "Pair '%s' with galaxyscore %s below minimal galaxyscore %s"
+                % (pairdata["pair"], pairdata["galaxy-score"], str(mingalaxyscore))
+            )
+            continue
+
+        if "alt-rank" in pairdata and int(pairdata["alt-rank"]) > maxaltrankscore:
+            logger.debug(
+                "Pair '%s' with alt-rank %s above maximum altrankscore %s"
+                % (pairdata["pair"], pairdata["alt-rank"], str(maxaltrankscore))
+            )
+            continue
+
+        if "volatility" in pairdata and float(pairdata["volatility"]) > maxvolatility > 0.0:
+            logger.debug(
+                "Pair '%s' with volatility %s above maximum volatility %s"
+                % (pairdata["pair"], pairdata["volatility"], str(maxvolatility))
             )
             continue
 
@@ -146,39 +219,84 @@ def botassist_pairs(cfg_section, thebot, botassistdata):
 
     logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
 
-    logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
-    )
+    if len(newpairs) == 0 and allowpairconversion and len(badpairs) > 0:
+        newpairs = convert_pairs(tickerlist, base, marketcode, blacklist, badpairs)
+    else:
+        logger.debug(
+            "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
+        )
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, thebot['id'], marketcode, base, newpairs)
-
-    if not newpairs:
-        logger.info(
-            "None of the by 3c-tools bot-assist suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
+        remove_excluded_pairs(logger, sharedir, thebot["id"], marketcode, base, newpairs)
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
     if allowmaxdealchange:
         if len(newpairs) < thebot["max_active_deals"]:
+            # Lower number of pairs; limit max active deals
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
             and len(newpairs) < originalmaxdeals
         ):
+            # Higher number of pairs below original; limit max active deals
             newmaxdeals = len(newpairs)
         elif (
             len(newpairs) > thebot["max_active_deals"]
             and thebot["max_active_deals"] != originalmaxdeals
         ):
+            # Increased number of pairs above original; set original max active deals
             newmaxdeals = originalmaxdeals
 
+    if allowbotstopstart:
+        if len(newpairs) == 0 and thebot["is_enabled"]:
+            # No pairs and bot is running (zero pairs not allowed), so stop it...
+            control_threecommas_bots(logger, api, thebot, "disable")
+        elif len(newpairs) > 0 and not thebot["is_enabled"]:
+            # Valid pairs and bot is not running, so start it...
+            control_threecommas_bots(logger, api, thebot, "enable")
+
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals)
+    if newpairs:
+        set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, True, False)
+    else:
+        logger.info(
+            f"None of the 3c-tools bot-assist suggested pairs have been found on "
+            f"the {exchange} ({marketcode}) exchange!"
+        )
+
+
+def convert_pairs(ticker_list, base, marketcode, black_list, pair_list):
+    """Convert the pairs to pairs acceptable by the bot."""
+
+    convertedpairs = list()
+
+    for pair in pair_list:
+        if "PERP" in pair:
+            pair = pair.replace("-PERP", "")
+
+        pairsplit = pair.split("_")
+        currentbase = pairsplit[0]
+        coin = pairsplit[1]
+
+        if currentbase in coin:
+            coin = coin.replace(currentbase, "")
+
+        newpair = format_pair(marketcode, base, coin)
+        if newpair in ticker_list:
+            if newpair not in black_list:
+                convertedpairs.append(newpair)
+            else:
+                logger.debug(
+                    f"Converted pair {newpair} in blacklist"
+                )
+        else:
+            logger.debug(
+                f"Converted pair {newpair} not in tickerlist"
+            )
+
+    return convertedpairs
 
 
 # Start application
@@ -283,23 +401,38 @@ while True:
 
             if botassist_data:
                 # Walk through all bots configured
-                for bot in botids:
-                    error, data = api.request(
+                for botid in botids:
+                    boterror, botdata = api.request(
                         entity="bots",
                         action="show",
-                        action_id=str(bot),
+                        action_id=str(botid),
                     )
-                    if data:
-                        botassist_pairs(section, data, botassist_data)
+                    if botdata:
+                        botassist_pairs(section, botdata, botassist_data)
                     else:
-                        if error and "msg" in error:
+                        if boterror and "status_code" in boterror:
+                            if boterror["status_code"] == 404:
+                                logger.error(
+                                    f"Error occurred updating bots: bot with "
+                                    f"id '{botid}' was not found"
+                                )
+                            else:
+                                logger.error(
+                                    f"Error occurred updating bots: {boterror['msg']}"
+                                )
+                        elif boterror and "msg" in boterror:
                             logger.error(
-                                "Error occurred updating bots: %s" % error["msg"]
+                                f"Error occurred updating bots: {boterror['msg']}"
                             )
                         else:
                             logger.error("Error occurred updating bots")
             else:
                 logger.error("Error occurred during fetch of botassist data")
+        elif section not in ("settings"):
+            logger.warning(
+                f"Section '{section}' not processed (prefix 'botassist_' missing)!",
+                False
+            )
 
-    if not wait_time_interval(logger, notification, timeint):
+    if not wait_time_interval(logger, notification, timeint, False):
         break

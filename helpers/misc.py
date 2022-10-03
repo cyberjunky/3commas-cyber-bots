@@ -1,7 +1,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import datetime
 import time
-
+import json
 import requests
 from bs4 import BeautifulSoup
 
@@ -16,7 +16,7 @@ def wait_time_interval(logger, notification, time_interval, notify=True):
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info(
-            "Next update in %s Seconds at %s" % (time_interval, timeresult), notify
+            "Next update in %s at %s" % (str(datetime.timedelta(seconds = time_interval)), timeresult), notify
         )
         notification.send_notification()
         time.sleep(time_interval)
@@ -89,7 +89,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
                 crush["rank"] = i
                 crush["volbtc"] = crush["v"] / float(usdtbtcprice)
                 logger.debug(
-                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   vt:{crush['vt']:8f}   "
+                    f"rank:{crush['rank']:3d}  acr:{crush['acr']:4d}   gs:{crush['gs']:3.1f}   "
                     f"s:{crush['s']:8s} '{crush['n']:25}'   volume in btc:{crush['volbtc']:12.2f}"
                     f"   categories:{crush['categories']}"
                 )
@@ -104,16 +104,18 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     return lccoins
 
 
-def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
+def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
+    errorcode = -1
+    errormessage = ""
 
     # Construct query for CoinMarketCap data
     parms = {
         "start": start_number,
         "limit": limit,
-        "convert": "BTC",
+        "convert": convert,
         "aux": "cmc_rank",
     }
 
@@ -127,27 +129,30 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit):
             params=parms,
             headers=headrs,
         )
-        result.raise_for_status()
+
         data = result.json()
 
-        if "data" in data.keys():
-            for i, cmc in enumerate(data["data"], start=1):
-                cmc["rank"] = i
-                logger.debug(
-                    f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}  "
-                    f"'{cmc['name']:25}' volume_24h:{cmc['quote']['BTC']['volume_24h']:12.2f}  "
-                    f"volume_change_24h:{cmc['quote']['BTC']['volume_change_24h']:5.2f}  "
-                    f"market_cap:{cmc['quote']['BTC']['market_cap']:12.2f}"
-                )
-            cmcdict = data["data"]
-
+        if result.ok:
+            if "data" in data.keys():
+                for i, cmc in enumerate(data["data"], start=1):
+                    cmc["rank"] = i
+                    logger.debug(
+                        f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}"
+                        f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}"
+                        f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f} "
+                        f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
+                    )
+                cmcdict = data["data"]
+        else:
+            errorcode = data['status']['error_code']
+            errormessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
         return {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
 
-    return cmcdict
+    return errorcode, errormessage, cmcdict
 
 
 def check_deal(cursor, dealid):
@@ -156,7 +161,7 @@ def check_deal(cursor, dealid):
     return cursor.execute(f"SELECT * FROM deals WHERE dealid = {dealid}").fetchone()
 
 
-def format_pair(logger, marketcode, base, coin):
+def format_pair(marketcode, base, coin):
     """Format pair depending on exchange."""
 
     # Construct pair based on bot settings (BTC stays BTC, but USDT can become BUSD)
@@ -166,8 +171,6 @@ def format_pair(logger, marketcode, base, coin):
         pair = f"{base}_{coin}-PERP"
     else:
         pair = f"{base}_{coin}"
-
-    logger.debug("New pair constructed: %s" % pair)
 
     return pair
 
@@ -206,8 +209,19 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         result.raise_for_status()
         soup = BeautifulSoup(result.text, features="html.parser")
         data = soup.find("table", class_="table table-striped table-sm")
-        tablerows = data.find_all("tr")
 
+        columncount = 0
+        columndict = {}
+
+        # Build list of columns we are interested in
+        tablecolumns = data.find_all("th")
+        for column in tablecolumns:
+            if column.text not in ("#", "symbol"):
+                columndict[columncount] = column.text
+
+            columncount += 1
+
+        tablerows = data.find_all("tr")
         for row in tablerows:
             rowcolums = row.find_all("td")
             if len(rowcolums) > 0:
@@ -216,8 +230,15 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                     continue
 
                 pairdata = {}
-                pairdata["pair"] = rowcolums[1].text
-                pairdata["volume"] = float(rowcolums[len(rowcolums) - 1].text.replace(" BTC", "").replace(",", ""))
+
+                # Iterate over the available columns and collect the data
+                for key, value in columndict.items():
+                    if value == "24h volume":
+                        pairdata[value] = float(
+                                rowcolums[key].text.replace(" BTC", "").replace(",", "")
+                            )
+                    else:
+                        pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
 
                 logger.debug(f"Rank {rank}: {pairdata}")
                 pairs.append(pairdata)
@@ -237,6 +258,27 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     return pairs
 
 
+def get_shared_bot_data(logger, bot_id, bot_secret):
+    """Get the shared bot data from the 3C website"""
+
+    url = "https://app.3commas.io/wapi/bots/%s/get_bot_data?secret=%s" % (bot_id, bot_secret)
+
+    data = {}
+    try:
+        page = requests.get(url)
+        if page:
+            data = page.json()
+
+    except json.decoder.JSONDecodeError as err:
+        logger.error(f"Shared bot data ({bot_id}) is not valid json")
+    except requests.exceptions.HTTPError as err:
+        logger.error("Fetching 3C shared bot data failed with error: %s" % err)
+
+    logger.info("Fetched %s 3C shared bot data OK" % (bot_id))
+
+    return data
+
+
 def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs):
     """Remove pairs which are excluded by other script(s)."""
 
@@ -249,7 +291,7 @@ def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs)
         for coin in excludedcoins:
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(logger, marketcode, base, coin)
+            pair = format_pair(marketcode, base, coin)
             if newpairs.count(pair) > 0:
                 newpairs.remove(pair)
 
@@ -281,3 +323,38 @@ def unix_timestamp_to_string(timestamp, date_time_format):
     """Convert the given timestamp to a readable date/time in the specified format"""
 
     return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)
+
+
+def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from = 1, count_funds_for = 1):
+    """Calculate the max fund usage of a deal based on the bot settings"""
+
+    # Always add start_base_order_size
+    totalusedperdeal = start_bo
+
+    # Funds required for the specified next number of SO
+    nextsofunds = 0.0
+    nextsofundscounter = 0
+
+    isafetyorder = 1
+    while isafetyorder <= max_so:
+        # For the first Safety Order, just use the startso
+        if isafetyorder == 1:
+            total_safety_order_volume = start_so
+
+        # After the first SO, multiply the previous SO with the safety order volume scale
+        if isafetyorder > 1:
+            total_safety_order_volume *= martingale_volume_coefficient
+
+        # Only calculated the funds if current SO is higher than the `count_from`. This
+        # could be used to calculate the funds for an already started deal with
+        # completed Safety Orders.
+        if isafetyorder >= count_from:
+            totalusedperdeal += total_safety_order_volume
+
+            if nextsofundscounter < count_funds_for:
+                nextsofunds += total_safety_order_volume
+                nextsofundscounter += 1
+
+        isafetyorder += 1
+
+    return totalusedperdeal, nextsofunds

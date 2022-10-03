@@ -267,17 +267,28 @@ while True:
     )
 
     # Walk through all bots configured
-    for bot in botids:
+    for botid in botids:
         boterror, botdata = api.request(
             entity="bots",
             action="show",
-            action_id=str(bot),
+            action_id=str(botid),
         )
         if botdata:
             trailing_stoploss(botdata)
         else:
-            if boterror and "msg" in boterror:
-                logger.error("Error occurred updating bots: %s" % boterror["msg"])
+            if boterror and "status_code" in boterror:
+                if boterror["status_code"] == 404:
+                    logger.error(
+                        "Error occurred updating bots: bot with id '%s' was not found" % botid
+                    )
+                else:
+                     logger.error(
+                        "Error occurred updating bots: %s" % boterror["msg"]
+                    )
+            elif boterror and "msg" in boterror:
+                logger.error(
+                    "Error occurred updating bots: %s" % boterror["msg"]
+                )
             else:
                 logger.error("Error occurred updating bots")
 

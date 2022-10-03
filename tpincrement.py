@@ -252,8 +252,19 @@ while True:
         if botdata:
             increment_takeprofit(botdata)
         else:
-            if boterror and "msg" in boterror:
-                logger.error("Error occurred updating bots: %s" % boterror["msg"])
+            if boterror and "status_code" in boterror:
+                if boterror["status_code"] == 404:
+                    logger.error(
+                        "Error occurred updating bots: bot with id '%s' was not found" % botid
+                    )
+                else:
+                     logger.error(
+                        "Error occurred updating bots: %s" % boterror["msg"]
+                    )
+            elif boterror and "msg" in boterror:
+                logger.error(
+                    "Error occurred updating bots: %s" % boterror["msg"]
+                )
             else:
                 logger.error("Error occurred updating bots")
 
