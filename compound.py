@@ -137,72 +137,137 @@ def update_bot_order_volumes(
 ):
     """Update bot with new order volumes."""
 
+    bot_id = thebot["id"]
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
+    #### I know these are also down below, but to make calculation easier, I'm recalculating these
+    bo_profit = new_base_order_volume - base_order_volume
+    so_profit = new_safety_order_volume - safety_order_volume
+    #### Check from the database what the last stored values are
+    #### db_lastpassupdate = was the last update to BO executed or stored?
+    #### db_lastcalcbo = Last Calculated BO from Database
+    #### db_lastcalcso = Last Caclulated SO from Database
+    db_lastpassupdate = cursor.execute(
+        f"SELECT lastpassupdate FROM bots WHERE botid = {bot_id}"
+    ).fetchone()[0]
+    logger.debug(
+        f"lastpassupdate value in db is {db_lastpassupdate}"
+    )
+    db_lastcalcbo = cursor.execute(
+        f"SELECT lastcalcbo FROM bots WHERE botid = {bot_id}"
+    ).fetchone()[0]
+    logger.debug(
+        f"lastcalcbo value in db is {db_lastcalcbo}"
+    )
+    db_lastcalcso = cursor.execute(
+        f"SELECT lastcalcso FROM bots WHERE botid = {bot_id}"
+    ).fetchone()[0]
+    logger.debug(
+        f"lastcalcso value in db is {db_lastcalcso}"
+    )
 
+    rounddigits = get_round_digits(thebot["pairs"][0])
+
+    #### Check if the BO/SO was updated on the last pass
+    #### If not, add the value from the DB to the new BO
+    if db_lastpassupdate == 'No':
+        new_base_order_volume = (db_lastcalcbo + bo_profit)
+        new_safety_order_volume = (db_lastcalcso + so_profit)
+        logger.debug(
+            f"bo_profit is ({bo_profit:0.{rounddigits}f})\n"
+            f"so_profit is ({so_profit:0.{rounddigits}f})\n"
+            f"new_base_order_volume ({new_base_order_volume:0.{rounddigits}f}) is db_lastcalcbo ({db_lastcalcbo:0.{rounddigits}f}) + bo_profit ({bo_profit:0.{rounddigits}f})\n"
+            f"new_safety_order_volume ({new_safety_order_volume:0.{rounddigits}f}) is db_lastcalcso ({db_lastcalcso:0.{rounddigits}f}) + so_profit ({so_profit:0.{rounddigits}f})"
+        )
+    db.execute(
+        f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
+    )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, new_base_order_volume)
     )
     if max_safety_orders >= 1:
+        db.execute(
+            f"UPDATE bots SET lastcalcso = {new_safety_order_volume} WHERE botid = {bot_id}"
+        )
         logger.info(
             "Calculated SO volume changed from: %s to %s"
             % (safety_order_volume, new_safety_order_volume)
         )
+    db.commit()
 
-    error, data = api.request(
-        entity="bots",
-        action="update",
-        action_id=str(thebot["id"]),
-        payload={
-            "bot_id": thebot["id"],
-            "name": thebot["name"],
-            "pairs": thebot["pairs"],
-            "base_order_volume": new_base_order_volume,  # new base order volume
-            "safety_order_volume": new_safety_order_volume,  # new safety order volume
-            "take_profit": thebot["take_profit"],
-            "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
-            "martingale_step_coefficient": thebot["martingale_step_coefficient"],
-            "max_active_deals": thebot["max_active_deals"],
-            "max_safety_orders": thebot["max_safety_orders"],
-            "safety_order_step_percentage": thebot["safety_order_step_percentage"],
-            "take_profit_type": thebot["take_profit_type"],
-            "strategy_list": thebot["strategy_list"],
-            "active_safety_orders_count": thebot["active_safety_orders_count"],
-            "leverage_type": thebot["leverage_type"],
-            "leverage_custom_value": thebot["leverage_custom_value"],
-        },
+    new_bo = round(new_base_order_volume, rounddigits)
+    logger.debug(
+        f"Calculated BO volume is {new_bo}"
     )
-    if data:
-        rounddigits = get_round_digits(thebot["pairs"][0])
-
-        if max_safety_orders >= 1:
-            logger.info(
-                f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
-                f"from {deals_count} deal(s) made by '{bot_name}'\n"
-                f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
-                f"₿{new_base_order_volume:0.{rounddigits}f}\n"
-                f"Changed SO from ₿{safety_order_volume:0.{rounddigits}f} to "
-                f"₿{new_safety_order_volume:0.{rounddigits}f}",
-                True,
-            )
-        else:
-            logger.info(
-                f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
-                f"from {deals_count} deal(s) made by '{bot_name}'\n"
-                f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
-                f"₿{new_base_order_volume:0.{rounddigits}f}",
-                True,
-            )
+    #### Check to see whether or not the new, rounded value of the BO is sufficient to be stored, if not, only store in the database
+    if new_bo <= base_order_volume:
+        logger.debug(
+            f"Calculated BO volume {new_bo} is smaller than or equal to base_order_volume {base_order_volume}"
+        )
+        logger.info(
+            f"The new BO value would not increase with these deals, only storing value in database"
+        )
+        db.execute(
+            f"UPDATE bots SET lastpassupdate = 'No' WHERE botid = {bot_id}"
+        )
+        db.commit()
     else:
-        if error and "msg" in error:
-            logger.error(
-                "Error occurred updating bot with new BO/SO values: %s" % error["msg"]
+        error, data = api.request(
+            entity="bots",
+            action="update",
+            action_id=str(thebot["id"]),
+            payload={
+                "bot_id": thebot["id"],
+                "name": thebot["name"],
+                "pairs": thebot["pairs"],
+                "base_order_volume": new_base_order_volume,  # new base order volume
+                "safety_order_volume": new_safety_order_volume,  # new safety order volume
+                "take_profit": thebot["take_profit"],
+                "martingale_volume_coefficient": thebot["martingale_volume_coefficient"],
+                "martingale_step_coefficient": thebot["martingale_step_coefficient"],
+                "max_active_deals": thebot["max_active_deals"],
+                "max_safety_orders": thebot["max_safety_orders"],
+                "safety_order_step_percentage": thebot["safety_order_step_percentage"],
+                "take_profit_type": thebot["take_profit_type"],
+                "strategy_list": thebot["strategy_list"],
+                "active_safety_orders_count": thebot["active_safety_orders_count"],
+                "leverage_type": thebot["leverage_type"],
+                "leverage_custom_value": thebot["leverage_custom_value"],
+            },
+        )
+        if data:
+            db.execute(
+                f"UPDATE bots SET lastpassupdate = 'Yes' WHERE botid = {bot_id}"
             )
-        else:
-            logger.error("Error occurred updating bot with new BO/SO values")
+            db.commit()
 
+            if max_safety_orders >= 1:
+                logger.info(
+                    f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
+                    f"from {deals_count} deal(s) made by '{bot_name}'\n"
+                    f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
+                    f"₿{new_base_order_volume:0.{rounddigits}f}\n"
+                    f"Changed SO from ₿{safety_order_volume:0.{rounddigits}f} to "
+                    f"₿{new_safety_order_volume:0.{rounddigits}f}",
+                    True,
+                )
+            else:
+                logger.info(
+                    f"Compounded ₿{profit_sum:0.{rounddigits}f} in profit "
+                    f"from {deals_count} deal(s) made by '{bot_name}'\n"
+                    f"Changed BO from ₿{base_order_volume:0.{rounddigits}f} to "
+                    f"₿{new_base_order_volume:0.{rounddigits}f}",
+                    True,
+                )
+        else:
+            if error and "msg" in error:
+                logger.error(
+                    "Error occurred updating bot with new BO/SO values: %s" % error["msg"]
+                )
+            else:
+                logger.error("Error occurred updating bot with new BO/SO values")
 
 def process_deals(deals):
     """Check deals from bot."""
@@ -278,6 +343,7 @@ def get_bot_values(thebot):
 def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals):
     """Update bot with new max deals and old bo/so values."""
 
+    bot_id = thebot["id"]
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
@@ -287,14 +353,24 @@ def update_bot_max_deals(thebot, org_base_order, org_safety_order, new_max_deals
         "Calculated max. active deals changed from: %s to %s"
         % (max_active_deals, new_max_deals)
     )
+
+    db.execute(
+        f"UPDATE bots SET lastcalcbo = {org_base_order} WHERE botid = {bot_id}"
+    )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, org_base_order)
+    )
+
+    db.execute(
+        f"UPDATE bots SET lastcalcso = {org_safety_order} WHERE botid = {bot_id}"
     )
     logger.info(
         "Calculated SO volume changed from: %s to %s"
         % (safety_order_volume, org_safety_order)
     )
+
+    db.commit()
 
     error, data = api.request(
         entity="bots",
@@ -347,6 +423,7 @@ def update_bot_max_safety_orders(
 ):
     """Update bot with new max safety orders and old bo/so values."""
 
+    bot_id = thebot["id"]
     bot_name = thebot["name"]
     base_order_volume = float(thebot["base_order_volume"])
     safety_order_volume = float(thebot["safety_order_volume"])
@@ -356,14 +433,21 @@ def update_bot_max_safety_orders(
         "Calculated max. safety orders changed from: %s to %s"
         % (max_safety_orders, new_max_safety_orders)
     )
+    db.execute(
+        f"UPDATE bots SET lastcalcbo = {org_base_order} WHERE botid = {bot_id}"
+    )
     logger.info(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, org_base_order)
+    )
+    db.execute(
+        f"UPDATE bots SET lastcalcso = {org_safety_order} WHERE botid = {bot_id}"
     )
     logger.info(
         "Calculated SO volume changed from: %s to %s"
         % (safety_order_volume, org_safety_order)
     )
+    db.commit()
 
     error, data = api.request(
         entity="bots",
@@ -425,6 +509,7 @@ def compound_bot(cfg, thebot):
             fallback=cfg.get("settings", "default-profittocompound"),
         )
     )
+
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "safetyorders":
         logger.info("Compound mode for this bot is: Safety Orders")
         # Get starting BO and SO values
@@ -522,7 +607,7 @@ def compound_bot(cfg, thebot):
         profitusedtocompound = totalprofitforbot * bot_profit_percentage
 
         new_max_active_deals = (
-            math.floor(profitusedtocompound / totalusedperdeal) + startactivedeals
+            math.floor(profitusedtocompound / totalusedperdeal[0]) + startactivedeals
         )
         current_active_deals = thebot["max_active_deals"]
 
@@ -545,7 +630,7 @@ def compound_bot(cfg, thebot):
         elif (
             new_max_active_deals == current_active_deals
         ):
-            requiredprofit = totalusedperdeal - (profitusedtocompound % totalusedperdeal)
+            requiredprofit = totalusedperdeal[0] - (profitusedtocompound % totalusedperdeal[0])
             logger.info(
                 f"{requiredprofit} profit required for additional deal..."
             )
@@ -661,7 +746,7 @@ def init_compound_db():
             "CREATE TABLE deals (dealid INT Primary Key, profit REAL, botid int)"
         )
         dbcursor.execute(
-            "CREATE TABLE bots (botid INT Primary Key, startbo REAL, startso REAL, startactivedeals int)"
+            "CREATE TABLE bots (botid INT Primary Key, startbo REAL, startso REAL, startactivedeals int, lastcalcbo REAL, lastcalcso REAL, lastpassupdate TEXT)"
         )
         logger.info("Database tables created successfully")
 
@@ -690,6 +775,13 @@ def upgrade_compound_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcbo real")
+        cursor.execute("ALTER TABLE bots ADD COLUMN lastcalcso real")
+        cursor.execute("ALTER TABLE bots ADD COLUMN lastpassupdate text")
+        logger.info("Database table bots upgraded (column lastcalcbo, lastcalcso, lastpassupdate)")
+    except sqlite3.OperationalError:
+        pass
 
 # Start application
 program = Path(__file__).stem
