@@ -6,8 +6,10 @@ import queue
 import threading
 import time
 from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
-
+from colorama import Fore, init
 import apprise
+
+init(autoreset=True)
 
 
 class NotificationHandler:
@@ -45,7 +47,7 @@ class NotificationHandler:
     def queue_notification(self, message):
         """Queue notification messages."""
         if self.enabled:
-            message.encode(encoding = 'UTF-8', errors = 'strict')
+            message.encode(encoding='UTF-8', errors='strict')
             self.message += f"{message}\n\n"
 
     def send_notification(self):
@@ -81,7 +83,7 @@ class TimedRotatingFileHandler(_TimedRotatingFileHandler):
                 if self.extMatch.match(suffix):
                     result.append(os.path.join(dirname, filename))
         result.sort()
-        if len(result) < self.backupCount:
+        if len(result)<self.backupCount:
             result = []
         else:
             result = result[: len(result) - self.backupCount]
@@ -99,7 +101,7 @@ class TimedRotatingFileHandler(_TimedRotatingFileHandler):
 
         os.rename(self.baseFilename, dfn)
 
-        if self.backupCount > 0:
+        if self.backupCount>0:
             for oldlog in self.getFilesToDelete():
                 os.remove(oldlog)
 
@@ -107,7 +109,7 @@ class TimedRotatingFileHandler(_TimedRotatingFileHandler):
 
         currenttime = int(time.time())
         newrolloverat = self.computeRollover(currenttime)
-        while newrolloverat <= currenttime:
+        while newrolloverat<=currenttime:
             newrolloverat = newrolloverat + self.interval
 
         self.rolloverAt = newrolloverat
@@ -119,13 +121,13 @@ class Logger:
     my_logger = None
 
     def __init__(
-        self,
-        datadir,
-        program,
-        notificationhandler,
-        logstokeep,
-        debug_enabled,
-        notify_enabled,
+            self,
+            datadir,
+            program,
+            notificationhandler,
+            logstokeep,
+            debug_enabled,
+            notify_enabled,
     ):
         """Logger init."""
         self.my_logger = logging.getLogger()
@@ -186,19 +188,19 @@ class Logger:
 
     def info(self, message, notify=False):
         """Info level."""
-        self.log(message, "info")
+        self.log(Fore.LIGHTWHITE_EX + message, "info")
         if self.notify_enabled and notify:
             self.notificationhandler.queue_notification(message)
 
     def warning(self, message, notify=True):
         """Warning level."""
-        self.log(message, "warning")
+        self.log(Fore.LIGHTYELLOW_EX + message, "warning")
         if self.notify_enabled and notify:
             self.notificationhandler.queue_notification(message)
 
     def error(self, message, notify=True):
         """Error level."""
-        self.log(message, "error")
+        self.log(Fore.LIGHTRED_EX + message, "error")
         if self.notify_enabled and notify:
             self.notificationhandler.queue_notification(message)
 

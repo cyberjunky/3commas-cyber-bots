@@ -11,12 +11,12 @@ from constants.pair import PAIREXCLUDE_EXT
 def wait_time_interval(logger, notification, time_interval, notify=True):
     """Wait for time interval."""
 
-    if time_interval > 0:
+    if time_interval>0:
         localtime = time.time()
         nexttime = localtime + int(time_interval)
         timeresult = time.strftime("%H:%M:%S", time.localtime(nexttime))
         logger.info(
-            "Next update in %s at %s" % (str(datetime.timedelta(seconds = time_interval)), timeresult), notify
+            "Next update in %s at %s" % (str(datetime.timedelta(seconds=time_interval)), timeresult), notify
         )
         notification.send_notification()
         time.sleep(time_interval)
@@ -224,9 +224,9 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         tablerows = data.find_all("tr")
         for row in tablerows:
             rowcolums = row.find_all("td")
-            if len(rowcolums) > 0:
+            if len(rowcolums)>0:
                 rank = int(rowcolums[0].text)
-                if rank < start_number:
+                if rank<start_number:
                     continue
 
                 pairdata = {}
@@ -235,8 +235,8 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 for key, value in columndict.items():
                     if value == "24h volume":
                         pairdata[value] = float(
-                                rowcolums[key].text.replace(" BTC", "").replace(",", "")
-                            )
+                            rowcolums[key].text.replace(" BTC", "").replace(",", "")
+                        )
                     else:
                         pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
 
@@ -292,7 +292,7 @@ def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs)
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
             pair = format_pair(marketcode, base, coin)
-            if newpairs.count(pair) > 0:
+            if newpairs.count(pair)>0:
                 newpairs.remove(pair)
 
 
@@ -325,7 +325,7 @@ def unix_timestamp_to_string(timestamp, date_time_format):
     return datetime.datetime.fromtimestamp(timestamp).strftime(date_time_format)
 
 
-def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from = 1, count_funds_for = 1):
+def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficient, count_from=1, count_funds_for=1):
     """Calculate the max fund usage of a deal based on the bot settings"""
 
     # Always add start_base_order_size
@@ -336,25 +336,47 @@ def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficie
     nextsofundscounter = 0
 
     isafetyorder = 1
-    while isafetyorder <= max_so:
+    while isafetyorder<=max_so:
         # For the first Safety Order, just use the startso
         if isafetyorder == 1:
             total_safety_order_volume = start_so
 
         # After the first SO, multiply the previous SO with the safety order volume scale
-        if isafetyorder > 1:
+        if isafetyorder>1:
             total_safety_order_volume *= martingale_volume_coefficient
 
         # Only calculated the funds if current SO is higher than the `count_from`. This
         # could be used to calculate the funds for an already started deal with
         # completed Safety Orders.
-        if isafetyorder >= count_from:
+        if isafetyorder>=count_from:
             totalusedperdeal += total_safety_order_volume
 
-            if nextsofundscounter < count_funds_for:
+            if nextsofundscounter<count_funds_for:
                 nextsofunds += total_safety_order_volume
                 nextsofundscounter += 1
 
         isafetyorder += 1
 
     return totalusedperdeal, nextsofunds
+
+
+def futures_pair(pair):
+    pair = "USDT_" + pair.upper() + "USDT"
+    return pair
+
+
+def spot_pair(pair):
+    pair = "USDT_" + pair.upper()
+    return pair
+
+
+def back_to_binance(pair):
+    """Convert a binance/tradingview formatted pair to threecommas format."""
+    a = pair.split("_")
+    pair = a[1] + a[0]
+    return pair
+
+
+def binance_pair(pair):
+    pair = pair.upper() + "USDT"
+    return pair
