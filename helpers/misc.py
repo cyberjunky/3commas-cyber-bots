@@ -1,7 +1,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import datetime
 import time
-import json
 import requests
 from bs4 import BeautifulSoup
 
@@ -256,27 +255,6 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
     logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
 
     return pairs
-
-
-def get_shared_bot_data(logger, bot_id, bot_secret):
-    """Get the shared bot data from the 3C website"""
-
-    url = "https://app.3commas.io/wapi/bots/%s/get_bot_data?secret=%s" % (bot_id, bot_secret)
-
-    data = {}
-    try:
-        page = requests.get(url)
-        if page:
-            data = page.json()
-
-    except json.decoder.JSONDecodeError as err:
-        logger.error(f"Shared bot data ({bot_id}) is not valid json")
-    except requests.exceptions.HTTPError as err:
-        logger.error("Fetching 3C shared bot data failed with error: %s" % err)
-
-    logger.info("Fetched %s 3C shared bot data OK" % (bot_id))
-
-    return data
 
 
 def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs):
