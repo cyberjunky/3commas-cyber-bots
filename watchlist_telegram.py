@@ -643,7 +643,8 @@ for dialog in client.iter_dialogs():
             async def callback_smarttrade(event):
                 """Receive Telegram message."""
 
-                await handle_telegram_smarttrade_event(event.get_chat().title, event)
+                chat_from = event.chat if event.chat else (await event.get_chat()) # telegram MAY not send the chat enity
+                await handle_telegram_smarttrade_event(chat_from.title, event)
                 notification.send_notification()
 
 
