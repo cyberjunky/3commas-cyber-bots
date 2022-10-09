@@ -3,55 +3,6 @@
 def open_threecommas_smarttrade(logger, api, accountid, pair, note, position, take_profit, stop_loss):
     """Open smarttrade with the given position, profit and stoploss."""
 
-    #payload = {
-    #    "account_id": accountid,
-    #    "pair": pair,
-    #    "leverage": {
-    #        "enabled": "false",
-    #    },
-    #    "position": {
-    #        "type": "buy",
-    #        "order_type": "market",
-    #        "units": {
-    #            "value": 0.001
-    #        },
-    #    },
-    #    "take_profit": {
-    #        "enabled": "true",
-    #        "steps": [
-    #            {
-    #                "order_type": "market",
-    #                "price": {
-    #                    "value": 30000.0,
-    #                    "type": "bid"
-    #                },
-    #                "volume": 50
-    #            },
-    #            {
-    #                "order_type": "market",
-    #                "price": {
-    #                    "value": 40000,
-    #                    "type": "bid"
-    #                },
-    #                "volume": 50
-    #            },
-    #        ]
-    #    },
-    #    "stop_loss": {
-    #        "enabled": "true",
-    #        "order_type": "limit",
-    #        "price": {
-    #            "value": 15000.0
-    #        },
-    #        "conditional": {
-    #            "price": {
-    #                "value": 15000.0,
-    #                "type":"bid",
-    #            },
-    #        },
-    #    }
-    #}
-
     payload = {
         "account_id": accountid,
         "pair": pair,
@@ -85,6 +36,7 @@ def open_threecommas_smarttrade(logger, api, accountid, pair, note, position, ta
             logger.error("Error occurred while opening smarttrade")
 
     return data
+
 
 def close_threecommas_smarttrade(logger, api, smarttradeid):
     """Close smarttrade with the given id."""

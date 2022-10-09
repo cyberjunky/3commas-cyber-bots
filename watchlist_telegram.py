@@ -34,6 +34,7 @@ from helpers.watchlist import (
     process_botlist
 )
 
+
 def load_config():
     """Create default or load existing config file."""
 
@@ -60,10 +61,10 @@ def load_config():
         "btc-botids": [12345, 67890],
     }
 
-    cfg["smt"] = {
-        "channel-name": "Telegram Channel to watch",
-        "amount-usdt": 20,
-        "amount-btc": 0.0001,
+    cfg["smarttrade"] = {
+        "channel-names": ["Channel 1", "Channel 2"],
+        "amount-usdt": 100.0,
+        "amount-btc": 0.001,
     }
 
     cfg["hodloo_5"] = {
@@ -90,6 +91,24 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(thelogger, cfg):
+    """Upgrade config file if needed."""
+
+    if not cfg.has_section("smarttrade"):
+        cfg["smarttrade"] = {
+            "channel-names": ["Channel 1", "Channel 2"],
+            "amount-usdt": 100.0,
+            "amount-btc": 0.001,
+        }
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Upgraded the configuration file (added smarttrade section)")
+
+    return cfg
 
 
 async def handle_custom_event(event):
@@ -158,81 +177,6 @@ async def handle_custom_event(event):
         None, process_botlist, logger, api, blacklistfile, blacklist, marketcodes,
                                 botids, coin, trade
     )
-
-
-#async def handle_forex_smarttrade_event(source, event):
-#    """Handle the received Telegram event"""
-#
-#    logger.debug(
-#        "Received message on Forex smarttrade: '%s'"
-#        % (event.message.text.replace("\n", " - "))
-#    )
-#
-#    # Parse the event and do some error checking
-#    data = event.raw_text.splitlines()
-#
-#    logger.debug(
-#        f"Converted raw text {event.raw_text} to {data}"
-#    )
-#
-#    try:
-#        if data[0] in ("Short", "Long"):
-#            logger.debug(f"Received Forex Short or Long message: {data}", True)
-#        elif "Targets" in event.message.text:
-#            logger.debug(f"Received Forex message: {data}", True)
-#
-#            parse_smarttrade_event(source, data)
-#    except Exception as exception:
-#        logger.debug(f"Exception occured: {exception}")
-#        return
-#
-#    return
-
-
-#async def handle_cryptosignal_smarttrade_event(source, event):
-#    """Handle the received Telegram event"""
-#
-#    logger.debug(
-#        "Received message on CryptoSignal smarttrade: '%s'"
-#        % (event.message.text.replace("\n", " - "))
-#    )
-#
-#    # Parse the event and do some error checking
-#    data = event.raw_text.splitlines()
-#
-#    try:
-#        if "Targets" in event.message.text:
-#            logger.debug(f"Received CryptoSignal message: {data}", True)
-#
-#            parse_smarttrade_event(source, data)
-#    except Exception as exception:
-#        logger.debug(f"Exception occured: {exception}")
-#        return
-#
-#    return
-
-
-#async def handle_cryptosignalleaks_smarttrade_event(source, event):
-#    """Handle the received Telegram event"""
-#
-#    logger.debug(
-#        "Received message on CryptoSignalLeaks smarttrade: '%s'"
-#        % (event.message.text.replace("\n", " - "))
-#    )
-#
-#    # Parse the event and do some error checking
-#    data = event.raw_text.splitlines()
-#
-#    try:
-#        if "Targets" in event.message.text:
-#            logger.debug(f"Received CryptoSignalLeaks message: {data}", True)
-#
-#            parse_smarttrade_event(source, data)
-#    except Exception as exception:
-#        logger.debug(f"Exception occured: {exception}")
-#        return
-#
-#    return
 
 
 async def handle_telegram_smarttrade_event(source, event):
@@ -601,6 +545,9 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+# Upgrade config file if needed
+config = upgrade_config(logger, config)
+
 # Validation of data before starting
 hl5exchange = config.get("hodloo_5", "exchange")
 if hl5exchange not in ("Bittrex", "Binance", "Kucoin"):
@@ -645,22 +592,9 @@ client = TelegramClient(
 ).start(config.get("settings", "tgram-phone-number"))
 
 customchannelname = config.get("custom", "channel-name")
-customchannelid = -1
-
-smtforexchannelname = config.get("smt_forex", "channel-name")
-smtforexchannelid = -1
-
-smtcryptosignalchannelname = config.get("smt_cryptosignal", "channel-name")
-smtcryptosignalchannelid = -1
-
-smtcryptosignalleakschannelname = config.get("smt_cryptosignalleaks", "channel-name")
-smtcryptosignalleakschannelid = -1
-
 hl5channelname = f"Hodloo {hl5exchange} 5%"
-hl5channelid = -1
-
 hl10channelname = f"Hodloo {hl10exchange} 10%"
-hl10channelid = -1
+smarttradechannels = config.get("smarttrade", "channel-names")
 
 for dialog in client.iter_dialogs():
     if dialog.is_channel:
@@ -669,105 +603,48 @@ for dialog in client.iter_dialogs():
         )
 
         if dialog.title == customchannelname:
-            customchannelid = dialog.id
-        elif dialog.title == smtforexchannelname:
-            smtforexchannelid = dialog.id
-        elif dialog.title == smtcryptosignalchannelname:
-            smtcryptosignalchannelid = dialog.id
-        elif dialog.title == smtcryptosignalleakschannelname:
-            smtcryptosignalleakschannelid = dialog.id
+            logger.info(f"Listening to updates from '{dialog.title}' (id={dialog.id}) ...",
+                True
+            )
+            @client.on(events.NewMessage(chats=dialog.id))
+            async def callback_custom(event):
+                """Receive Telegram message."""
+
+                await handle_custom_event(event)
+                notification.send_notification()
+
         elif dialog.title == hl5channelname:
-            hl5channelid = dialog.id
+            logger.info(f"Listening to updates from '{dialog.title}' (id={dialog.id}) ...",
+                True
+            )
+            @client.on(events.NewMessage(chats=dialog.id))
+            async def callback_5(event):
+                """Receive Telegram message."""
+
+                await handle_hodloo_event("5", event)
+                notification.send_notification()
+
         elif dialog.title == hl10channelname:
-            hl10channelid = dialog.id
+            logger.info(f"Listening to updates from '{dialog.title}' (id={dialog.id}) ...",
+                True
+            )
+            @client.on(events.NewMessage(chats=dialog.id))
+            async def callback_10(event):
+                """Receive Telegram message."""
 
-logger.debug(
-    f"Overview of resolved channel names: "
-    f"Custom '{customchannelname}' to {customchannelid}, "
-    f"Forex Smarttrade '{smtforexchannelname}' to {smtforexchannelid}, "
-    f"Crypto Signal Smarttrade '{smtcryptosignalchannelname}' to {smtcryptosignalchannelid}, "
-    f"Crypto Signal Leaks Smarttrade '{smtcryptosignalleakschannelname}' to {smtcryptosignalleakschannelid}, "
-    f"Hodloo '{hl5channelname}' to {hl5channelid}, "
-    f"Hodloo '{hl10channelname}' to {hl10channelid}"
-)
+                await handle_hodloo_event("10", event)
+                notification.send_notification()
 
+        elif dialog.title in smarttradechannels:
+            logger.info(f"Listening to updates from '{dialog.title}' (id={dialog.id}) ...",
+                True
+            )
+            @client.on(events.NewMessage(chats=dialog.id))
+            async def callback_smarttrade(event):
+                """Receive Telegram message."""
 
-if customchannelid != -1:
-    logger.info(
-        f"Listening to updates from '{customchannelname}' (id={customchannelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=customchannelid))
-    async def callback_custom(event):
-        """Receive Telegram message."""
-
-        await handle_custom_event(event)
-        notification.send_notification()
-
-
-if smtforexchannelid != -1:
-    logger.info(
-        f"Listening to updates from '{smtforexchannelname}' (id={smtforexchannelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=smtforexchannelid))
-    async def callback_forex_smarttrade(event):
-        """Receive Telegram message."""
-
-        await handle_telegram_smarttrade_event(smtforexchannelname, event)
-        notification.send_notification()
-
-
-if smtcryptosignalchannelid != -1:
-    logger.info(
-        f"Listening to updates from '{smtcryptosignalchannelname}' (id={smtcryptosignalchannelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=smtcryptosignalchannelid))
-    async def callback_cryptosignal_smarttrade(event):
-        """Receive Telegram message."""
-
-        await handle_telegram_smarttrade_event(smtcryptosignalchannelname, event)
-        notification.send_notification()
-
-
-if smtcryptosignalleakschannelid != -1:
-    logger.info(
-        f"Listening to updates from '{smtcryptosignalleakschannelname}' (id={smtcryptosignalleakschannelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=smtcryptosignalleakschannelid))
-    async def callback_cryptosignalleaks_smarttrade(event):
-        """Receive Telegram message."""
-
-        await handle_telegram_smarttrade_event(smtcryptosignalleakschannelname, event)
-        notification.send_notification()
-
-
-if hl5channelid != -1:
-    logger.info(
-        f"Listening to updates from '{hl5channelname}' (id={hl5channelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=hl5channelid))
-    async def callback_5(event):
-        """Receive Telegram message."""
-
-        await handle_hodloo_event("5", event)
-        notification.send_notification()
-
-
-if hl10channelid != -1:
-    logger.info(
-        f"Listening to updates from '{hl10channelname}' (id={hl10channelid}) ...",
-        True
-    )
-    @client.on(events.NewMessage(chats=hl10channelid))
-    async def callback_10(event):
-        """Receive Telegram message."""
-
-        await handle_hodloo_event("10", event)
-        notification.send_notification()
+                await handle_telegram_smarttrade_event(event.get_chat().title, event)
+                notification.send_notification()
 
 
 # Start telegram client
