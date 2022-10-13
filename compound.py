@@ -636,6 +636,9 @@ def compound_bot(cfg, thebot):
             )
 
     if deals:
+        # Get starting BO and SO values
+        (startbo, startso, startactivedeals) = get_bot_values(thebot)
+
         (deals_count, profit_sum) = process_deals(deals)
 
         profit_sum *= bot_profit_percentage
