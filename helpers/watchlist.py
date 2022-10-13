@@ -22,6 +22,7 @@ def prefetch_marketcodes(logger, api, botids):
             )
             if botdata:
                 accountid = botdata["account_id"]
+                logger.info(f"Account id: {accountid}")
                 # Get marketcode (exchange) from account if not already fetched
                 marketcode = get_threecommas_account_marketcode(logger, api, accountid)
                 marketcodearray[botdata["id"]] = marketcode
