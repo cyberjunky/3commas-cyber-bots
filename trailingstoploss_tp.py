@@ -64,6 +64,7 @@ def load_config():
     cfgsectionsafetyconfig.append({
         "activation-percentage": "-1.0",
         "increment-factor": "0.25",
+        "limit-order-deviation": "0.00",
     })
 
     cfg["tsl_tp_default"] = {
@@ -117,6 +118,7 @@ def upgrade_config(thelogger, cfg):
                 cfgsectionsafetyconfig.append({
                     "activation-percentage": "-1.0",
                     "increment-factor": "0.25",
+                    "limit-order-deviation": "0.00",
                 })
 
                 cfg.set(cfgsection, "safety-config", json.dumps(cfgsectionsafetyconfig))
@@ -903,8 +905,6 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
 
     logger.info(f"Total negative profit: {total_negative_profit}, next: {deal_db_data['next_so_percentage']}")
 
-    #if fabs(total_negative_profit) < deal_db_data["sl_so_percentage"]:
-        # Price suddenly went up and passed our SL.
 
     actual_absolute_profit_percentage = fabs(total_negative_profit)
     last_profit_percentage = float(deal_db_data["min_profit_percentage"])
@@ -932,11 +932,14 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
         update_safetyorder_monitor_in_db(deal["id"], actual_absolute_profit_percentage, new_buy_on_percentage)
 
 
-    # Only process the deal when no manual SO is pending and the negative profit has reached the next SO
-    if deal['active_manual_safety_orders'] > 0:
+    # Only process the deal when no manual SO is pending and the negative profit has reached the buy moment
+    if deal_db_data['filled_so_count'] == deal['max_safety_orders']:
+        logger.info("Max SO reached!")
+    elif deal['active_manual_safety_orders'] > 0:
         logger.info("Manual Safety Order in progress, wait for it to complete.")
     else:
-        if fabs(total_negative_profit) > deal_db_data["next_so_percentage"]:
+        #if fabs(total_negative_profit) > deal_db_data["next_so_percentage"]:
+        if actual_absolute_profit_percentage <= new_buy_on_percentage:
             # SO data contains four values:
             # 0. The number of configured Safety Orders to be filled using a Manual trade
             # 1. The total volume for those number of Safety Orders
@@ -958,8 +961,14 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
                     )
                     so_price = float(deal["current_price"])
 
-                quantity = sodata[1] / so_price
+                limitorderdeviation = float(safety_config.get("limit-order-deviation"))
+                if limitorderdeviation != 0.00:
+                    new_so_price = so_price + ((so_price / 100.0) * limitorderdeviation)
 
+                    logger.info(f"Updated so price from {so_price} to {new_so_price} based on deviation {limitorderdeviation}")
+                    so_price = new_so_price
+
+                quantity = sodata[1] / so_price
                 logger.info(
                     f"Quantity based on volume {sodata[1]} and price {so_price}; {quantity} "
                 )
