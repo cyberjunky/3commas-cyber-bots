@@ -290,7 +290,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
 
     # Do we already use these pairs?
     if newpairs == thebot["pairs"]:
-        logger.info(
+        logger.debug(
             "Bot '%s' with id '%s' is already using the new pair(s)"
             % (thebot["name"], thebot["id"]),
             notify_uptodate,
