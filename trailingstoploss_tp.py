@@ -935,7 +935,7 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
 
                 buy_on_percentage = deal_db_data["buy_on_percentage"]
 
-                if actual_absolute_profit_percentage > last_profit_percentage:
+                if round(actual_absolute_profit_percentage, 2) > round(last_profit_percentage, 2):
                     if buy_on_percentage < deal_db_data["next_so_percentage"]:
                         logger.info(
                             f"Current buy {buy_on_percentage} above SO {deal_db_data['next_so_percentage']}. Correcting..."
