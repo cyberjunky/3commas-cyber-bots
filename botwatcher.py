@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
-from helpers.browser import (
+from helpers.datasources import (
     get_shared_bot_data
 )
 from helpers.misc import (
