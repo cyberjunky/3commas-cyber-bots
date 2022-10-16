@@ -8,10 +8,12 @@ import sys
 import time
 from pathlib import Path
 
+from helpers.datasources import (
+    get_botassist_data
+)
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
     format_pair,
-    get_botassist_data,
     populate_pair_lists,
     remove_excluded_pairs,
     wait_time_interval,
