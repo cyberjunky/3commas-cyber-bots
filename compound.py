@@ -168,6 +168,9 @@ def update_bot_order_volumes(
     )
 
     rounddigits = get_round_digits(thebot["pairs"][0])
+    logger.debug(
+        f"rounddigits is {rounddigits}"
+    )
 
     #### Check if the BO/SO was updated on the last pass
     #### If not, add the value from the DB to the new BO
@@ -197,7 +200,10 @@ def update_bot_order_volumes(
         )
     db.commit()
 
-    new_bo = round(new_base_order_volume, rounddigits)
+    # new_bo = round(new_base_order_volume, rounddigits)
+    #### Instead of rounding, truncate the last values from the digits, so we don't accidentally round up
+    factor = 10.0 ** rounddigits
+    new_bo = math.trunc(new_base_order_volume * factor) / factor
     logger.debug(
         f"Calculated BO volume is {new_bo}"
     )
@@ -643,7 +649,7 @@ def compound_bot(cfg, thebot):
 
         profit_sum *= bot_profit_percentage
         logger.info(
-            "Profit available after applying percentage value (%s): %s "
+            "Profit available after applying percentage value (%s): %s"
             % (bot_profit_percentage, profit_sum)
         )
 
