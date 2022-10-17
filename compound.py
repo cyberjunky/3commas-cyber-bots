@@ -200,7 +200,6 @@ def update_bot_order_volumes(
         )
     db.commit()
 
-    # new_bo = round(new_base_order_volume, rounddigits)
     #### Instead of rounding, truncate the last values from the digits, so we don't accidentally round up
     factor = 10.0 ** rounddigits
     new_bo = math.trunc(new_base_order_volume * factor) / factor
