@@ -133,41 +133,48 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
         soup = BeautifulSoup(result.text, features="html.parser")
         data = soup.find("table", class_="table table-striped table-sm")
 
-        columncount = 0
-        columndict = {}
+        if data is not None:
+            columncount = 0
+            columndict = {}
 
-        # Build list of columns we are interested in
-        tablecolumns = data.find_all("th")
-        for column in tablecolumns:
-            if column.text not in ("#", "symbol"):
-                columndict[columncount] = column.text
+            # Build list of columns we are interested in
+            tablecolumns = data.find_all("th")
 
-            columncount += 1
+            for column in tablecolumns:
+                if column.text not in ("#", "symbol"):
+                    columndict[columncount] = column.text
 
-        tablerows = data.find_all("tr")
-        for row in tablerows:
-            rowcolums = row.find_all("td")
-            if len(rowcolums) > 0:
-                rank = int(rowcolums[0].text)
-                if rank < start_number:
-                    continue
+                columncount += 1
 
-                pairdata = {}
+            tablerows = data.find_all("tr")
+            for row in tablerows:
+                rowcolums = row.find_all("td")
+                if len(rowcolums) > 0:
+                    rank = int(rowcolums[0].text)
+                    if rank < start_number:
+                        continue
 
-                # Iterate over the available columns and collect the data
-                for key, value in columndict.items():
-                    if value == "24h volume":
-                        pairdata[value] = float(
-                                rowcolums[key].text.replace(" BTC", "").replace(",", "")
-                            )
-                    else:
-                        pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
+                    pairdata = {}
 
-                logger.debug(f"Rank {rank}: {pairdata}")
-                pairs.append(pairdata)
+                    # Iterate over the available columns and collect the data
+                    for key, value in columndict.items():
+                        if value == "24h volume":
+                            pairdata[value] = float(
+                                    rowcolums[key].text.replace(" BTC", "").replace(",", "")
+                                )
+                        else:
+                            pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
 
-                if rank == limit:
-                    break
+                    logger.debug(f"Rank {rank}: {pairdata}")
+                    pairs.append(pairdata)
+
+                    if rank == limit:
+                        break
+        else:
+            logger.warning(
+                f"Table on {botassistlist} does not have any content (rows/columns). Cannot fetch "
+                f"any pairs. This could be ok when no pairs are listed."
+            )
 
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching 3c-tools bot-assist data failed with error: %s" % err)
