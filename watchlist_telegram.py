@@ -233,9 +233,9 @@ def parse_smarttrade_event(source, event_data):
     )
 
     if is_valid_smarttrade(logger, currentprice, entries, targets, stoploss, direction):
-        amount = config.getfloat("smt_cryptosignal", "amount-usdt")
+        amount = config.getfloat("smarttrade", "amount-usdt")
         if "BTC" in pair:
-            amount = config.getfloat("smt_cryptosignal", "amount-btc")
+            amount = config.getfloat("smarttrade", "amount-btc")
 
         positionsize = amount
         if not ("USDT" in pair and "BTC" in pair):
