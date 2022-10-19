@@ -16,8 +16,8 @@ from helpers.database import (
     set_next_process_time
 )
 from helpers.misc import (
-    check_deal, 
-    unix_timestamp_to_string, 
+    check_deal,
+    unix_timestamp_to_string,
     wait_time_interval
 )
 from helpers.threecommas import (
@@ -168,7 +168,7 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
         logger.info(
             f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
-            f"Changed TP from {deal['take_profit']}% to {new_take_profit}% "
+            f"Changed TP from {deal['take_profit']}% to {new_take_profit}%. "
             f"Changed SL timeout from {deal['stop_loss_timeout_in_seconds']}s to {sl_timeout}s."
         )
     else:
@@ -426,15 +426,16 @@ def handle_new_deal(thebot, deal, profit_config):
             True
         )
 
-        logger.info(
-            f"StopLoss timeout set at {sl_timeout}s",
-            True
-        )
+        if sl_timeout > 0:
+            logger.info(
+                f"StopLoss timeout set at {sl_timeout}s.",
+                True
+            )
 
         if new_tp_percentage > current_tp_percentage:
             logger.info(
                 f"TakeProfit increased from {current_tp_percentage}% "
-                f"to {new_tp_percentage}%",
+                f"to {new_tp_percentage}%.",
                 True
             )
 
@@ -514,7 +515,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                 if new_tp_percentage > current_tp_percentage:
                     logger.info(
                         f"TakeProfit increased from {current_tp_percentage}% "
-                        f"to {new_tp_percentage}%",
+                        f"to {new_tp_percentage}%.",
                         True
                     )
 
@@ -523,7 +524,7 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                 if current_sl_timeout is not None and current_sl_timeout != new_sl_timeout:
                     logger.info(
                         f"StopLoss timeout changed from {current_sl_timeout}s "
-                        f"to {new_sl_timeout}s",
+                        f"to {new_sl_timeout}s.",
                         True
                     )
 
