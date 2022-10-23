@@ -207,7 +207,7 @@ def coinmarketcap_filter(cmcdata, cmc_id):
     removedcount = len(removedlist)
     if removedcount > 0:
         logger.info(
-            f"Removed {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
+            f"Excluded {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
         )
 
     return filtereddata, removedcount
@@ -282,7 +282,7 @@ def coinmarketcap_pairs(thebot, cmcdata):
     if newpairs != thebot["pairs"]:
         logger.info(
             f"Bot '{thebot['name']}' with id '{thebot['id']}' updated with {len(newpairs)} "
-            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Removed {cmcdata[1]} coins "
+            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded {cmcdata[1]} coins "
             f"based on percent change filtering.",
             True
         )
