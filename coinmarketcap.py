@@ -282,8 +282,8 @@ def coinmarketcap_pairs(thebot, cmcdata):
     if newpairs != thebot["pairs"]:
         logger.info(
             f"Bot '{thebot['name']}' with id '{thebot['id']}' updated with {len(newpairs)} "
-            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded {cmcdata[1]} coins "
-            f"based on percent change filtering.",
+            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {cmcdata[1]} (filter), "
+            f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
             True
         )
 
