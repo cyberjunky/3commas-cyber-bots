@@ -168,9 +168,6 @@ def update_bot_order_volumes(
     )
 
     rounddigits = get_round_digits(thebot["pairs"][0])
-    logger.debug(
-        f"rounddigits is {rounddigits}"
-    )
 
     #### Check if the BO/SO was updated on the last pass
     #### If not, add the value from the DB to the new BO
@@ -204,15 +201,16 @@ def update_bot_order_volumes(
     factor = 10.0 ** rounddigits
     new_bo = math.trunc(new_base_order_volume * factor) / factor
     logger.debug(
-        f"Calculated BO volume is {new_bo}"
+        f"Calculated BO volume is {new_bo} \n"
+        f"Number of digits is {rounddigits}, resulting in a factor of {factor}"
     )
     #### Check to see whether or not the new, rounded value of the BO is sufficient to be stored, if not, only store in the database
-    if new_bo <= base_order_volume:
+    if new_bo == base_order_volume:
         logger.debug(
-            f"Calculated BO volume {new_bo} is smaller than or equal to base_order_volume {base_order_volume}"
+            f"Calculated BO volume {new_bo} is equal to base_order_volume {base_order_volume}"
         )
         logger.info(
-            f"The new BO value would not increase with these deals, only storing value in database"
+            f"The new BO value would not change with these deals, only storing value in database"
         )
         db.execute(
             f"UPDATE bots SET lastpassupdate = 'No' WHERE botid = {bot_id}"
