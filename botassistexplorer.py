@@ -76,18 +76,18 @@ def upgrade_config(thelogger, theapi, cfg):
                 newmaxdeals = 0
                 # Walk through all bots configured
                 for thebot in thebotids:
-                    boterror, botdata = theapi.request(
+                    error, data = theapi.request(
                         entity="bots",
                         action="show",
                         action_id=str(thebot),
                     )
-                    if botdata:
-                        if int(botdata["max_active_deals"]) > newmaxdeals:
-                            newmaxdeals = int(botdata["max_active_deals"])
+                    if data:
+                        if int(data["max_active_deals"]) > newmaxdeals:
+                            newmaxdeals = int(data["max_active_deals"])
                     else:
-                        if boterror and "msg" in boterror:
+                        if error and "msg" in error:
                             logger.error(
-                                "Error occurred upgrading config: %s" % boterror["msg"]
+                                "Error occurred upgrading config: %s" % error["msg"]
                             )
                         else:
                             logger.error("Error occurred upgrading config")
@@ -401,35 +401,32 @@ while True:
                 logger, config.get(section, "list"), startnumber, endnumber
             )
 
-            if botassist_data:
-                # Walk through all bots configured
-                for botid in botids:
-                    boterror, botdata = api.request(
-                        entity="bots",
-                        action="show",
-                        action_id=str(botid),
-                    )
-                    if botdata:
-                        botassist_pairs(section, botdata, botassist_data)
-                    else:
-                        if boterror and "status_code" in boterror:
-                            if boterror["status_code"] == 404:
-                                logger.error(
-                                    f"Error occurred updating bots: bot with "
-                                    f"id '{botid}' was not found"
-                                )
-                            else:
-                                logger.error(
-                                    f"Error occurred updating bots: {boterror['msg']}"
-                                )
-                        elif boterror and "msg" in boterror:
+            # Process the botassist_data, even if len() is zero. Required to stop bots
+            for botid in botids:
+                boterror, botdata = api.request(
+                    entity="bots",
+                    action="show",
+                    action_id=str(botid),
+                )
+                if botdata:
+                    botassist_pairs(section, botdata, botassist_data)
+                else:
+                    if boterror and "status_code" in boterror:
+                        if boterror["status_code"] == 404:
+                            logger.error(
+                                f"Error occurred updating bots: bot with "
+                                f"id '{botid}' was not found"
+                            )
+                        else:
                             logger.error(
                                 f"Error occurred updating bots: {boterror['msg']}"
                             )
-                        else:
-                            logger.error("Error occurred updating bots")
-            else:
-                logger.error("Error occurred during fetch of botassist data")
+                    elif boterror and "msg" in boterror:
+                        logger.error(
+                            f"Error occurred updating bots: {boterror['msg']}"
+                        )
+                    else:
+                        logger.error("Error occurred updating bots")
         elif section not in ("settings"):
             logger.warning(
                 f"Section '{section}' not processed (prefix 'botassist_' missing)!",
