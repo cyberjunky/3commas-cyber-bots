@@ -207,10 +207,10 @@ def coinmarketcap_filter(cmcdata, cmc_id):
     removedcount = len(removedlist)
     if removedcount > 0:
         logger.info(
-            f"Removed {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
+            f"Excluded {removedcount} coins for {cmc_id} based on percent change: {removedlist}"
         )
 
-    return filtereddata
+    return filtereddata, removedcount
 
 
 def coinmarketcap_pairs(thebot, cmcdata):
@@ -237,7 +237,9 @@ def coinmarketcap_pairs(thebot, cmcdata):
     logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
 
     # Parse CoinMarketCap data
-    for entry in cmcdata:
+    # 0: actual data
+    # 1: number of removed coins based on percent change filtering
+    for entry in cmcdata[0]:
         try:
             coin = entry["symbol"]
             # Construct pair based on bot settings and marketcode
@@ -274,7 +276,16 @@ def coinmarketcap_pairs(thebot, cmcdata):
         return
 
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, thebot, newpairs, False)
+    set_threecommas_bot_pairs(logger, api, thebot, newpairs, False, False, False)
+
+    # Send our own notification with more data
+    if newpairs != thebot["pairs"]:
+        logger.info(
+            f"Bot '{thebot['name']}' with id '{thebot['id']}' updated with {len(newpairs)} "
+            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {cmcdata[1]} (filter), "
+            f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
+            True
+        )
 
 
 # Start application
