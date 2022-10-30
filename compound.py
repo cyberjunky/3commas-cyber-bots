@@ -197,17 +197,20 @@ def update_bot_order_volumes(
         )
     db.commit()
 
-    new_bo = round(new_base_order_volume, rounddigits)
+    #### Instead of rounding, truncate the last values from the digits, so we don't accidentally round up
+    factor = 10.0 ** rounddigits
+    new_bo = math.trunc(new_base_order_volume * factor) / factor
     logger.debug(
-        f"Calculated BO volume is {new_bo}"
+        f"Calculated BO volume is {new_bo} \n"
+        f"Number of digits is {rounddigits}, resulting in a factor of {factor}"
     )
     #### Check to see whether or not the new, rounded value of the BO is sufficient to be stored, if not, only store in the database
-    if new_bo <= base_order_volume:
+    if new_bo == base_order_volume:
         logger.debug(
-            f"Calculated BO volume {new_bo} is smaller than or equal to base_order_volume {base_order_volume}"
+            f"Calculated BO volume {new_bo} is equal to base_order_volume {base_order_volume}"
         )
         logger.info(
-            f"The new BO value would not increase with these deals, only storing value in database"
+            f"The new BO value would not change with these deals, only storing value in database"
         )
         db.execute(
             f"UPDATE bots SET lastpassupdate = 'No' WHERE botid = {bot_id}"
@@ -643,7 +646,7 @@ def compound_bot(cfg, thebot):
 
         profit_sum *= bot_profit_percentage
         logger.info(
-            "Profit available after applying percentage value (%s): %s "
+            "Profit available after applying percentage value (%s): %s"
             % (bot_profit_percentage, profit_sum)
         )
 
