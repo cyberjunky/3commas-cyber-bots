@@ -161,7 +161,10 @@ class Logger:
 
         # Log to console
         console_handle = logging.StreamHandler()
-        console_handle.setLevel(logging.INFO)
+        if debug_enabled:
+            console_handle.setLevel(logging.DEBUG)
+        else:
+            console_handle.setLevel(logging.INFO)
         console_handle.setFormatter(console_formatter)
         self.my_logger.addHandler(console_handle)
 

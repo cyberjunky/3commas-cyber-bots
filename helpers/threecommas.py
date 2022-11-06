@@ -70,9 +70,8 @@ def get_threecommas_blacklist(logger, api):
 def get_threecommas_btcusd(logger, api):
     """Get current USDT_BTC value to calculate BTC volume24h in USDT."""
 
+    price = 20000.0
     price = get_threecommas_currency_rate(logger, api, "binance", "USDT_BTC")
-    if isnan(price):
-        price = 60000
 
     return price
 
