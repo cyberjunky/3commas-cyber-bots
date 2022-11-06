@@ -7,42 +7,30 @@ import requests
 from bs4 import BeautifulSoup
 
 def get_lunarcrush_data(logger, program, config, usdtbtcprice):
-    """Get the top x GalaxyScore, AltRank or Volatile coins from LunarCrush."""
+    """Get the top x GalaxyScore, AltRank coins from LunarCrush."""
 
     lccoins = {}
     lcapikey = config.get("settings", "lc-apikey")
     lcfetchlimit = config.get("settings", "lc-fetchlimit")
 
+    # Construct headers
+    headers = {"Authorization": f"Bearer {lcapikey}"}
+
     # Construct query for LunarCrush data
     if "altrank" in program:
         parms = {
-            "data": "market",
-            "type": "fast",
-            "sort": "acr",
+            "sort": "alt_rank",
             "limit": lcfetchlimit,
-            "key": lcapikey,
         }
     elif "galaxyscore" in program:
         parms = {
-            "data": "market",
-            "type": "fast",
-            "sort": "gs",
+            "sort": "galaxy_score",
             "limit": lcfetchlimit,
-            "key": lcapikey,
-            "desc": True,
-        }
-    elif "volatility" in program:
-        parms = {
-            "data": "market",
-            "type": "fast",
-            "sort": "vt",
-            "limit": lcfetchlimit,
-            "key": lcapikey,
-            "desc": True,
+            "desc": 1,
         }
 
     try:
-        result = requests.get("https://api.lunarcrush.com/v2", params=parms)
+        result = requests.request("GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms)
         result.raise_for_status()
         data = result.json()
 
@@ -61,7 +49,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             lccoins = data["data"]
 
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching LunarCrush data failed with error: %s" % err)
+        logger.error("Fetching LunarCrush data failed %d %s" % (err.response.status_code, err.response.text))
         return {}
 
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(lccoins)))
