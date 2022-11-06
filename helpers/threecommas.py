@@ -91,10 +91,10 @@ def get_threecommas_currency_rate(logger, api, market_code, pair):
     else:
         if error and "msg" in error:
             logger.error(
-                f"Fetching 3Commas price failed with error: {error['msg']}"
+                f"Fetching 3Commas price for {pair} failed with error: {error['msg']}"
             )
         else:
-            logger.error("Fetching 3Commas BTC price in USDT failed")
+            logger.error(f"Fetching 3Commas price for {pair} failed")
 
     return price
 
