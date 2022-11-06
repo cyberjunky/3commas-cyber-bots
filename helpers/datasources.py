@@ -49,7 +49,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             lccoins = data["data"]
 
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching LunarCrush data failed %d %s" % (err.response.status_code, err.response.text))
+        logger.error("Fetching LunarCrush data failed with code %d: %s" % (err.response.status_code, err.response.text))
         return {}
 
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(lccoins)))

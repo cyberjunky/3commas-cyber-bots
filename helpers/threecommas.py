@@ -87,7 +87,7 @@ def get_threecommas_currency_rate(logger, api, market_code, pair):
     )
     if data:
         price = data["last"]
-        logger.info(f"Fetched 3Commas price OK ({price})")
+        logger.info(f"Fetched 3Commas price OK ({pair} {price})")
     else:
         if error and "msg" in error:
             logger.error(
