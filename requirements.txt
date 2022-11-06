@@ -1,7 +1,7 @@
 py3cw==0.0.39
 apprise==1.1.0
 telethon==1.25.4
-beautifulsoup4==4.10.0
+beautifulsoup4==4.11.1
 aiohttp==3.8.1
 schedule==1.1.0
 cloudscraper==1.2.64
