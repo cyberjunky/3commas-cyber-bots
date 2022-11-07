@@ -20,7 +20,8 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     if "altrank" in program:
         parms = {
             "sort": "alt_rank",
-            "limit": lcfetchlimit
+            "limit": lcfetchlimit,
+            "desc": 0,
         }
     elif "galaxyscore" in program:
         parms = {
