@@ -20,7 +20,7 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
     if "altrank" in program:
         parms = {
             "sort": "alt_rank",
-            "limit": lcfetchlimit,
+            "limit": lcfetchlimit
         }
     elif "galaxyscore" in program:
         parms = {
@@ -28,6 +28,9 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             "limit": lcfetchlimit,
             "desc": 1,
         }
+    else:
+        logger.error("Fetching LunarCrush data failed, could not determine datatype to fetch")
+        return {}
 
     try:
         result = requests.request("GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms)
