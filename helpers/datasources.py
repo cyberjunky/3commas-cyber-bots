@@ -27,7 +27,6 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
         parms = {
             "sort": "galaxy_score",
             "limit": lcfetchlimit,
-            "desc": 1,
         }
     else:
         logger.error("Fetching LunarCrush data failed, could not determine datatype to fetch")
