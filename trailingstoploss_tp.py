@@ -296,11 +296,6 @@ def process_deals(thebot, section_config):
                     section_config, float(deal["actual_profit_percentage"])
                     )
 
-                logger.info(
-                    f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} deal data: {deal} "
-                )
-
-
                 if not existing_deal and actual_profit_config:
                     if not deal['completed_safety_orders_count'] >= int(actual_profit_config.get("activation-so-count")):
                         logger.debug(
