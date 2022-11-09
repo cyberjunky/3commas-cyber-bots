@@ -149,22 +149,39 @@ def upgrade_config(thelogger, cfg):
 def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     """Update bot with new SL and TP."""
 
+    dealupdated = False
+
     bot_name = thebot["name"]
     deal_id = deal["id"]
+
+    payload = {
+        "deal_id": thebot["id"],
+        "stop_loss_percentage": new_stoploss,
+        "stop_loss_timeout_enabled": sl_timeout > 0,
+        "stop_loss_timeout_in_seconds": sl_timeout
+    }
+
+    # Only update TP values when no conditional take profit is used
+    # Note: currently the API does not support this. Script cannot be used for MP deals yet!
+    #if not len(thebot['close_strategy_list']):
+    #    payload["take_profit"] = new_take_profit
+    #    payload["trailing_enabled"] = False
+    #else:
+    #    payload["take_profit"] = 0.05
+    #    payload["trailing_enabled"] = False
+    payload["take_profit"] = new_take_profit
+    payload["trailing_enabled"] = False
 
     error, data = api.request(
         entity="deals",
         action="update_deal",
         action_id=str(deal_id),
-        payload={
-            "deal_id": thebot["id"],
-            "stop_loss_percentage": new_stoploss,
-            "take_profit": new_take_profit,
-            "stop_loss_timeout_enabled": sl_timeout > 0,
-            "stop_loss_timeout_in_seconds": sl_timeout
-        }
+        payload=payload
     )
+
     if data:
+        dealupdated = True
+
         logger.info(
             f"Changing SL for deal {deal['pair']} ({deal_id}) on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
@@ -178,6 +195,8 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
             )
         else:
             logger.error("Error occurred updating bot with new SL/TP values")
+
+    return dealupdated
 
 
 def calculate_slpercentage_base_price_short(sl_price, base_price):
@@ -276,6 +295,11 @@ def process_deals(thebot, section_config):
                 actual_profit_config = get_config_for_profit(
                     section_config, float(deal["actual_profit_percentage"])
                     )
+
+                logger.info(
+                    f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} deal data: {deal} "
+                )
+
 
                 if not existing_deal and actual_profit_config:
                     if not deal['completed_safety_orders_count'] >= int(actual_profit_config.get("activation-so-count")):
@@ -440,12 +464,11 @@ def handle_new_deal(thebot, deal, profit_config):
             )
 
         # Update deal in 3C
-        update_deal(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout)
-
-        # Add deal to our database
-        add_deal_in_db(
-            deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
-        )
+        if update_deal(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout):
+            # Add deal to our database
+            add_deal_in_db(
+                deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
+            )
     else:
         logger.debug(
             f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]} which "
@@ -529,12 +552,11 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                     )
 
                 # Update deal in 3C
-                update_deal(thebot, deal, sl_data[2], new_tp_percentage, new_sl_timeout)
-
-                # Update deal in our database
-                update_deal_in_db(
-                    deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
-                )
+                if update_deal(thebot, deal, sl_data[2], new_tp_percentage, new_sl_timeout):
+                    # Update deal in our database
+                    update_deal_in_db(
+                        deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
+                    )
             else:
                 logger.debug(
                     f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]}% which "
