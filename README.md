@@ -158,12 +158,12 @@ NOTE: Needed for the bot(s) to work, duh they are 3Commas bot helpers.
 ## LunarCrush account Setup
 Support the Project
 -   Create a [LunarCrush account](https://lnr.app/s/o3p1V2) (Includes my referral, again I'll be super grateful if you use it).
--   Create a new API key and enther these key in config.py as well.
+-   Create a API key under https://lunarcrush.com/developers/api/authentication and add it to your altrank.ini or galayscore.ini
 
 This account is needed for the bot(s) to work, to download the GalaxyScore and/or AltRank information.
 
-NOTE2: It seems LunarCrush started to check for APIKey validity again since 11-Jan-2022, you need to create your apikey on legacy.lunarcrush.com under settings, API and put in in your altrank and/o galaxyscore.ini file
-
+NOTE: It seems LunarCrush have phased out their free older API functionality at 1 Nov 2022, and now only allows API v3 access -which the latest scripts support- but API calls are not free anymore.
+We are investigating options.
 
 ## Bot helper setup
 
