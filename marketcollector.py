@@ -70,7 +70,7 @@ def open_mc_db():
     """Create or open database to store data."""
 
     try:
-        dbname = f"{program}.sqlite3"
+        dbname = "marketdata.sqlite3"
         dbpath = f"file:{sharedir}/{dbname}?mode=rw"
         dbconnection = sqlite3.connect(dbpath, uri=True)
         dbconnection.row_factory = sqlite3.Row
@@ -190,6 +190,7 @@ def remove_pair(base, coin):
         f"WHERE base = '{base}' AND coin = '{coin}'"
     )
     # db.commit() left out on purpose
+
 
 def update_pair_last_updated(base, coin):
     """Update the pair's last updated value in database."""
@@ -406,7 +407,7 @@ else:
 db = open_mc_db()
 cursor = db.cursor()
 
-# Refresh coin pairs based on CoinMarketCap data
+# Refresh market data based on several data sources
 while True:
 
     # Reload config files and refetch data to catch changes
