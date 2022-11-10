@@ -336,6 +336,10 @@ def determine_bot_maxactivedeals(botdata, paircount):
     # no number of active deals stored yet
     originalmaxdeals = get_bot_maxdeals(botdata["id"])
 
+    logger.debug(
+        f"{botdata['id']}: original {originalmaxdeals}, paircount {paircount}, max active deals {botdata['max_active_deals']}"
+    )
+
     if paircount < botdata["max_active_deals"]:
         # Lower number of pairs; limit max active deals
         newmaxdeals = paircount
@@ -359,6 +363,11 @@ def determine_bot_maxactivedeals(botdata, paircount):
             # Increased number of pairs above original; set original max active deals
             newmaxdeals = originalmaxdeals
 
+            # Reset stored value so it can be stored again in the future
+            store_bot_maxdeals(botdata["id"], 0)
+        elif (
+            botdata["max_active_deals"] == originalmaxdeals
+        ):
             # Reset stored value so it can be stored again in the future
             store_bot_maxdeals(botdata["id"], 0)
 
