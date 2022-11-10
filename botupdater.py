@@ -19,6 +19,7 @@ from helpers.misc import (
     wait_time_interval,
 )
 from helpers.threecommas import (
+    control_threecommas_bots,
     get_threecommas_account_marketcode,
     get_threecommas_market,
     init_threecommas_api,
@@ -47,6 +48,8 @@ def load_config():
     cfg["bu_default"] = {
         "botids": [12345, 67890],
         "timeinterval": 3600,
+        "allowmaxdealchange": True,
+        "allowbotstopstart": True,
         "base": "BTC",
         "cmc-rank": [1, 200],
         "altrank": [],
@@ -105,6 +108,13 @@ def open_bu_db():
         logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
+            "CREATE TABLE IF NOT EXISTS bots ("
+            "botid INT Primary Key, "
+            "max_deals INT"
+            ")"
+        )
+
+        dbcursor.execute(
             "CREATE TABLE IF NOT EXISTS sections ("
             "sectionid STRING Primary Key, "
             "next_processing_timestamp INT"
@@ -114,6 +124,43 @@ def open_bu_db():
         logger.info("Database tables created successfully")
 
     return dbconnection
+
+
+def store_bot_maxdeals(bot_id, max_deals):
+    """Store the max deals of the given bot in the database"""
+
+    logger.debug(
+        f"Store max deals {max_deals} for bot {bot_id}"
+    )
+
+    db.execute(
+        f"INSERT OR REPLACE INTO bots ("
+        f"botid, "
+        f"max_deals "
+        f") VALUES ("
+        f"{bot_id}, {max_deals}"
+        f")"
+    )
+
+    db.commit()
+
+
+def get_bot_maxdeals(bot_id):
+    """Get the max deals of the given bot from the database"""
+
+    data = cursor.execute(
+        f"SELECT max_deals FROM bots WHERE bot_id = {bot_id}"
+    ).fetchone()
+
+    maxdeals = 0
+    if data:
+        maxdeals = data[0]
+
+    logger.debug(
+        f"Found maxdeals {maxdeals} for bot {bot_id}"
+    )
+
+    return maxdeals
 
 
 def process_bu_section(section_id):
@@ -162,7 +209,7 @@ def process_bu_section(section_id):
             action_id=str(bot),
         )
         if data:
-            update_bot_pairs(base, data, coindata)
+            botsupdated &= update_bot_pairs(section_id, base, data, coindata)
         else:
             botsupdated = False
 
@@ -174,23 +221,21 @@ def process_bu_section(section_id):
     return botsupdated
 
 
-def update_bot_pairs(base, botdata, coindata):
+def update_bot_pairs(section_id, base, botdata, coindata):
     """Find new pairs and update the bot."""
+
+    botupdated = False
 
     # Gather bot settings
     botbase = botdata["pairs"][0].split("_")[0]
-    exchange = botdata["account_name"]
-
     if botbase in ("BTC", "ETH", "BNB"):
         if botbase != base:
             logger.error(
-                f"Bot base currency {botbase} and "
-                f"filter currency {base} do not match. "
+                f"Bot base currency {botbase} and filter currency {base} do not match. "
                 f"Only conversion between fiat or stable coins allowed! "
-                f"Bot '{botdata['name']}' with id '{botdata['id']}' "
-                f"not updated."
+                f"Bot '{botdata['name']}' with id '{botdata['id']}' not updated."
             )
-            return
+            return botupdated
 
     # Start from scratch
     newpairs = list()
@@ -200,9 +245,10 @@ def update_bot_pairs(base, botdata, coindata):
     # Get marketcode (exchange) from account
     marketcode = get_threecommas_account_marketcode(logger, api, botdata["account_id"])
     if not marketcode:
-        return
+        return botupdated
 
     # Load tickerlist for this exchange
+    exchange = botdata["account_name"]
     tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info(
         f"Bot base pair: {botbase}. Exchange: {exchange} ({marketcode})"
@@ -225,37 +271,107 @@ def update_bot_pairs(base, botdata, coindata):
                 "Something went wrong while parsing coin data. KeyError for field: %s"
                 % err
             )
-            return
-
-    logger.debug("These pairs are blacklisted and were skipped: %s" % blackpairs)
+            return botupdated
 
     logger.debug(
-        "These pairs are invalid on '%s' and were skipped: %s" % (marketcode, badpairs)
+        f"Skipped blacklisted pairs: {blackpairs}."
+        f"Skipped pairs not on {marketcode}: {badpairs}."
     )
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
         remove_excluded_pairs(logger, sharedir, botdata['id'], marketcode, base, newpairs)
 
-    if not newpairs:
-        logger.info(
-            "None of the by suggested pairs have been found on the %s (%s) exchange!"
-            % (exchange, marketcode)
-        )
-        return
+    # Lower the number of max deals if not enough new pairs and change allowed and
+    # change back to original if possible
+    paircount = len(newpairs)
+    newmaxdeals = False
+    allowmaxdealchange = config.getboolean(section_id, "allowmaxdealchange")
+    allowbotstopstart = config.getboolean(section_id, "allowbotstopstart")
+
+    if allowmaxdealchange:
+        newmaxdeals = determine_bot_maxactivedeals(botdata, paircount)
+
+    if allowbotstopstart:
+        handle_bot_stopstart(botdata, paircount)
 
     # Update the bot with the new pairs
-    set_threecommas_bot_pairs(logger, api, botdata, newpairs, False, False, False)
+    if newpairs:
+        botupdated = set_threecommas_bot_pairs(logger, api, botdata, newpairs, newmaxdeals, False, False)
 
-    # Send our own notification with more data
-    if newpairs != botdata["pairs"]:
-        excludedcount = abs(coindata[0][0] - len(coindata[1]))
+        if newmaxdeals:
+            logger.info(
+                f"Bot '{botdata['name']}' with id '{botdata['id']}' changed max "
+                f"active deals to {newmaxdeals}.",
+                True
+            )
+
+        # Send our own notification with more data
+        if newpairs != botdata["pairs"]:
+            excludedcount = abs(coindata[0][0] - len(coindata[1]))
+            logger.info(
+                f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {paircount} "
+                f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {excludedcount} (filter), "
+                f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
+                True
+            )
+    else:
+        # There are no pairs available, which is a normal use-case
+        botupdated = True
+
         logger.info(
-            f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {len(newpairs)} "
-            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {excludedcount} (filter), "
-            f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
-            True
+            f"None of the pairs have been found on the {exchange} ({marketcode}) exchange!"
         )
+
+    return botupdated
+
+
+def determine_bot_maxactivedeals(botdata, paircount):
+    """Determine the max active deals for the bot"""
+
+    newmaxdeals = False
+
+    # Get stored value from the database. This could be zero, meaning there is
+    # no number of active deals stored yet
+    originalmaxdeals = get_bot_maxdeals(botdata["id"])
+
+    if paircount < botdata["max_active_deals"]:
+        # Lower number of pairs; limit max active deals
+        newmaxdeals = paircount
+
+        # Store current max deals, so we can restore later
+        # Only if it's not stored yet (current value is zero) because during updates
+        # this number could decrease more
+        if originalmaxdeals == 0:
+            store_bot_maxdeals(botdata["id"], botdata["max_active_deals"])
+    elif (
+        paircount > botdata["max_active_deals"]
+        and paircount < originalmaxdeals
+    ):
+        # Higher number of pairs below original; limit max active deals
+        newmaxdeals = paircount
+    elif (
+        paircount > botdata["max_active_deals"]
+        and botdata["max_active_deals"] != originalmaxdeals
+    ):
+        # Increased number of pairs above original; set original max active deals
+        newmaxdeals = originalmaxdeals
+
+        # Reset stored value so it can be stored again in the future
+        store_bot_maxdeals(botdata["id"], 0)
+
+    return newmaxdeals
+
+
+def handle_bot_stopstart(botdata, paircount):
+    """Determine and handle bot stop and start"""
+
+    if paircount == 0 and botdata["is_enabled"]:
+        # No pairs and bot is running (zero pairs not allowed), so stop it...
+        control_threecommas_bots(logger, api, botdata, "disable")
+    elif paircount > 0 and not botdata["is_enabled"]:
+        # Valid pairs and bot is not running, so start it...
+        control_threecommas_bots(logger, api, botdata, "enable")
 
 
 def get_coins_from_market_data(base, filteroptions):
