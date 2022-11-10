@@ -287,6 +287,8 @@ def get_threecommas_market(logger, api, market_code):
 def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify=True, notify_uptodate=True):
     """Update bot with new pairs."""
 
+    botupdated = False
+
     # Do we already use these pairs?
     if newpairs == thebot["pairs"]:
         logger.info(
@@ -294,7 +296,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
             % (thebot["name"], thebot["id"]),
             notify_uptodate,
         )
-        return
+        return botupdated
 
     if not newmaxdeals:
         maxactivedeals = thebot["max_active_deals"]
@@ -331,6 +333,8 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
         },
     )
     if data:
+        botupdated = True
+
         logger.debug("Bot pair(s) updated: %s" % data)
         if len(newpairs) == 1:
             logger.info(
@@ -379,6 +383,8 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
                 "Error occurred while updating bot '%s'" % thebot["name"],
                 True,
             )
+
+    return botupdated
 
 
 def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
