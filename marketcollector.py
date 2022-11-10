@@ -66,24 +66,24 @@ def upgrade_config(cfg):
     return cfg
 
 
-def open_mc_db():
-    """Create or open database to store data."""
+def open_shared_db():
+    """Open shared database"""
 
     try:
-        dbname = "marketdata.sqlite3"
-        dbpath = f"file:{sharedir}/{dbname}?mode=rw"
-        dbconnection = sqlite3.connect(dbpath, uri=True)
-        dbconnection.row_factory = sqlite3.Row
+        shareddbname = "marketdata.sqlite3"
+        shareddbpath = f"file:{sharedir}/{shareddbname}?mode=rw"
+        shareddbconnection = sqlite3.connect(shareddbpath, uri=True)
+        shareddbconnection.row_factory = sqlite3.Row
 
-        logger.info(f"Database '{sharedir}/{dbname}' opened successfully")
+        logger.info(f"Shared database '{sharedir}/{shareddbname}' opened successfully")
 
     except sqlite3.OperationalError:
-        dbconnection = sqlite3.connect(f"{sharedir}/{dbname}")
-        dbconnection.row_factory = sqlite3.Row
-        dbcursor = dbconnection.cursor()
-        logger.info(f"Database '{sharedir}/{dbname}' created successfully")
+        shareddbconnection = sqlite3.connect(f"{sharedir}/{shareddbname}")
+        shareddbconnection.row_factory = sqlite3.Row
+        shareddbcursor = shareddbconnection.cursor()
+        logger.info(f"Shared database '{sharedir}/{shareddbname}' created successfully")
 
-        dbcursor.execute(
+        shareddbcursor.execute(
             "CREATE TABLE IF NOT EXISTS pairs ("
             "base STRING, "
             "coin STRING, "
@@ -92,7 +92,7 @@ def open_mc_db():
             ")"
         )
 
-        dbcursor.execute(
+        shareddbcursor.execute(
             "CREATE TABLE IF NOT EXISTS rankings ("
             "base STRING, "
             "coin STRING, "
@@ -103,7 +103,7 @@ def open_mc_db():
             ")"
         )
 
-        dbcursor.execute(
+        shareddbcursor.execute(
             "CREATE TABLE IF NOT EXISTS prices ("
             "base STRING, "
             "coin STRING, "
@@ -114,6 +114,28 @@ def open_mc_db():
             "PRIMARY KEY(base, coin)"
             ")"
         )
+
+        logger.info("Shared database tables created successfully")
+
+    return shareddbconnection
+
+
+def open_mc_db():
+    """Create or open database to store data."""
+
+    try:
+        dbname = f"{program}.sqlite3"
+        dbpath = f"file:{datadir}/{dbname}?mode=rw"
+        dbconnection = sqlite3.connect(dbpath, uri=True)
+        dbconnection.row_factory = sqlite3.Row
+
+        logger.info(f"Database '{datadir}/{dbname}' opened successfully")
+
+    except sqlite3.OperationalError:
+        dbconnection = sqlite3.connect(f"{datadir}/{dbname}")
+        dbconnection.row_factory = sqlite3.Row
+        dbcursor = dbconnection.cursor()
+        logger.info(f"Database '{datadir}/{dbname}' created successfully")
 
         dbcursor.execute(
             "CREATE TABLE IF NOT EXISTS sections ("
@@ -130,7 +152,7 @@ def open_mc_db():
 def has_pair(base, coin):
     """Check if pair already exists in database."""
 
-    return cursor.execute(
+    return sharedcursor.execute(
             f"SELECT * FROM pairs WHERE base = '{base}' AND coin = '{coin}'"
         ).fetchone()
 
@@ -142,7 +164,7 @@ def add_pair(base, coin):
         f"Add pair {base}_{coin} to database."
     )
 
-    db.execute(
+    shareddb.execute(
         f"INSERT INTO pairs ("
         f"base, "
         f"coin, "
@@ -151,7 +173,7 @@ def add_pair(base, coin):
         f"'{base}', '{coin}', {int(time.time())}"
         f")"
     )
-    db.execute(
+    shareddb.execute(
         f"INSERT INTO rankings ("
         f"base, "
         f"coin "
@@ -159,7 +181,7 @@ def add_pair(base, coin):
         f"'{base}', '{coin}'"
         f")"
     )
-    db.execute(
+    shareddb.execute(
         f"INSERT INTO prices ("
         f"base, "
         f"coin "
@@ -167,7 +189,7 @@ def add_pair(base, coin):
         f"'{base}', '{coin}'"
         f")"
     )
-    # db.commit() left out on purpose
+    # shareddb.commit() left out on purpose
 
 
 def remove_pair(base, coin):
@@ -177,29 +199,29 @@ def remove_pair(base, coin):
         f"Remove pair {base}_{coin} from database."
     )
 
-    db.execute(
+    shareddb.execute(
         f"DELETE FROM pairs "
         f"WHERE base = '{base}' AND coin = '{coin}'"
     )
-    db.execute(
+    shareddb.execute(
         f"DELETE FROM rankings "
         f"WHERE base = '{base}' AND coin = '{coin}'"
     )
-    db.execute(
+    shareddb.execute(
         f"DELETE FROM prices "
         f"WHERE base = '{base}' AND coin = '{coin}'"
     )
-    # db.commit() left out on purpose
+    # shareddb.commit() left out on purpose
 
 
 def update_pair_last_updated(base, coin):
     """Update the pair's last updated value in database."""
 
-    db.execute(
+    shareddb.execute(
         f"UPDATE pairs SET last_updated = {int(time.time())} "
         f"WHERE base = '{base}' AND coin = '{coin}'"
     )
-    # db.commit() left out on purpose
+    # shareddb.commit() left out on purpose
 
 
 def update_values(table, base, coin, data):
@@ -221,10 +243,8 @@ def update_values(table, base, coin, data):
         f"Execute query '{query}' for pair {base}_{coin}."
     )
 
-    db.execute(
-        query
-    )
-    # db.commit() left out on purpose
+    shareddb.execute(query)
+    # shareddb.commit() left out on purpose
 
 
 def process_cmc_section(section_id):
@@ -293,7 +313,7 @@ def process_cmc_section(section_id):
             update_pair_last_updated(base, coin)
 
             # Commit everyting for this coin to the database
-            db.commit()
+            shareddb.commit()
         except KeyError as err:
             logger.error(
                 "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
@@ -320,7 +340,7 @@ def cleanup_database():
         f"{unix_timestamp_to_string(cleanuptime, '%Y-%m-%d %H:%M:%S')}."
     )
 
-    pairdata = cursor.execute(
+    pairdata = sharedcursor.execute(
             f"SELECT base, coin FROM pairs WHERE last_updated < {cleanuptime}"
         ).fetchall()
 
@@ -331,7 +351,7 @@ def cleanup_database():
             remove_pair(entry[0], entry[1])
 
         # Commit everyting to the database
-        db.commit()
+        shareddb.commit()
     else:
         logger.debug(
             "No pair data to cleanup."
@@ -406,6 +426,10 @@ else:
 # Initialize or open the database
 db = open_mc_db()
 cursor = db.cursor()
+
+# Initialize or open the shared database
+shareddb = open_shared_db()
+sharedcursor = shareddb.cursor()
 
 # Refresh market data based on several data sources
 while True:
