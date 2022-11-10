@@ -130,7 +130,7 @@ def store_bot_maxdeals(bot_id, max_deals):
     """Store the max deals of the given bot in the database"""
 
     logger.debug(
-        f"Store max deals {max_deals} for bot {bot_id}"
+        f"Store max active deals {max_deals} for bot {bot_id}"
     )
 
     db.execute(
@@ -149,7 +149,7 @@ def get_bot_maxdeals(bot_id):
     """Get the max deals of the given bot from the database"""
 
     data = cursor.execute(
-        f"SELECT max_deals FROM bots WHERE bot_id = {bot_id}"
+        f"SELECT max_deals FROM bots WHERE botid = {bot_id}"
     ).fetchone()
 
     maxdeals = 0
@@ -157,7 +157,7 @@ def get_bot_maxdeals(bot_id):
         maxdeals = data[0]
 
     logger.debug(
-        f"Found maxdeals {maxdeals} for bot {bot_id}"
+        f"Database has {maxdeals} max active deals stored for bot {bot_id}"
     )
 
     return maxdeals
@@ -165,6 +165,8 @@ def get_bot_maxdeals(bot_id):
 
 def process_bu_section(section_id):
     """Process the section from the configuration"""
+
+    botsupdated = False
 
     # Bot configuration for section
     botids = json.loads(config.get(section_id, "botids"))
@@ -176,7 +178,7 @@ def process_bu_section(section_id):
             f"Percent change ('{base}') must be one of the following: "
             f"{baselist}"
         )
-        return False
+        return botsupdated
 
     filteroptions = {}
     filteroptions["cmcrank"] = json.loads(config.get(section_id, "cmc-rank"))
@@ -201,7 +203,6 @@ def process_bu_section(section_id):
     )
 
     # Walk through all bots configured
-    botsupdated = True
     for bot in botids:
         error, data = api.request(
             entity="bots",
@@ -209,7 +210,7 @@ def process_bu_section(section_id):
             action_id=str(bot),
         )
         if data:
-            botsupdated &= update_bot_pairs(section_id, base, data, coindata)
+            botsupdated |= update_bot_pairs(section_id, base, data, coindata)
         else:
             botsupdated = False
 
@@ -274,7 +275,7 @@ def update_bot_pairs(section_id, base, botdata, coindata):
             return botupdated
 
     logger.debug(
-        f"Skipped blacklisted pairs: {blackpairs}."
+        f"Skipped blacklisted pairs: {blackpairs}. "
         f"Skipped pairs not on {marketcode}: {badpairs}."
     )
 
@@ -344,21 +345,22 @@ def determine_bot_maxactivedeals(botdata, paircount):
         # this number could decrease more
         if originalmaxdeals == 0:
             store_bot_maxdeals(botdata["id"], botdata["max_active_deals"])
-    elif (
-        paircount > botdata["max_active_deals"]
-        and paircount < originalmaxdeals
-    ):
-        # Higher number of pairs below original; limit max active deals
-        newmaxdeals = paircount
-    elif (
-        paircount > botdata["max_active_deals"]
-        and botdata["max_active_deals"] != originalmaxdeals
-    ):
-        # Increased number of pairs above original; set original max active deals
-        newmaxdeals = originalmaxdeals
+    elif originalmaxdeals > 0:
+        if (
+            paircount > botdata["max_active_deals"]
+            and paircount < originalmaxdeals
+        ):
+            # Higher number of pairs below original; limit max active deals
+            newmaxdeals = paircount
+        elif (
+            paircount > botdata["max_active_deals"]
+            and botdata["max_active_deals"] != originalmaxdeals
+        ):
+            # Increased number of pairs above original; set original max active deals
+            newmaxdeals = originalmaxdeals
 
-        # Reset stored value so it can be stored again in the future
-        store_bot_maxdeals(botdata["id"], 0)
+            # Reset stored value so it can be stored again in the future
+            store_bot_maxdeals(botdata["id"], 0)
 
     return newmaxdeals
 
@@ -416,7 +418,7 @@ def get_coins_from_market_data(base, filteroptions):
         if filteroptions["change"]["volatility_24h"]:
             query += f"AND prices.volatility_24h BETWEEN {filteroptions['change']['volatility_24h'][0]} AND {filteroptions['change']['volatility_24h'][-1]} "
 
-    logger.info(
+    logger.debug(
         f"Build query for fetch of coins: {query}"
     )
 
@@ -536,6 +538,10 @@ while True:
                 if not process_bu_section(section):
                     # Update failed somewhere, retry soon
                     sectiontimeinterval = 60
+
+                    logger.error(
+                        f"Update for section {section} failed. Retry possible after 60 seconds."
+                    )
 
                 # Determine new time to process this section
                 newtime = starttime + sectiontimeinterval
