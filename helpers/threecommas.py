@@ -296,6 +296,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
             % (thebot["name"], thebot["id"]),
             notify_uptodate,
         )
+        botupdated = True
         return botupdated
 
     if not newmaxdeals:
