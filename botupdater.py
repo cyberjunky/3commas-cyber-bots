@@ -51,9 +51,10 @@ def load_config():
         "cmc-rank": [1, 200],
         "altrank": [],
         "galaxyscore": [],
-        "max-percent-change-1h": 0.0,
-        "max-percent-change-24h": 0.0,
-        "max-percent-change-7d": 0.0,
+        "percent-change-1h": [],
+        "percent-change-24h": [],
+        "percent-change-7d": [],
+        "volatility-24h": [],
         "description": "some description"
     }
 
@@ -78,10 +79,10 @@ def open_shared_db():
         shareddbconnection = sqlite3.connect(shareddbpath, uri=True)
         shareddbconnection.row_factory = sqlite3.Row
 
-        logger.info(f"Database '{sharedir}/{shareddbname}' opened successfully")
+        logger.info(f"Shared database '{sharedir}/{shareddbname}' opened successfully")
 
     except sqlite3.OperationalError:
-        logger.info(f"Database '{sharedir}/{shareddbname}' couldn't be opened")
+        logger.info(f"Shared database '{sharedir}/{shareddbname}' couldn't be opened")
 
     return shareddbconnection
 
@@ -121,7 +122,7 @@ def process_bu_section(section_id):
     # Bot configuration for section
     botids = json.loads(config.get(section_id, "botids"))
 
-    base = config.get(section_id, "percent-change-compared-to")
+    base = config.get(section_id, "base")
     baselist = ("BNB", "BTC", "ETH", "EUR", "USD")
     if base not in baselist:
         logger.error(
@@ -136,13 +137,21 @@ def process_bu_section(section_id):
     filteroptions["galaxyscore"] = json.loads(config.get(section_id, "galaxyscore"))
 
     pricefilter = {}
-    pricefilter["change_1h"] = float(config.get(section_id, "max-percent-change-1h"))
-    pricefilter["change_24h"] = float(config.get(section_id, "max-percent-change-24h"))
-    pricefilter["change_7d"] = float(config.get(section_id, "max-percent-change-7d"))
+    pricefilter["change_1h"] = json.loads(config.get(section_id, "percent-change-1h"))
+    pricefilter["change_24h"] = json.loads(config.get(section_id, "percent-change-24h"))
+    pricefilter["change_7d"] = json.loads(config.get(section_id, "percent-change-7d"))
+    pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
 
     filteroptions["change"] = pricefilter
 
+    # Coindata contains:
+    # 0: total number of coins available
+    # 1: list of coins after filtering
     coindata = get_coins_from_market_data(base, filteroptions)
+
+    logger.debug(
+        f"Fetched {len(coindata[1])} coins from the marketdata database."
+    )
 
     # Walk through all bots configured
     botsupdated = True
@@ -153,7 +162,7 @@ def process_bu_section(section_id):
             action_id=str(bot),
         )
         if data:
-            update_bot_pairs(data, coindata)
+            update_bot_pairs(base, data, coindata)
         else:
             botsupdated = False
 
@@ -165,14 +174,23 @@ def process_bu_section(section_id):
     return botsupdated
 
 
-def update_bot_pairs(botdata, coinlist):
+def update_bot_pairs(base, botdata, coindata):
     """Find new pairs and update the bot."""
 
     # Gather bot settings
-    base = botdata["pairs"][0].split("_")[0]
+    botbase = botdata["pairs"][0].split("_")[0]
     exchange = botdata["account_name"]
 
-    logger.info("Bot base currency: %s" % base)
+    if botbase in ("BTC", "ETH", "BNB"):
+        if botbase != base:
+            logger.error(
+                f"Bot base currency {botbase} and "
+                f"filter currency {base} do not match. "
+                f"Only conversion between fiat or stable coins allowed! "
+                f"Bot '{botdata['name']}' with id '{botdata['id']}' "
+                f"not updated."
+            )
+            return
 
     # Start from scratch
     newpairs = list()
@@ -186,14 +204,16 @@ def update_bot_pairs(botdata, coinlist):
 
     # Load tickerlist for this exchange
     tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info("Bot exchange: %s (%s)" % (exchange, marketcode))
+    logger.info(
+        f"Bot base pair: {botbase}. Exchange: {exchange} ({marketcode})"
+    )
 
     # Process list of coins
-    for coin in coinlist:
+    for coin in coindata[1]:
         try:
             # Construct pair based on bot settings and marketcode
             # (BTC stays BTC, but USDT can become BUSD)
-            pair = format_pair(marketcode, base, coin)
+            pair = format_pair(marketcode, botbase, coin[0])
 
             # Populate lists
             populate_pair_lists(
@@ -229,9 +249,10 @@ def update_bot_pairs(botdata, coinlist):
 
     # Send our own notification with more data
     if newpairs != botdata["pairs"]:
+        excludedcount = abs(coindata[0][0] - len(coindata[1]))
         logger.info(
             f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {len(newpairs)} "
-            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {0} (filter), "
+            f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {excludedcount} (filter), "
             f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
             True
         )
@@ -242,10 +263,13 @@ def get_coins_from_market_data(base, filteroptions):
 
     #SELECT pairs.coin, rankings.coinmarketcap, prices.change_1h from pairs INNER JOIN rankings ON pairs.coin = rankings.coin INNER JOIN prices ON pairs.coin = prices.coin WHERE pairs.base = 'BTC' AND rankings.coinmarketcap BETWEEN 1 AND 6
 
+    # Query for the total count of coins
+    countquery = f"SELECT COUNT(pairs.coin) FROM pairs WHERE base = '{base}'"
+
     # Base query and joining of all tables
     query = "SELECT pairs.coin FROM pairs "
-    query += "INNER JOIN rankings ON pairs.coin = rankings.coin "
-    query += "INNER JOIN prices ON pairs.coin = prices.coin "
+    query += "INNER JOIN rankings ON pairs.base = rankings.base AND pairs.coin = rankings.coin "
+    query += "INNER JOIN prices ON pairs.base = prices.base AND pairs.coin = prices.coin "
 
     # Specify the base
     query += f"WHERE pairs.base = '{base}' "
@@ -264,20 +288,23 @@ def get_coins_from_market_data(base, filteroptions):
 
     # Specify percent change
     if filteroptions["change"]:
-        if filteroptions["change"]["change_1h"] != 0.0:
-            query += f"AND price.change_1h <= {filteroptions['change']['change_1h']} "
+        if filteroptions["change"]["change_1h"]:
+            query += f"AND prices.change_1h BETWEEN {filteroptions['change']['change_1h'][0]} AND {filteroptions['change']['change_1h'][-1]} "
 
-        if filteroptions["change"]["change_24h"] != 0.0:
-            query += f"AND price.change_24h <= {filteroptions['change']['change_24h']} "
+        if filteroptions["change"]["change_24h"]:
+            query += f"AND prices.change_24h BETWEEN {filteroptions['change']['change_24h'][0]} AND {filteroptions['change']['change_24h'][-1]} "
 
-        if filteroptions["change"]["change_7d"] != 0.0:
-            query += f"AND price.change_7d <= {filteroptions['change']['change_7d']} "
+        if filteroptions["change"]["change_7d"]:
+            query += f"AND prices.change_7d BETWEEN {filteroptions['change']['change_7d'][0]} AND {filteroptions['change']['change_7d'][-1]} "
+
+        if filteroptions["change"]["volatility_24h"]:
+            query += f"AND prices.volatility_24h BETWEEN {filteroptions['change']['volatility_24h'][0]} AND {filteroptions['change']['volatility_24h'][-1]} "
 
     logger.info(
         f"Build query for fetch of coins: {query}"
     )
 
-    return cursor.execute(query).fetchall()
+    return sharedcursor.execute(countquery).fetchone(), sharedcursor.execute(query).fetchall()
 
 
 # Start application
