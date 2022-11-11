@@ -322,7 +322,8 @@ def process_cmc_section(section_id):
             return False
 
     logger.info(
-        f"{base}: updated {len(data[2])} coins.",
+        f"CoinMarketCap; updated {len(data[2])} coins ({startnumber}-{endnumber}) "
+        f"for base '{base}'.",
         True
     )
 
