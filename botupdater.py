@@ -321,7 +321,8 @@ def update_bot_pairs(section_id, base, botdata, coindata):
         botupdated = True
 
         logger.info(
-            f"None of the pairs have been found on the {exchange} ({marketcode}) exchange!"
+            f"None of the pairs have been found on the {exchange} ({marketcode}) exchange!",
+            True
         )
 
     return botupdated
