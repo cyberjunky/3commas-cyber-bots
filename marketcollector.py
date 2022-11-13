@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+import json
 from math import fabs
 import os
 import sqlite3
@@ -11,6 +12,7 @@ from pathlib import Path
 from helpers.database import get_next_process_time, set_next_process_time
 
 from helpers.datasources import (
+    get_botassist_data,
     get_coinmarketcap_data
 )
 from helpers.logging import Logger, NotificationHandler
@@ -48,6 +50,14 @@ def load_config():
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "USD",
+    }
+    cfg["volatility_default"] = {
+        "timeinterval": 3600,
+        "lists": ["binance_spot_busd_highest_volatility_day",
+                  "binance_spot_usdt_highest_volatility_day",
+                  "coinbase_spot_usd_highest_volatility_day"
+        ],
+        "import-volume": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -87,6 +97,7 @@ def open_shared_db():
             "CREATE TABLE IF NOT EXISTS pairs ("
             "base STRING, "
             "coin STRING, "
+            "volume_24h_btc DEFAULT 0.0"
             "last_updated INT, "
             "PRIMARY KEY(base, coin)"
             ")"
@@ -255,7 +266,7 @@ def process_cmc_section(section_id):
     endnumber = 1 + (int(config.get(section_id, "end-number")) - startnumber)
     base = config.get(section_id, "percent-change-compared-to")
 
-    baselist = ("BNB", "BTC", "ETH", "EUR", "USD")
+    baselist = ("BNB", "BTC", "ETH", "USD")
     if base not in baselist:
         logger.error(
             f"Percent change ('{base}') must be one of the following: "
@@ -329,6 +340,92 @@ def process_cmc_section(section_id):
 
     # No exceptions or other cases happened, everything went Ok
     return True
+
+
+def process_volatility_section(section_id):
+    """Process the volatility section from the configuration"""
+
+    logger.info({config.get(section_id, "lists")})
+
+    lists = json.loads(config.get(section_id, "lists"))
+    importvolume = config.getboolean(section_id, "import-volume")
+
+    combinedlist = {}
+    for listentry in lists:
+        # Get the botassist data. Set start and end number to zero to
+        # indicate we want to process all available data
+        data = get_botassist_data(logger, listentry, 0, 0)
+        for pairdata in data:
+            # TODO:
+            # - Remove BUSD/USDT/USD from pair to have the coin remaining
+            if pairdata["pair"] in combinedlist:
+                # Pair already in list. Append new data to the value
+                value = combinedlist[pairdata["pair"]]
+                value[len(value) + 1] = pairdata
+            else:
+                # Pair not in list. Add new value with the new data
+                value = {}
+                value[0] = pairdata
+                combinedlist[pairdata["pair"]] = value
+
+    aggregatedlist = aggregate_volatility_list(combinedlist)
+
+    for pairdata in aggregatedlist:
+        volume = pairdata["24h volume"]
+        volatility = pairdata["volatility"]
+
+        if not has_pair("USD", pairdata["pair"]):
+            # Pair does not yet exist
+            add_pair("USD", pairdata["pair"])
+
+        # Update pairs data
+        if importvolume:
+            volumedata = {}
+            volumedata["volume_24h_btc"] = volume
+            update_values("pairs", "USD", pairdata["pair"], volumedata)
+
+        # Update pricings data
+        pricesdata = {}
+        pricesdata["volatility_24h"] = volatility
+        update_values("prices", "USD", pairdata["pair"], pricesdata)
+
+    # Commit all changes to the database
+    shareddb.commit()
+
+
+def aggregate_volatility_list(datalist):
+    """Aggregrate the volatility data to a single element for each pair"""
+
+    logger.debug(
+        f"Combine list: {datalist}"
+    )
+
+    flatlist = {}
+    for pair, container in enumerate(datalist):
+        if len(container) == 1:
+            flatlist[pair] = container[0]
+        else:
+            data = container[0]
+
+            # Loop over the different values in the container
+            for count, containervalue in enumerate(container, start = 1):
+                # Loop over all the fields/values inside the container and add them to the first one
+                for key, value in enumerate(containervalue, start = 0):
+                    if isinstance(value, (float, int)):
+                        data[key] += value
+
+            # Loop again over the summerized data and divide by the number of sources to get the average number
+            for key, value in data.items():
+                if isinstance(value, (float, int)):
+                    data[key] /= len(container)
+
+            flatlist[key] = data
+
+    logger.debug(
+        f"Combined list: {flatlist}"
+    )
+
+    return flatlist
 
 
 def cleanup_database():
@@ -449,7 +546,10 @@ while True:
     cleanup_database()
 
     for section in config.sections():
-        if section.startswith("cmc_"):
+        iscmcsection = section.startswith("cmc_")
+        isvolatilitysection = section.startswith("volatility_")
+
+        if iscmcsection or isvolatilitysection:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
@@ -458,7 +558,10 @@ while True:
             if starttime >= nextprocesstime or (
                     abs(nextprocesstime - starttime) > sectiontimeinterval
             ):
-                process_cmc_section(section)
+                if iscmcsection:
+                    process_cmc_section(section)
+                elif isvolatilitysection:
+                    process_volatility_section(section)
 
                 # Determine new time to process this section
                 newtime = starttime + sectiontimeinterval
