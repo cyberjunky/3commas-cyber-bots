@@ -142,7 +142,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 rowcolums = row.find_all("td")
                 if len(rowcolums) > 0:
                     rank = int(rowcolums[0].text)
-                    if rank < start_number:
+                    if start_number and rank < start_number:
                         continue
 
                     pairdata = {}
@@ -159,7 +159,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                     logger.debug(f"Rank {rank}: {pairdata}")
                     pairs.append(pairdata)
 
-                    if rank == limit:
+                    if limit and rank == limit:
                         break
         else:
             logger.warning(
