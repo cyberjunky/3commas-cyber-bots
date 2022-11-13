@@ -60,6 +60,8 @@ def load_config():
         "volatility-24h": [],
         "description": "some description"
     }
+    # TODO:
+    # - add volume filter
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
