@@ -51,7 +51,7 @@ def load_config():
         "timeinterval": 3600,
         "percent-change-compared-to": "USD",
     }
-    cfg["volatility_default"] = {
+    cfg["volatility_usd"] = {
         "timeinterval": 3600,
         "lists": ["binance_spot_busd_highest_volatility_day",
                   "binance_spot_usdt_highest_volatility_day",
@@ -97,7 +97,7 @@ def open_shared_db():
             "CREATE TABLE IF NOT EXISTS pairs ("
             "base STRING, "
             "coin STRING, "
-            "volume_24h_btc DEFAULT 0.0"
+            "volume_24h_btc DEFAULT 0.0, "
             "last_updated INT, "
             "PRIMARY KEY(base, coin)"
             ")"
@@ -345,8 +345,6 @@ def process_cmc_section(section_id):
 def process_volatility_section(section_id):
     """Process the volatility section from the configuration"""
 
-    logger.info({config.get(section_id, "lists")})
-
     lists = json.loads(config.get(section_id, "lists"))
     importvolume = config.getboolean(section_id, "import-volume")
 
@@ -355,77 +353,120 @@ def process_volatility_section(section_id):
         # Get the botassist data. Set start and end number to zero to
         # indicate we want to process all available data
         data = get_botassist_data(logger, listentry, 0, 0)
-        for pairdata in data:
-            # TODO:
-            # - Remove BUSD/USDT/USD from pair to have the coin remaining
-            if pairdata["pair"] in combinedlist:
-                # Pair already in list. Append new data to the value
-                value = combinedlist[pairdata["pair"]]
-                value[len(value) + 1] = pairdata
+        for coindata in data:
+            if coindata["symbol"] in combinedlist:
+                # Coin already in list. Append new data to the value
+                value = combinedlist[coindata["symbol"]]
+                value[len(value)] = coindata
             else:
-                # Pair not in list. Add new value with the new data
+                # Coin not in list. Add new value with the new data
                 value = {}
-                value[0] = pairdata
-                combinedlist[pairdata["pair"]] = value
+                value[0] = coindata
+                combinedlist[coindata["symbol"]] = value
 
     aggregatedlist = aggregate_volatility_list(combinedlist)
 
-    for pairdata in aggregatedlist:
-        volume = pairdata["24h volume"]
-        volatility = pairdata["volatility"]
+    for coin, data in aggregatedlist.items():
+        volatility = data["volatility"]
+        volume = data["24h volume"]
 
-        if not has_pair("USD", pairdata["pair"]):
+        if not has_pair("USD", coin):
             # Pair does not yet exist
-            add_pair("USD", pairdata["pair"])
+            add_pair("USD", coin)
 
         # Update pairs data
         if importvolume:
             volumedata = {}
             volumedata["volume_24h_btc"] = volume
-            update_values("pairs", "USD", pairdata["pair"], volumedata)
+            update_values("pairs", "USD", coin, volumedata)
 
         # Update pricings data
         pricesdata = {}
         pricesdata["volatility_24h"] = volatility
-        update_values("prices", "USD", pairdata["pair"], pricesdata)
+        update_values("prices", "USD", coin, pricesdata)
 
     # Commit all changes to the database
     shareddb.commit()
+
+    # Cleanup old data
+    if section_id in sectionstorage:
+        cleanup_volatility_data(aggregatedlist, sectionstorage[section_id])
+
+    # Store list for next processing interval
+    sectionstorage[section_id] = aggregatedlist
+
+    logger.info(
+        f"BotAssist Explorer: updated {len(aggregatedlist)} coins from '{lists}'.",
+        True
+    )
 
 
 def aggregate_volatility_list(datalist):
     """Aggregrate the volatility data to a single element for each pair"""
 
-    logger.debug(
-        f"Combine list: {datalist}"
-    )
-
     flatlist = {}
-    for pair, container in enumerate(datalist):
+    for coin, container in datalist.items():
         if len(container) == 1:
-            flatlist[pair] = container[0]
+            flatlist[coin] = container[0]
+
+            # Remove no longer required (and confusing) keys from the data
+            del flatlist[coin]["pair"]
+            del flatlist[coin]["symbol"]
         else:
-            data = container[0]
+            data = {}
 
             # Loop over the different values in the container
-            for count, containervalue in enumerate(container, start = 1):
+            for containervalue in container.values():
                 # Loop over all the fields/values inside the container and add them to the first one
-                for key, value in enumerate(containervalue, start = 0):
+                for key, value in containervalue.items():
                     if isinstance(value, (float, int)):
-                        data[key] += value
+                        if key in data:
+                            data[key] += value
+                        else:
+                            data[key] = value
 
-            # Loop again over the summerized data and divide by the number of sources to get the average number
+            # Loop over the summerized data and divide to get the average number
             for key, value in data.items():
                 if isinstance(value, (float, int)):
                     data[key] /= len(container)
 
-            flatlist[key] = data
-
-    logger.debug(
-        f"Combined list: {flatlist}"
-    )
+            flatlist[coin] = data
 
     return flatlist
+
+
+def cleanup_volatility_data(current_data, previous_data):
+    """Remove old or no longer current volatility data"""
+
+    logger.debug(
+        "Removing coins for which the volatility and/or volume data is outdated..."
+    )
+
+    coincount = 0
+    for coin in previous_data.keys():
+        if coin in current_data:
+            # Coin is updated and actual
+            continue
+
+        if not has_pair("USD", coin):
+            # Coin does not exist anymore
+            continue
+
+        # Coin not updated and does still exist. Reset old data
+        volumedata = {}
+        volumedata["volume_24h_btc"] = 0.0
+        update_values("pairs", "USD", coin, volumedata)
+
+        # Update pricings data
+        pricesdata = {}
+        pricesdata["volatility_24h"] = 0.0
+        update_values("prices", "USD", coin, pricesdata)
+
+        coincount += 1
+
+    logger.debug(
+        f"Removed {coincount} coins for which the volatility and/or volume data was outdated."
+    )
 
 
 def cleanup_database():
@@ -454,6 +495,24 @@ def cleanup_database():
         logger.debug(
             "No pair data to cleanup."
         )
+
+
+def reset_database_data():
+    """Reset specific data in the database at startup"""
+
+    logger.info(
+        "Initialize volatility data..."
+    )
+
+    shareddb.execute(
+        f"UPDATE pairs SET volume_24h_btc = {0.0}"
+    )
+
+    shareddb.execute(
+        f"UPDATE prices SET volatility_24h = {0.0}"
+    )
+
+    shareddb.commit()
 
 
 # Start application
@@ -528,6 +587,12 @@ cursor = db.cursor()
 # Initialize or open the shared database
 shareddb = open_shared_db()
 sharedcursor = shareddb.cursor()
+
+# Storage of data for each section (if applicable)
+sectionstorage = {}
+
+# Reset some specific data (we don't know how old it is)
+reset_database_data()
 
 # Refresh market data based on several data sources
 while True:
