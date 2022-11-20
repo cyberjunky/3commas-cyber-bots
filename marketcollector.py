@@ -2,7 +2,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
-import json
 from math import fabs
 import os
 import sqlite3
@@ -345,7 +344,12 @@ def process_cmc_section(section_id):
 def process_volatility_section(section_id):
     """Process the volatility section from the configuration"""
 
-    lists = json.loads(config.get(section_id, "lists"))
+    # Ugly way to read the lists from the configuration
+    # Because JSON is not properly saved by the ConfigParser, we need to parse
+    # the data and construct the list
+    lists = [word.replace("'", "").replace("[", "").replace("]","").strip()
+        for word in config.get(section_id, "lists").split(",")]
+
     importvolume = config.getboolean(section_id, "import-volume")
 
     combinedlist = {}
@@ -399,6 +403,9 @@ def process_volatility_section(section_id):
         f"BotAssist Explorer: updated {len(aggregatedlist)} coins from '{lists}'.",
         True
     )
+
+    # No exceptions or other cases happened, everything went Ok
+    return True
 
 
 def aggregate_volatility_list(datalist):
@@ -623,13 +630,18 @@ while True:
             if starttime >= nextprocesstime or (
                     abs(nextprocesstime - starttime) > sectiontimeinterval
             ):
+                sectionresult = False
                 if iscmcsection:
-                    process_cmc_section(section)
+                    sectionresult = process_cmc_section(section)
                 elif isvolatilitysection:
-                    process_volatility_section(section)
+                    sectionresult = process_volatility_section(section)
 
-                # Determine new time to process this section
+                # Determine new time to process this section. If processing failed
+                # it will be retried in 24 hours
                 newtime = starttime + sectiontimeinterval
+                if not sectionresult:
+                    newtime = starttime + (24 * 60 * 60)
+
                 set_next_process_time(db, "sections", "sectionid", section, newtime)
             else:
                 logger.debug(
