@@ -1,5 +1,5 @@
+#!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
-
 import json
 
 import cloudscraper
@@ -132,7 +132,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
             tablecolumns = data.find_all("th")
 
             for column in tablecolumns:
-                if column.text not in ("#", "symbol"):
+                if column.text not in ("#"):
                     columndict[columncount] = column.text
 
                 columncount += 1
@@ -153,8 +153,16 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                             pairdata[value] = float(
                                     rowcolums[key].text.replace(" BTC", "").replace(",", "")
                                 )
+                        elif value == "volatility":
+                            pairdata[value] = float(
+                                    rowcolums[key].text.replace("%", "")
+                                )
                         else:
-                            pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
+                            pairdata[value] = rowcolums[key].text.replace("\n", "")
+
+                    # For some the symbol is unknown, so extract it from the pair
+                    if pairdata["symbol"].replace(" ", "") == "-":
+                        pairdata["symbol"] = pairdata["pair"].split("_")[1]
 
                     logger.debug(f"Rank {rank}: {pairdata}")
                     pairs.append(pairdata)
