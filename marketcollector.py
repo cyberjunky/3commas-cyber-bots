@@ -401,7 +401,7 @@ def process_volatility_section(section_id):
 
     logger.info(
         f"BotAssistExplorer: updated for {len(aggregatedlist)} coins the "
-        f"volatility and/or volume data based on {lists[1:-1]}.",
+        f"volatility and/or volume data based on {lists}.",
         True
     )
 
@@ -601,6 +601,7 @@ sectionstorage = {}
 
 # Reset some specific data (we don't know how old it is)
 reset_database_data()
+forceupdate = True
 
 # Refresh market data based on several data sources
 while True:
@@ -626,9 +627,9 @@ while True:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
-            # Only process the section if it's time for the next interval, or
-            # time exceeds the check interval (clock has changed somehow)
-            if starttime >= nextprocesstime or (
+            # Only process the section if it's forced, or it's time for the next interval,
+            # or time exceeds the check interval (clock has changed somehow)
+            if forceupdate or starttime >= nextprocesstime or (
                     abs(nextprocesstime - starttime) > sectiontimeinterval
             ):
                 sectionresult = False
@@ -637,7 +638,7 @@ while True:
                 elif isvolatilitysection:
                     sectionresult = process_volatility_section(section)
 
-                # Determine new time to process this section. If processing failed
+                # Determine new time to process this section. When processing failed
                 # it will be retried in 24 hours
                 newtime = starttime + sectiontimeinterval
                 if not sectionresult:
@@ -654,6 +655,9 @@ while True:
                 f"Section '{section}' not processed (prefix 'cmc_' missing)!",
                 False
             )
+
+    # Inital update executed, from here on rely on the section timeinterval
+    forceupdate = False
 
     if not wait_time_interval(logger, notification, timeint, False):
         break
