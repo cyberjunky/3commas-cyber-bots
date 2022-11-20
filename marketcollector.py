@@ -400,7 +400,8 @@ def process_volatility_section(section_id):
     sectionstorage[section_id] = aggregatedlist
 
     logger.info(
-        f"BotAssist Explorer: updated {len(aggregatedlist)} coins from '{lists}'.",
+        f"BotAssistExplorer: updated for {len(aggregatedlist)} coins the "
+        f"volatility and/or volume data based on {lists[1:-1]}.",
         True
     )
 
