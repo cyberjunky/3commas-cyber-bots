@@ -285,7 +285,7 @@ def update_bot_pairs(section_id, base, botdata, coindata):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if sharedir is not None:
-        remove_excluded_pairs(logger, sharedir, botdata['id'], marketcode, base, newpairs)
+        remove_excluded_pairs(logger, sharedir, botdata['id'], marketcode, botbase, newpairs)
 
     # Lower the number of max deals if not enough new pairs and change allowed and
     # change back to original if possible
