@@ -403,7 +403,7 @@ def process_volatility_section(section_id):
     sectionstorage[section_id] = aggregatedlist
 
     logger.info(
-        f"BotAssistExplorer: updated for {len(aggregatedlist)} coins the "
+        f"BotAssistExplorer; updated for {len(aggregatedlist)} coins the "
         f"volatility and/or volume data based on {lists}.",
         True
     )
@@ -457,11 +457,21 @@ def cleanup_volatility_data(current_data, previous_data):
     for coin in previous_data.keys():
         if coin in current_data:
             # Coin is updated and actual
+            logger.debug(
+                f"Coin {coin} from previous interval also in current interval."
+            )
             continue
 
         if not has_pair("USD", coin):
             # Coin does not exist anymore
+            logger.debug(
+                f"Coin {coin} from previous interval not in db anymore."
+            )
             continue
+
+        logger.debug(
+            f"Coin {coin} from previous interval not in current interval. Reset data!"
+        )
 
         # Coin not updated and does still exist. Reset old data
         volumedata = {}

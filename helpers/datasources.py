@@ -182,7 +182,9 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
 
         return pairs
 
-    logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
+    logger.info(
+        f"Fetched 3c-tools {botassistlist} data OK ({len(pairs)} pairs)"
+    )
 
     return pairs
 
