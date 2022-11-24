@@ -262,7 +262,8 @@ def process_cmc_section(section_id):
 
     # Download CoinMarketCap data
     startnumber = int(config.get(section_id, "start-number"))
-    endnumber = 1 + (int(config.get(section_id, "end-number")) - startnumber)
+    endnumber = int(config.get(section_id, "end-number"))
+    limit = 1 + (endnumber - startnumber)
     base = config.get(section_id, "percent-change-compared-to")
 
     baselist = ("BNB", "BTC", "ETH", "USD")
@@ -274,7 +275,7 @@ def process_cmc_section(section_id):
         return False
 
     data = get_coinmarketcap_data(
-        logger, config.get("settings", "cmc-apikey"), startnumber, endnumber, base
+        logger, config.get("settings", "cmc-apikey"), startnumber, limit, base
     )
 
     # Check if CMC replied with an error
@@ -321,15 +322,17 @@ def process_cmc_section(section_id):
 
             # Make sure to update the last_updated field to avoid deletion
             update_pair_last_updated(base, coin)
-
-            # Commit everyting for this coin to the database
-            shareddb.commit()
         except KeyError as err:
             logger.error(
                 "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
                 % err
             )
+            # Rollback any pending changes
+            shareddb.rollback()
             return False
+
+    # Commit everyting to the database
+    shareddb.commit()
 
     logger.info(
         f"CoinMarketCap; updated {len(data[2])} coins ({startnumber}-{endnumber}) "
