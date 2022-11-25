@@ -58,7 +58,6 @@ def load_config():
         "percent-change-24h": [],
         "percent-change-7d": [],
         "volatility-24h": [],
-        "volume_24h_btc": [],
         "description": "some description"
     }
 
@@ -185,10 +184,6 @@ def process_bu_section(section_id):
     filteroptions["cmcrank"] = json.loads(config.get(section_id, "cmc-rank"))
     filteroptions["altrank"] = json.loads(config.get(section_id, "altrank"))
     filteroptions["galaxyscore"] = json.loads(config.get(section_id, "galaxyscore"))
-
-    volumefilter = {}
-    volumefilter["volume_24h_btc"] = json.loads(config.get(section_id, "volume_24h_btc"))
-    filteroptions["volume"] = volumefilter
 
     pricefilter = {}
     pricefilter["change_1h"] = json.loads(config.get(section_id, "percent-change-1h"))
@@ -417,11 +412,6 @@ def get_coins_from_market_data(base, filteroptions):
     # Specify galaxyscore
     if filteroptions["galaxyscore"]:
         query += f"AND rankings.galaxyscore BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][-1]} "
-
-    # Specify volume
-    if filteroptions["volume"]:
-        if filteroptions["volume"]["volume_24h_btc"]:
-            query += f"AND pairs.volume_24h_btc BETWEEN {filteroptions['volume']['volume_24h_btc'][0]} AND {filteroptions['volume']['volume_24h_btc'][-1]} "
 
     # Specify percent change
     if filteroptions["change"]:
