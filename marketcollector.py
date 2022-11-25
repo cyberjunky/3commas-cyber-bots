@@ -56,7 +56,6 @@ def load_config():
                   "binance_spot_usdt_highest_volatility_day",
                   "coinbase_spot_usd_highest_volatility_day"
         ],
-        "import-volume": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -96,7 +95,6 @@ def open_shared_db():
             "CREATE TABLE IF NOT EXISTS pairs ("
             "base STRING, "
             "coin STRING, "
-            "volume_24h_btc DEFAULT 0.0, "
             "last_updated INT, "
             "PRIMARY KEY(base, coin)"
             ")"
@@ -353,8 +351,6 @@ def process_volatility_section(section_id):
     lists = [word.replace("'", "").replace("[", "").replace("]","").strip()
         for word in config.get(section_id, "lists").split(",")]
 
-    importvolume = config.getboolean(section_id, "import-volume")
-
     combinedlist = {}
     for listentry in lists:
         # Get the botassist data. Set start and end number to zero to
@@ -375,17 +371,10 @@ def process_volatility_section(section_id):
 
     for coin, data in aggregatedlist.items():
         volatility = data["volatility"]
-        volume = data["24h volume"]
 
         if not has_pair("USD", coin):
             # Pair does not yet exist
             add_pair("USD", coin)
-
-        # Update pairs data
-        if importvolume:
-            volumedata = {}
-            volumedata["volume_24h_btc"] = volume
-            update_values("pairs", "USD", coin, volumedata)
 
         # Update pricings data
         pricesdata = {}
@@ -404,7 +393,7 @@ def process_volatility_section(section_id):
 
     logger.info(
         f"BotAssistExplorer; updated for {len(aggregatedlist)} coins the "
-        f"volatility and/or volume data based on {lists}.",
+        f"volatility data based on {lists}.",
         True
     )
 
@@ -450,7 +439,7 @@ def cleanup_volatility_data(current_data, previous_data):
     """Remove old or no longer current volatility data"""
 
     logger.debug(
-        "Removing coins for which the volatility and/or volume data is outdated..."
+        "Removing coins for which the volatility data is outdated..."
     )
 
     coincount = 0
@@ -474,11 +463,6 @@ def cleanup_volatility_data(current_data, previous_data):
         )
 
         # Coin not updated and does still exist. Reset old data
-        volumedata = {}
-        volumedata["volume_24h_btc"] = 0.0
-        update_values("pairs", "USD", coin, volumedata)
-
-        # Update pricings data
         pricesdata = {}
         pricesdata["volatility_24h"] = 0.0
         update_values("prices", "USD", coin, pricesdata)
@@ -486,7 +470,7 @@ def cleanup_volatility_data(current_data, previous_data):
         coincount += 1
 
     logger.debug(
-        f"Removed {coincount} coins for which the volatility and/or volume data was outdated."
+        f"Removed {coincount} coins for which the volatility data was outdated."
     )
 
 
@@ -523,10 +507,6 @@ def reset_database_data():
 
     logger.info(
         "Initialize volatility data..."
-    )
-
-    shareddb.execute(
-        f"UPDATE pairs SET volume_24h_btc = {0.0}"
     )
 
     shareddb.execute(
