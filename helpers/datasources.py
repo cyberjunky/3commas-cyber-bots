@@ -6,12 +6,12 @@ import cloudscraper
 import requests
 from bs4 import BeautifulSoup
 
-def get_lunarcrush_data(logger, program, config, usdtbtcprice):
+def get_lunarcrush_data(logger, program, config, section, usdtbtcprice):
     """Get the top x GalaxyScore, AltRank coins from LunarCrush."""
 
     lccoins = {}
-    lcapikey = config.get("settings", "lc-apikey")
-    lcfetchlimit = config.get("settings", "lc-fetchlimit")
+    lcapikey = config.get(section, "lc-apikey")
+    lcfetchlimit = config.get(section, "lc-fetchlimit")
 
     # Construct headers
     headers = {"Authorization": f"Bearer {lcapikey}"}
@@ -33,7 +33,9 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
         return {}
 
     try:
-        result = requests.request("GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms)
+        result = requests.request(
+            "GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms
+        )
         result.raise_for_status()
         data = result.json()
 
@@ -52,7 +54,10 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             lccoins = data["data"]
 
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching LunarCrush data failed with code %d: %s" % (err.response.status_code, err.response.text))
+        logger.error(
+            "Fetching LunarCrush data failed with code %d: %s" %
+            (err.response.status_code, err.response.text)
+        )
         return {}
 
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(lccoins)))
