@@ -370,7 +370,7 @@ while True:
 
     # Download LunarCrush data
     usdtbtcprice = get_threecommas_btcusd(logger, api)
-    lunarcrush = get_lunarcrush_data(logger, program, config, usdtbtcprice)
+    lunarcrush = get_lunarcrush_data(logger, program, config, "settings", usdtbtcprice)
 
     for section in config.sections():
         # Each section is a bot

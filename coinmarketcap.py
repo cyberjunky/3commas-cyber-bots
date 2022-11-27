@@ -41,6 +41,7 @@ def load_config():
 
     cfg["settings"] = {
         "timezone": "Europe/Amsterdam",
+        "timeinterval": 86400,
         "debug": False,
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
