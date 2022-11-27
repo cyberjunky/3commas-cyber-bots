@@ -21,8 +21,10 @@ SOFTWARE.
 ## Overview
 This repository contains several Python scripts (bot helpers) which can be used to make your 3Commas bots more powerful -and hopefully more profitable-.
 
-You can find a small description of each one below.  
-They have their own documentation page in the wiki describing what it can do and how to use it in more detail .
+You can find a small description of each one below. They have their own documentation page in the wiki describing what it can do and how to use it in more detail.
+
+An image with the most used scripts and how they work together can be found below.
+![Overview](images/overview.png)
 
 ## Why did you build these bot helpers?
 
@@ -36,8 +38,6 @@ Get overview and statistics in order to get an overview and manage your account 
 ### Balance Report (balancereport.py)
 A script which examins the connected exchanges, bots and deals on your account. Based on al this data, an overview is generated of funds in use and the amount available.
 
-![BalanceReport](images/balancereport.png)
-
 [BalanceReport Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BalanceReport)
 
 
@@ -45,31 +45,41 @@ A script which examins the connected exchanges, bots and deals on your account. 
 
 Change pairs of your bot(s) matching configured rankings and/or thresholds.
 
+### MarketCollector (marketcollector.py)
+Main script which collects data from different sources (CoinMarketCap, LunarCrush, 3c-tools) and serves as database to other script(s).
+
+[MarketCollector Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/MarketCollector)
+
+### BotUpdater (botupdater.py)
+Update the pairs, based on multiple filters, of configured bots based on the available data from the MarketCollector database.
+
+[BotUpdater Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotUpdater)
+
 ### AltRank (altrank.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) AltRank rankings.
 
-![AltRank](images/altrank.png)
+Note; no longer maintained. Use MarketCollector and BotUpdater script.
 
 [AltRank Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/AltRank)
 
 ### GalaxyScore (galaxyscore.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [LunarCrush](https://lnr.app/s/o3p1V2) GalaxyScore rankings.
 
-![GalaxyScore](images/galaxyscore.png)
+Note; no longer maintained. Use MarketCollector and BotUpdater script.
 
 [GalaxyScore Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/GalaxyScore)
 
 ### CoinMarketCap (coinmarketcap.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [CoinMarketCap](https://coinmarketcap.com) rankings.
 
-![CoinMarketCap](images/coinmarketcap.png)
+Note; no longer maintained. Use MarketCollector and BotUpdater script.
 
 [CoinMarketCap Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/CoinMarketCap)
 
 ### BotAssistExplorer (botassistexplorer.py)
 A script which allows you to change the pairs of your 3Commas bot(s) at regular intervals using [3CTools's BotAssistExplorer](https://www.3c-tools.com/markets/bot-assist-explorer) rankings.
 
-![BotAssistExplorer](images/botassistexplorer.png)
+Note; no longer maintained. Use MarketCollector and BotUpdater script.
 
 [BotAssistExplorer Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/BotAssistExplorer)
 
@@ -84,9 +94,7 @@ A script which tracks active Future deals from your 3Commas bot(s) and change th
 [TrailingStopLoss Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss)
 
 ### DCA Trailing stoploss and profit (trailingstoploss_tp.py)
-Same for DCA type deals but also including an implementation of a trailing take profit.
-
-![Trailingstoploss_tp](images/trailingstoploss_tp.png)
+Same for DCA type deals and also including an implementation of a trailing take profit.
 
 [TrailingStopLoss and TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss-and-TakeProfit)
 
@@ -134,16 +142,6 @@ Combination of watchlist and watchlist_hodloo script.
 -   Get a stable cryptocurrency to trade with.
 
 NOTE: Only needed if you want to trade on Binance, not needed for the functionality of the bot(s).
-
-## FTX account Setup
-
--   Create a [FTX account](https://ftx.com/#a=38250549) (Includes my referral, I'll be super grateful if you use it).
--   Enable Two-factor Authentication.
--   Create a new API key.
--   Get a stable cryptocurrency to trade with.
-
-NOTE1: Only needed if you want to trade on FTX, not needed for the functionality of the bot(s).
-NOTE2: When you connect your FTX account to 3Comma's you get free use to trade on FTX, no need to have a 3Commas subscription.
 
 ## 3Commas account Setup
 
@@ -257,9 +255,9 @@ If you didn't send a message to your bot first this is what the logs show:
 ### Running the bot helpers
 
 #### Run Manually
-`$ python3 ./galaxyscore.py`
+`$ python3 ./marketcollector.py -s ../`
 and/or
-`$ python3 ./altrank.py`
+`$ python3 ./botupdater.py -s ../ -b blacklist.txt`
 and/or
 `$ python3 ./watchlist.py`
 and/or
@@ -268,8 +266,8 @@ and/or
 They also have some command-line options:
 
 ```
-./galaxyscore.py -h
-usage: galaxyscore.py [-h] [-d DATADIR] [-s SHAREDIR] [-b BLACKLIST]
+./script.py -h
+usage: script.py [-h] [-d DATADIR] [-s SHAREDIR] [-b BLACKLIST]
 
 Cyberjunky's 3Commas bot helper.
 
@@ -548,7 +546,6 @@ My referral links: (gives you discount and/or less fees to pay):
 
 - [LunarCrush](https://lnr.app/s/o3p1V2) Earn points
 - [Binance](https://accounts.binance.com/en/register?ref=156153717)
-- [FTX](https://ftx.com/#a=38250549) Get 5.00% fee discount
 - [3Commas](https://3commas.io/?c=tc587527) Get 10% discount for first monthly subscription
 - [Bybit](https://www.bybit.com/en-US/invite?ref=QXGO00) Give $20
 - [Bitvavo](https://bitvavo.com/?a=90A596F835) No fees over €1000 trading in first week

@@ -1,17 +1,17 @@
+#!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
-
 import json
 
 import cloudscraper
 import requests
 from bs4 import BeautifulSoup
 
-def get_lunarcrush_data(logger, program, config, usdtbtcprice):
+def get_lunarcrush_data(logger, program, config, section, usdtbtcprice):
     """Get the top x GalaxyScore, AltRank coins from LunarCrush."""
 
     lccoins = {}
-    lcapikey = config.get("settings", "lc-apikey")
-    lcfetchlimit = config.get("settings", "lc-fetchlimit")
+    lcapikey = config.get(section, "lc-apikey")
+    lcfetchlimit = config.get(section, "lc-fetchlimit")
 
     # Construct headers
     headers = {"Authorization": f"Bearer {lcapikey}"}
@@ -33,7 +33,9 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
         return {}
 
     try:
-        result = requests.request("GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms)
+        result = requests.request(
+            "GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms
+        )
         result.raise_for_status()
         data = result.json()
 
@@ -52,7 +54,10 @@ def get_lunarcrush_data(logger, program, config, usdtbtcprice):
             lccoins = data["data"]
 
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching LunarCrush data failed with code %d: %s" % (err.response.status_code, err.response.text))
+        logger.error(
+            "Fetching LunarCrush data failed with code %d: %s" %
+            (err.response.status_code, err.response.text)
+        )
         return {}
 
     logger.info("Fetched LunarCrush ranking OK (%s coins)" % (len(lccoins)))
@@ -104,7 +109,7 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
             errormessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
-        return {}
+        return 0, err, {}
 
     logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
 
@@ -132,7 +137,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
             tablecolumns = data.find_all("th")
 
             for column in tablecolumns:
-                if column.text not in ("#", "symbol"):
+                if column.text not in ("#"):
                     columndict[columncount] = column.text
 
                 columncount += 1
@@ -142,7 +147,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                 rowcolums = row.find_all("td")
                 if len(rowcolums) > 0:
                     rank = int(rowcolums[0].text)
-                    if rank < start_number:
+                    if start_number and rank < start_number:
                         continue
 
                     pairdata = {}
@@ -153,13 +158,21 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                             pairdata[value] = float(
                                     rowcolums[key].text.replace(" BTC", "").replace(",", "")
                                 )
+                        elif value == "volatility":
+                            pairdata[value] = float(
+                                    rowcolums[key].text.replace("%", "")
+                                )
                         else:
-                            pairdata[value] = rowcolums[key].text.replace("\n", "").replace("%", "")
+                            pairdata[value] = rowcolums[key].text.replace("\n", "")
+
+                    # For some the symbol is unknown, so extract it from the pair
+                    if pairdata["symbol"].replace(" ", "") == "-":
+                        pairdata["symbol"] = pairdata["pair"].split("_")[1]
 
                     logger.debug(f"Rank {rank}: {pairdata}")
                     pairs.append(pairdata)
 
-                    if rank == limit:
+                    if limit and rank == limit:
                         break
         else:
             logger.warning(
@@ -174,7 +187,9 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
 
         return pairs
 
-    logger.info("Fetched 3c-tools bot-assist data OK (%s pairs)" % (len(pairs)))
+    logger.info(
+        f"Fetched 3c-tools {botassistlist} data OK ({len(pairs)} pairs)"
+    )
 
     return pairs
 
