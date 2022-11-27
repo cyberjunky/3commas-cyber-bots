@@ -21,8 +21,10 @@ SOFTWARE.
 ## Overview
 This repository contains several Python scripts (bot helpers) which can be used to make your 3Commas bots more powerful -and hopefully more profitable-.
 
-You can find a small description of each one below.  
-They have their own documentation page in the wiki describing what it can do and how to use it in more detail .
+You can find a small description of each one below. They have their own documentation page in the wiki describing what it can do and how to use it in more detail.
+
+An image with the most used scripts and how they work together can be found below.
+![Overview](images/overview.png)
 
 ## Why did you build these bot helpers?
 
