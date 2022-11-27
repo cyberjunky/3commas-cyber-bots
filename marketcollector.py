@@ -12,7 +12,8 @@ from helpers.database import get_next_process_time, set_next_process_time
 
 from helpers.datasources import (
     get_botassist_data,
-    get_coinmarketcap_data
+    get_coinmarketcap_data,
+    get_lunarcrush_data
 )
 from helpers.logging import Logger, NotificationHandler
 from helpers.misc import (
@@ -43,6 +44,15 @@ def load_config():
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "BTC",
+    }
+    cfg["altrank_default"] = {
+        "lc-apikey": 1,
+        "lc-fetchlimit": 500,
+    }
+    cfg["galaxyscore_default"] = {
+        "timeinterval": 3600,
+        "lc-apikey": 1,
+        "lc-fetchlimit": 500,
     }
     cfg["cmc_usd"] = {
         "start-number": 1,
@@ -160,9 +170,14 @@ def open_mc_db():
 def has_pair(base, coin):
     """Check if pair already exists in database."""
 
-    return sharedcursor.execute(
-            f"SELECT * FROM pairs WHERE base = '{base}' AND coin = '{coin}'"
-        ).fetchone()
+    query = "SELECT * FROM pairs WHERE "
+
+    if base != "*":
+        query += f"base = '{base}' AND "
+
+    query += f"coin = '{coin}'"
+
+    return sharedcursor.execute(query).fetchone()
 
 
 def add_pair(base, coin):
@@ -245,7 +260,12 @@ def update_values(table, base, coin, data):
         keyvalues += f"{key} = {value}"
 
     query += keyvalues
-    query += f" WHERE base = '{base}' AND coin = '{coin}'"
+    query += " WHERE "
+
+    if base != "*":
+        query += f" base = '{base}' AND "
+
+    query += f"coin = '{coin}'"
 
     logger.debug(
         f"Execute query '{query}' for pair {base}_{coin}."
@@ -339,6 +359,44 @@ def process_cmc_section(section_id):
     )
 
     # No exceptions or other cases happened, everything went Ok
+    return True
+
+
+def process_lunarcrush_section(section_id, listtype):
+    """Process the Altrank or GalaxyScore section from the configuration"""
+
+    # Download LunarCrush data
+    # Volume is not used, so the price is set to 1.0 instead of the real dynamic value
+    lunarcrushdata = get_lunarcrush_data(logger, listtype.lower(), config, section_id, 1.0)
+
+    if not lunarcrushdata:
+        return False
+
+    # Parse LunaCrush data
+    updatedcoins = 0
+    for entry in lunarcrushdata:
+        coin = entry["s"]
+
+        if not has_pair("*", coin):
+            # Coin does not exist, skip this one
+            logger.debug(
+                f"Coin {coin} not in database, cannot update {listtype} data for this coin."
+            )
+            continue
+
+        # Update rankings data (both Altrank and GalaxyScore are available in the data)
+        rankdata = {}
+        rankdata["altrank"] = float(entry["acr"])
+        rankdata["galaxyscore"] = float(entry["gs"])
+        update_values("rankings", "*", coin, rankdata)
+
+        updatedcoins += 1
+
+    logger.info(
+        f"{listtype}; updated {updatedcoins} coins.",
+        True
+    )
+
     return True
 
 
@@ -614,9 +672,11 @@ while True:
 
     for section in config.sections():
         iscmcsection = section.startswith("cmc_")
+        isaltranksection = section.startswith("altrank_")
+        isgalaxyscoresection = section.startswith("galaxyscore")
         isvolatilitysection = section.startswith("volatility_")
 
-        if iscmcsection or isvolatilitysection:
+        if iscmcsection or isaltranksection or isgalaxyscoresection or isvolatilitysection:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
@@ -628,6 +688,10 @@ while True:
                 sectionresult = False
                 if iscmcsection:
                     sectionresult = process_cmc_section(section)
+                elif isaltranksection:
+                    sectionresult = process_lunarcrush_section(section, "Altrank")
+                elif isgalaxyscoresection:
+                    sectionresult = process_lunarcrush_section(section, "GalaxyScore")
                 elif isvolatilitysection:
                     sectionresult = process_volatility_section(section)
 
