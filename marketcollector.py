@@ -365,11 +365,19 @@ def process_cmc_section(section_id):
 def process_lunarcrush_section(section_id, listtype):
     """Process the Altrank or GalaxyScore section from the configuration"""
 
+    # Reset existing data
+    shareddb.execute(
+        f"UPDATE rankings SET {listtype.lower()} = {0.0}"
+    )
+
     # Download LunarCrush data
     # Volume is not used, so the price is set to 1.0 instead of the real dynamic value
     lunarcrushdata = get_lunarcrush_data(logger, listtype.lower(), config, section_id, 1.0)
 
     if not lunarcrushdata:
+        # Commit clearing of database
+        shareddb.commit()
+
         return False
 
     # Parse LunaCrush data
@@ -391,6 +399,9 @@ def process_lunarcrush_section(section_id, listtype):
         update_values("rankings", "*", coin, rankdata)
 
         updatedcoins += 1
+
+    # Commit everyting to the database
+    shareddb.commit()
 
     logger.info(
         f"{listtype}; updated {updatedcoins} coins.",
@@ -565,6 +576,14 @@ def reset_database_data():
 
     logger.info(
         "Initialize volatility data..."
+    )
+
+    shareddb.execute(
+        f"UPDATE rankings SET altrank = {0.0}"
+    )
+
+    shareddb.execute(
+        f"UPDATE rankings SET galaxyscore = {0.0}"
     )
 
     shareddb.execute(
