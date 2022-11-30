@@ -170,7 +170,8 @@ def update_deal(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     #    payload["take_profit"] = 0.05
     #    payload["trailing_enabled"] = False
     payload["take_profit"] = new_take_profit
-    payload["trailing_enabled"] = False
+    payload["trailing_enabled"] = deal["trailing_enabled"]
+    payload["tsl_enabled"] = deal["tsl_enabled"]
 
     error, data = api.request(
         entity="deals",
