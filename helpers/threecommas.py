@@ -1,6 +1,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 from math import nan
 from py3cw.request import Py3CW
+from three_commas_websocket_assist import ThreeCommasWebsocketHandler
 
 
 def load_blacklist(logger, api, blacklistfile):
@@ -31,15 +32,27 @@ def load_blacklist(logger, api, blacklistfile):
 
 def init_threecommas_api(cfg):
     """Init the 3commas API."""
+
     return Py3CW(
-        key=cfg.get("settings", "3c-apikey"),
-        secret=cfg.get("settings", "3c-apisecret"),
+        key = cfg.get("settings", "3c-apikey"),
+        secret = cfg.get("settings", "3c-apisecret"),
         request_options={
             "request_timeout": 10,
             "nr_of_retries": 3,
             "retry_status_codes": [502, 429],
             "retry_backoff_factor": 1,
         },
+    )
+
+
+def init_threecommas_websocket(cfg, event_handler):
+    """Init the 3commas WebSocket connection."""
+
+    return ThreeCommasWebsocketHandler(
+        api_key = cfg.get("settings", "3c-apikey"),
+        api_secret = cfg.get("settings", "3c-apisecret"),
+        channel = "DealsChannel",
+        external_event_handler = event_handler
     )
 
 
