@@ -10,9 +10,19 @@ import time
 from pathlib import Path
 from constants.pair import PAIREXCLUDE_EXT
 
-from helpers.logging import Logger, NotificationHandler
-from helpers.misc import check_deal, wait_time_interval
-from helpers.threecommas import init_threecommas_api, set_threecommas_bot_pairs
+from helpers.logging import (
+    Logger,
+    NotificationHandler
+)
+from helpers.misc import (
+    check_deal,
+    wait_time_interval
+)
+from helpers.threecommas import (
+    init_threecommas_api,
+    init_threecommas_websocket,
+    set_threecommas_bot_pairs
+)
 
 
 def load_config():
@@ -138,7 +148,7 @@ def clean_bot_db_data(thebot):
 
     bot_id = thebot["id"]
 
-    logger.info(f"Cleaning previous data for bot {bot_id}")
+    logger.debug(f"Cleaning previous data for bot {bot_id}")
     db.execute(
         f"DELETE FROM deals WHERE botid = {bot_id} AND active = {0}"
     )
@@ -176,7 +186,7 @@ def process_bot_deals(cluster_id, thebot):
                     True
                 )
             else:
-                logger.info(
+                logger.debug(
                     f"Deal {deal_id} already registered and still active"
                 )
 
@@ -186,7 +196,7 @@ def process_bot_deals(cluster_id, thebot):
             # Remove start and end square bracket so we can properly use it
             current_deals_str = str(current_deals)[1:-1]
 
-            logger.info(f"Mark all deals from {bot_id} as inactive except {current_deals_str}")
+            logger.debug(f"Mark all deals from {bot_id} as inactive except {current_deals_str}")
 
             db.execute(
                 f"UPDATE deals SET active = {0} "
@@ -195,7 +205,7 @@ def process_bot_deals(cluster_id, thebot):
 
     # No deals for this bot anymore, so mark them all (if any) as inactive
     if not current_deals:
-        logger.info(f"Mark all deals from {bot_id} as inactive")
+        logger.debug(f"Mark all deals from {bot_id} as inactive")
         db.execute(
             f"UPDATE deals SET active = {0} "
             f"WHERE botid = {bot_id}"
@@ -206,7 +216,7 @@ def process_bot_deals(cluster_id, thebot):
     if botpairs:
         botname = thebot["name"]
 
-        logger.info(
+        logger.debug(
             f"Saving {len(botpairs)} pairs for bot {botname} ({bot_id})"
         )
 
@@ -246,7 +256,7 @@ def log_deals(cluster_id):
 def aggregrate_cluster(cluster_id):
     """Aggregate deals within cluster."""
 
-    logger.info(f"Cleaning and aggregating data for '{cluster_id}'")
+    logger.debug(f"Cleaning and aggregating data for '{cluster_id}'")
 
     # Remove old data
     db.execute(
@@ -297,8 +307,6 @@ def process_cluster_deals(cluster_id):
     ).fetchall()
 
     if clusterdata:
-        logger.info(f"Processing cluster_coins for '{cluster_id}':")
-
         enablecoins = []
         disablecoins = []
 
@@ -306,8 +314,8 @@ def process_cluster_deals(cluster_id):
             coin = str(entry[1])
             numberofdeals = int(entry[2])
 
-            logger.info(
-                f"Coin {coin} has {numberofdeals} deal(s) active"
+            logger.debug(
+                f"{cluster_id}: coin '{coin}' has {numberofdeals} deal(s) active"
             )
 
             if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
@@ -327,7 +335,7 @@ def process_cluster_deals(cluster_id):
             enablecoins_str = str(enablecoins)[1:-1]
 
             logger.info(
-                f"Enabling coins for {cluster_id}: {enablecoins_str}"
+                f"{cluster_id}: enabling coins {enablecoins_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {1} "
@@ -340,7 +348,7 @@ def process_cluster_deals(cluster_id):
             disablecoins_str = str(disablecoins)[1:-1]
 
             logger.info(
-                f"Disabling coins for {cluster_id}: {disablecoins_str}"
+                f"{cluster_id}: disabling coins {disablecoins_str}"
             )
             db.execute(
                 f"UPDATE bot_pairs SET enabled = {0} "
@@ -349,8 +357,8 @@ def process_cluster_deals(cluster_id):
 
         db.commit()
     else:
-        logger.info(
-            f"No cluster_pair data for '{cluster_id}'"
+        logger.debug(
+            f"{cluster_id}: no cluster_pair data"
         )
 
 
@@ -428,13 +436,21 @@ def write_bot_exclude_file(bot_id, coins):
 
     excludefilename = f"{sharedir}/{bot_id}.{PAIREXCLUDE_EXT}"
 
-    logger.info(
+    logger.debug(
         f"Writing coins {coins} to file {excludefilename}"
     )
 
     with open(excludefilename, 'w') as filehandle:
         for coin in coins:
             filehandle.write('%s\n' % coin)
+
+
+def websocket_update(data):
+    """Handle the received data from the websocket"""
+
+    logger.info(
+        f"Websocket update; bot_id '{data['bot_id']}' received data: {data}"
+    )
 
 
 # Start application
@@ -511,6 +527,10 @@ else:
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
+
+# Initialize 3Commas WebSocket connection
+websocket = init_threecommas_websocket(config, websocket_update)
+websocket.start_listener(seperate_thread = True)
 
 # Initialize or open the database
 db = init_cluster_db()
