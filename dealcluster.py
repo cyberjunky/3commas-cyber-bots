@@ -104,6 +104,17 @@ def init_cluster_db():
     return dbconnection
 
 
+def init_thread_db():
+    """Open connection with database for usage in thread"""
+
+    dbname = f"{program}.sqlite3"
+    dbpath = f"file:{datadir}/{dbname}?mode=rw"
+    dbconnection = sqlite3.connect(dbpath, uri=True)
+    dbconnection.row_factory = sqlite3.Row
+
+    return dbconnection
+
+
 def upgrade_cluster_db():
     """Upgrade database if needed."""
 
@@ -133,17 +144,17 @@ def upgrade_cluster_db():
         logger.debug("Database schema is up-to-date")
 
 
-def add_cluster_deal(deal_data, cluster_id):
+def add_cluster_deal(db_connection, deal_data, cluster_id):
     """Add a new deal within the cluster"""
 
     deal_id = deal_data["id"]
 
-    existing_deal = check_deal(cursor, deal_id)
+    existing_deal = check_deal(db_connection.cursor(), deal_id)
 
     if not existing_deal:
         coin = deal_data['pair'].split("_")[1]
 
-        db.execute(
+        db_connection.execute(
             f"INSERT INTO deals (dealid, coin, clusterid, botid, active) "
             f"VALUES ({deal_id}, '{coin}', '{cluster_id}', {deal_data['bot_id']}, {1})"
         )
@@ -169,7 +180,7 @@ def process_bot_deals(cluster_id, bot_data):
     if bot_data["active_deals"]:
         for dealdata in bot_data["active_deals"]:
             current_deals.append(dealdata["id"])
-            add_cluster_deal(dealdata, cluster_id)
+            add_cluster_deal(db, dealdata, cluster_id)
 
         # Remove all other deals as not active anymore.
         if current_deals:
@@ -215,13 +226,13 @@ def log_deals(cluster_id):
         )
 
 
-def aggregrate_cluster(cluster_id, bot_list):
+def aggregrate_cluster(db_connection, cluster_id, bot_list):
     """Aggregate deals within cluster."""
 
     logger.debug(f"Cleaning and aggregating data for '{cluster_id}'")
 
     # Get the current cluster data and pair numbers
-    oldclusterdata = [c[0] for c in db.execute(
+    oldclusterdata = [c[0] for c in db_connection.execute(
         f"SELECT coin FROM cluster_coins "
         f"WHERE clusterid = '{cluster_id}' AND "
         f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))} "
@@ -229,13 +240,13 @@ def aggregrate_cluster(cluster_id, bot_list):
     ).fetchall()]
 
     # Remove current data
-    db.execute(
+    db_connection.execute(
         f"DELETE from cluster_coins WHERE clusterid = '{cluster_id}'"
     )
 
     # Create the cluster data, how many of the same coins are active within the
     # cluster based on the active deals
-    db.execute(
+    db_connection.execute(
         f"INSERT INTO cluster_coins (clusterid, coin, number_active) "
         f"SELECT clusterid, coin, "
         f"SUM ( CASE WHEN active = {1} THEN 1 ELSE 0 END) AS number_active "
@@ -244,10 +255,10 @@ def aggregrate_cluster(cluster_id, bot_list):
         f"GROUP BY coin"
     )
 
-    db.commit()
+    db_connection.commit()
 
     # Get the new cluster data and pair numbers
-    newclusterdata = [c[0] for c in db.execute(
+    newclusterdata = [c[0] for c in db_connection.execute(
         f"SELECT coin FROM cluster_coins "
         f"WHERE clusterid = '{cluster_id}' AND "
         f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))} "
@@ -340,13 +351,15 @@ def websocket_update(deal_data):
     aggregrate = False
     clusterid = ""
 
+    threaddb = init_thread_db()
+
     if deal_data["finished?"] == "True":
         # Deal is finished, remove it from the db
-        db.execute(
+        threaddb.execute(
             f"DELETE FROM deals "
             f"WHERE botid = {deal_data['bot_id']} AND dealid = {deal_data['id']}"
         )
-        db.commit()
+        threaddb.commit()
 
         logger.info(
             f"Deal {deal_data['id']}/{deal_data['pair']} on "
@@ -361,7 +374,7 @@ def websocket_update(deal_data):
             clusterid = get_bot_cluster(deal_data["bot_id"])
 
             if clusterid:
-                add_cluster_deal(deal_data, clusterid)
+                add_cluster_deal(threaddb, deal_data, clusterid)
 
                 aggregrate = True
             else:
@@ -375,7 +388,7 @@ def websocket_update(deal_data):
     if aggregrate and clusterid:
         # Get Bot list
         botlist = json.loads(config.get(clusterid, "botids"))
-        aggregrate_cluster(clusterid, botlist)
+        aggregrate_cluster(threaddb, clusterid, botlist)
         process_cluster_bots(clusterid, botlist, "update")
 
 
@@ -558,7 +571,7 @@ while True:
                 log_deals(section)
 
             # Aggregrate data on cluster level. Will also take care of writing .pairexclude file
-            aggregrate_cluster(section, botids)
+            aggregrate_cluster(db, section, botids)
 
             # Log the cluster data
             if debug:
