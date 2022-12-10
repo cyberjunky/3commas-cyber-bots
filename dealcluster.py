@@ -16,9 +16,11 @@ from helpers.logging import (
 )
 from helpers.misc import (
     check_deal,
+    remove_excluded_pairs,
     wait_time_interval
 )
 from helpers.threecommas import (
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     init_threecommas_websocket,
     set_threecommas_bot_pairs
@@ -97,18 +99,6 @@ def init_cluster_db():
             ")"
         )
 
-        dbcursor.execute(
-            "CREATE TABLE IF NOT EXISTS bot_pairs ("
-            "clusterid STRING, "
-            "botid INT, "
-            "botname STRING, "
-            "pair STRING, "
-            "coin STRING, "
-            "enabled BIT, "
-            "PRIMARY KEY(clusterid, botid, pair)"
-            ")"
-        )
-
         logger.info("Database tables created successfully")
 
     return dbconnection
@@ -136,100 +126,72 @@ def upgrade_cluster_db():
             ")"
         )
 
-        cursor.execute("ALTER TABLE bot_pairs ADD COLUMN coin STRING")
+        cursor.execute("DROP TABLE bot_pairs")
 
         logger.info("Database schema upgraded (pair to coins)")
     except sqlite3.OperationalError:
         logger.debug("Database schema is up-to-date")
 
 
-def clean_bot_db_data(thebot):
-    """Cleanup old bot data in the db."""
+def add_cluster_deal(deal_data, cluster_id):
+    """Add a new deal within the cluster"""
 
-    bot_id = thebot["id"]
+    deal_id = deal_data["id"]
 
-    logger.debug(f"Cleaning previous data for bot {bot_id}")
-    db.execute(
-        f"DELETE FROM deals WHERE botid = {bot_id} AND active = {0}"
-    )
-    db.execute(
-        f"DELETE FROM bot_pairs WHERE botid = {bot_id} and enabled = {1}"
-    )
+    existing_deal = check_deal(cursor, deal_id)
 
-    db.commit()
+    if not existing_deal:
+        coin = deal_data['pair'].split("_")[1]
+
+        db.execute(
+            f"INSERT INTO deals (dealid, coin, clusterid, botid, active) "
+            f"VALUES ({deal_id}, '{coin}', '{cluster_id}', {deal_data['bot_id']}, {1})"
+        )
+        # db.commit() on higher level
+
+        logger.info(
+            f"New deal found {deal_id}/{deal_data['pair']} on bot \"{deal_data['bot_name']}",
+            True
+        )
+    else:
+        logger.debug(
+            f"Deal {deal_id} already registered and still active"
+        )
 
 
-def process_bot_deals(cluster_id, thebot):
+def process_bot_deals(cluster_id, bot_data):
     """Check deals from bot and update deals in db."""
 
-    bot_id = thebot["id"]
+    bot_id = bot_data["id"]
 
     # Process current deals and deals which have been closed since the last processing time
     current_deals = []
-    deals = thebot["active_deals"]
-    if deals:
-        for deal in deals:
-            deal_id = deal["id"]
+    if bot_data["active_deals"]:
+        for dealdata in bot_data["active_deals"]:
+            current_deals.append(dealdata["id"])
+            add_cluster_deal(dealdata, cluster_id)
 
-            current_deals.append(deal_id)
-
-            existing_deal = check_deal(cursor, deal_id)
-            if not existing_deal:
-                deal_coin = deal['pair'].split("_")[1]
-
-                db.execute(
-                    f"INSERT INTO deals (dealid, coin, clusterid, botid, active) "
-                    f"VALUES ({deal_id}, '{deal_coin}', '{cluster_id}', {bot_id}, {1})"
-                )
-                logger.info(
-                    f"New deal found {deal_id}/{deal['pair']} on bot \"{thebot['name']}",
-                    True
-                )
-            else:
-                logger.debug(
-                    f"Deal {deal_id} already registered and still active"
-                )
-
-        # Mark all other deals as not active anymore. Required later in the process and
-        # will be cleaned during next processing round
+        # Remove all other deals as not active anymore.
         if current_deals:
             # Remove start and end square bracket so we can properly use it
             current_deals_str = str(current_deals)[1:-1]
 
-            logger.debug(f"Mark all deals from {bot_id} as inactive except {current_deals_str}")
+            logger.debug(f"Delete finished deals from {bot_id} except {current_deals_str}")
 
             db.execute(
-                f"UPDATE deals SET active = {0} "
+                f"DELETE FROM deals "
                 f"WHERE botid = {bot_id} AND dealid NOT IN ({current_deals_str})"
             )
 
-    # No deals for this bot anymore, so mark them all (if any) as inactive
+    # No deals for this bot anymore, so remove them all (if any left)
     if not current_deals:
-        logger.debug(f"Mark all deals from {bot_id} as inactive")
+        logger.debug(f"No deals active for {bot_id}")
         db.execute(
-            f"UPDATE deals SET active = {0} "
+            f"DELETE FROM deals "
             f"WHERE botid = {bot_id}"
         )
 
-    # Save all pairs used by the bot currently. Make sure not to overwrite disabled pairs
-    botpairs = thebot["pairs"]
-    if botpairs:
-        botname = thebot["name"]
-
-        logger.debug(
-            f"Saving {len(botpairs)} pairs for bot {botname} ({bot_id})"
-        )
-
-        for pair in botpairs:
-            db.execute(
-                f"INSERT OR IGNORE INTO bot_pairs ("
-                f"clusterid, botid, botname, pair, coin, enabled"
-                f") "
-                f"VALUES ("
-                f"'{cluster_id}', {bot_id},'{botname}', '{pair}', '{pair.split('_')[1]}', {1}"
-                f")"
-            )
-
+    # Commit the added and removed deals to the db
     db.commit()
 
 
@@ -253,12 +215,20 @@ def log_deals(cluster_id):
         )
 
 
-def aggregrate_cluster(cluster_id):
+def aggregrate_cluster(cluster_id, bot_list):
     """Aggregate deals within cluster."""
 
     logger.debug(f"Cleaning and aggregating data for '{cluster_id}'")
 
-    # Remove old data
+    # Get the current cluster data and pair numbers
+    oldclusterdata = [c[0] for c in db.execute(
+        f"SELECT coin FROM cluster_coins "
+        f"WHERE clusterid = '{cluster_id}' AND "
+        f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))} "
+        f"ORDER BY coin ASC"
+    ).fetchall()]
+
+    # Remove current data
     db.execute(
         f"DELETE from cluster_coins WHERE clusterid = '{cluster_id}'"
     )
@@ -275,6 +245,46 @@ def aggregrate_cluster(cluster_id):
     )
 
     db.commit()
+
+    # Get the new cluster data and pair numbers
+    newclusterdata = [c[0] for c in db.execute(
+        f"SELECT coin FROM cluster_coins "
+        f"WHERE clusterid = '{cluster_id}' AND "
+        f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))} "
+        f"ORDER BY coin ASC"
+    ).fetchall()]
+
+    log_cluster_changes(cluster_id, oldclusterdata, newclusterdata)
+
+    # Write the exclude file for the coins, to be used for updating bot
+    # pairs (this, and other, scripts)
+    write_cluster_exclude_files(bot_list, newclusterdata)
+
+
+def log_cluster_changes(cluster_id, old_data, new_data):
+    """Log the changes in the cluster"""
+
+    logger.debug(
+        f"Old cluster data: {old_data}. New cluster data: {new_data}"
+    )
+
+    # Check which coins have gone from the data (will be enabled)
+    enabledcoins = [x for x in old_data if x not in new_data]
+
+    if enabledcoins:
+        logger.info(
+            f"Enabling coin(s) {enabledcoins} for cluster: {cluster_id}",
+            True
+        )
+
+    # Check which coins are new in the data (will be disabled)
+    disabledcoins = [x for x in new_data if x not in old_data]
+
+    if disabledcoins:
+        logger.info(
+            f"Disabling coin(s) {disabledcoins} for cluster: {cluster_id}",
+            True
+        )
 
 
 def log_cluster_data(cluster_id):
@@ -297,138 +307,11 @@ def log_cluster_data(cluster_id):
         )
 
 
-def process_cluster_deals(cluster_id):
-    """Process deals within cluster."""
-
-    # Get the cluster data and pair numbers
-    clusterdata = db.execute(
-        f"SELECT clusterid, coin, number_active FROM cluster_coins "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
-
-    if clusterdata:
-        enablecoins = []
-        disablecoins = []
-
-        for entry in clusterdata:
-            coin = str(entry[1])
-            numberofdeals = int(entry[2])
-
-            logger.debug(
-                f"{cluster_id}: coin '{coin}' has {numberofdeals} deal(s) active"
-            )
-
-            if numberofdeals >= int(config.get(cluster_id, "max-same-deals")):
-                # Found a pair which should be suspended
-                disablecoins.append(coin)
-
-                log_disable_enable_coin(cluster_id, coin, 0)
-            else:
-                # Found a pair which can be activated again
-                enablecoins.append(coin)
-
-                log_disable_enable_coin(cluster_id, coin, 1)
-
-        # Enable the found coins (caused by finished deals)
-        if enablecoins:
-            # Remove start and end square bracket so we can properly use it
-            enablecoins_str = str(enablecoins)[1:-1]
-
-            logger.info(
-                f"{cluster_id}: enabling coins {enablecoins_str}"
-            )
-            db.execute(
-                f"UPDATE bot_pairs SET enabled = {1} "
-                f"WHERE clusterid = '{cluster_id}' AND coin IN ({enablecoins_str})"
-            )
-
-        # Disable the found coins (caused by new deals)
-        if disablecoins:
-            # Remove start and end square bracket so we can properly use it
-            disablecoins_str = str(disablecoins)[1:-1]
-
-            logger.info(
-                f"{cluster_id}: disabling coins {disablecoins_str}"
-            )
-            db.execute(
-                f"UPDATE bot_pairs SET enabled = {0} "
-                f"WHERE clusterid = '{cluster_id}' AND coin IN ({disablecoins_str})"
-            )
-
-        db.commit()
-    else:
-        logger.debug(
-            f"{cluster_id}: no cluster_pair data"
-        )
-
-
-def log_disable_enable_coin(cluster_id, coin, new_enabled_value):
-    """Log the pairs which will be enabled or disabled"""
-
-    pairdata = cursor.execute(
-        f"SELECT botid, botname, enabled FROM bot_pairs "
-        f"WHERE clusterid = '{cluster_id}' AND coin = '{coin}'"
-    ).fetchall()
-
-    if pairdata:
-        changedbots = ""
-
-        for entry in pairdata:
-            if entry[2] != new_enabled_value:
-                if changedbots:
-                    changedbots += ", "
-                changedbots += str(entry[1]) + " (" + str(entry[0]) + ")"
-
-        if changedbots:
-            if new_enabled_value:
-                logger.info(
-                    f"Enabling coin {coin} for the following bot(s): {changedbots}",
-                    True
-                )
-            else:
-                logger.info(
-                    f"Disabling coin {coin} for the following bot(s): {changedbots}",
-                    True
-                )
-
-
-def update_bot_config(cluster_id, thebot):
-    """Update bots at 3C"""
-
-    bot_id = thebot["id"]
-
-    # Here rowid is used which is not defined in the init() function. Rowid
-    # is a default column in SQLite when using an INT as primary key
-    botenabledpairs = cursor.execute(
-        f"SELECT pair FROM bot_pairs "
-        f"WHERE clusterid = '{cluster_id}' AND botid = {bot_id} AND enabled = {1} "
-        f"ORDER BY rowid ASC"
-    ).fetchall()
-
-    if botenabledpairs:
-        enabledpairlist = [row[0] for row in botenabledpairs]
-        set_threecommas_bot_pairs(logger, api, thebot, enabledpairlist, False, False, False)
-    else:
-        logger.warning(
-            f"Failed to get enabled pairs for bot {bot_id}"
-        )
-
-
-def write_cluster_exclude_files(cluster_id, bot_list):
+def write_cluster_exclude_files(bot_list, disabled_coins):
     """Write exclude files for each bot in the specified cluster"""
 
-    if sharedir is not None:
-        clusterdisabledcoins = cursor.execute(
-            f"SELECT coin FROM cluster_coins "
-            f"WHERE clusterid = '{cluster_id}' AND "
-            f"number_active >= {int(config.get(cluster_id, 'max-same-deals'))}"
-        ).fetchall()
-
-        if clusterdisabledcoins:
-            disabledcoinlist = [row[0] for row in clusterdisabledcoins]
-
-            for botid in bot_list:
-                write_bot_exclude_file(botid, disabledcoinlist)
+    for botid in bot_list:
+        write_bot_exclude_file(botid, disabled_coins)
 
 
 def write_bot_exclude_file(bot_id, coins):
@@ -445,12 +328,120 @@ def write_bot_exclude_file(bot_id, coins):
             filehandle.write('%s\n' % coin)
 
 
-def websocket_update(data):
-    """Handle the received data from the websocket"""
+def websocket_update(deal_data):
+    """Handle the received deal data from the websocket"""
 
     logger.info(
-        f"Websocket update; bot_id '{data['bot_id']}' received data: {data}"
+        f"Websocket update; bot_id '{deal_data['bot_id']}' received data: {deal_data}"
     )
+
+    # Indicator if the cluster should be aggregrated again. Updates over the websocket
+    # also contain filled SO's which don't have impact on the cluster
+    aggregrate = False
+    clusterid = ""
+
+    if deal_data["finished?"] == "True":
+        # Deal is finished, remove it from the db
+        db.execute(
+            f"DELETE FROM deals "
+            f"WHERE botid = {deal_data['bot_id']} AND dealid = {deal_data['id']}"
+        )
+        db.commit()
+
+        logger.info(
+            f"Deal {deal_data['id']}/{deal_data['pair']} on "
+            f"bot \"{deal_data['bot_name']} finished!",
+            True
+        )
+
+        aggregrate = True
+    else:
+        if not check_deal(cursor, deal_data["id"]):
+            # New deal, check if the bot is part of any cluster
+            clusterid = get_bot_cluster(deal_data["bot_id"])
+
+            if clusterid:
+                add_cluster_deal(deal_data, clusterid)
+
+                aggregrate = True
+            else:
+                logger.info(
+                    f"Deal {deal_data['id']}/{deal_data['pair']} on bot \"{deal_data['bot_name']} "
+                    f"opened. Bot is not part of any configured cluster."
+                )
+        #else:
+            # Here we could inform the user about deal updates (filled SO, trailing activated)
+
+    if aggregrate and clusterid:
+        # Get Bot list
+        botlist = json.loads(config.get(clusterid, "botids"))
+        aggregrate_cluster(clusterid, botlist)
+        process_cluster_bots(clusterid, botlist, "update")
+
+
+def process_cluster_bots(cluster_id, bot_list, action):
+    """Update the bots in the cluster with the enabled/disabled pairs"""
+
+    for bot in bot_list:
+        boterror, botdata = api.request(
+            entity="bots",
+            action="show",
+            action_id=str(bot),
+        )
+        if botdata:
+            if action == "deals":
+                process_bot_deals(cluster_id, botdata)
+            elif action == "update":
+                update_bot_config(botdata)
+            else:
+                logger.error(
+                    f"Cannot handle unknown action '{action}'!"
+                )
+        else:
+            if boterror and "msg" in boterror:
+                logger.error("Error occurred updating bots: %s" % boterror["msg"])
+            else:
+                logger.error("Error occurred updating bots")
+
+
+def get_bot_cluster(bot_id):
+    """Find the cluster the bot belongs to"""
+
+    clusterid = ""
+
+    for sectionid in config.sections():
+        if sectionid.startswith("cluster_"):
+            # Bot configuration for section
+            botlist = json.loads(config.get(sectionid, "botids"))
+
+            if bot_id in botlist:
+                # Cluster (section) found
+                clusterid = sectionid
+                break
+
+    logger.debug(
+        f"Cluster '{clusterid}' found for bot {bot_id}"
+    )
+
+    return clusterid
+
+
+def update_bot_config(bot_data):
+    """Update bots at 3C"""
+
+    marketcode = get_threecommas_account_marketcode(logger, api, bot_data["account_id"])
+
+    # If sharedir is set, other scripts could provide a file with pairs to exclude
+    if marketcode:
+        newpairs = bot_data["pairs"]
+        botbase = newpairs[0].split("_")[0]
+
+        remove_excluded_pairs(logger, sharedir, bot_data["id"], marketcode, botbase, newpairs)
+        set_threecommas_bot_pairs(logger, api, bot_data, newpairs, False, True, False)
+    else:
+        logger.error(
+            f"Marketcode not found for bot {bot_data['id']}. Cannot update pairs!"
+        )
 
 
 # Start application
@@ -478,7 +469,8 @@ else:
 if args.sharedir:
     sharedir = args.sharedir
 else:
-    sharedir = None
+    print("This script requires the sharedir to be used (-s option)!")
+    sys.exit(0)
 
 # pylint: disable-msg=C0103
 if args.blacklist:
@@ -539,6 +531,9 @@ cursor = db.cursor()
 # Upgrade the database if needed
 upgrade_cluster_db()
 
+# Prefetch all Marketcodes to reduce API calls and improve speed
+#marketcodes = prefetch_section_marketcodes()
+
 # DCA Deal Cluster
 while True:
 
@@ -555,55 +550,25 @@ while True:
             # Bot configuration for section
             botids = json.loads(config.get(section, "botids"))
 
-            # Walk through all bots configured
-            for bot in botids:
-                boterror, botdata = api.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(bot),
-                )
-                if botdata:
-                    clean_bot_db_data(botdata)
-                    process_bot_deals(section, botdata)
-                else:
-                    if boterror and "msg" in boterror:
-                        logger.error("Error occurred reading bots: %s" % boterror["msg"])
-                    else:
-                        logger.error("Error occurred reading bots")
+            # Walk through all bots configured and check deals
+            process_cluster_bots(section, botids, "deals")
 
-            # Aggregate deals to cluster level
+            # Log the deals
             if debug:
                 log_deals(section)
 
-            aggregrate_cluster(section)
+            # Aggregrate data on cluster level. Will also take care of writing .pairexclude file
+            aggregrate_cluster(section, botids)
 
+            # Log the cluster data
             if debug:
                 log_cluster_data(section)
 
-            # Enable and disable coins
-            process_cluster_deals(section)
-
             # Update the bots in this cluster with the enabled/disabled pairs
-            for bot in botids:
-                boterror, botdata = api.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(bot),
-                )
-                if botdata:
-                    update_bot_config(section, botdata)
-                else:
-                    if boterror and "msg" in boterror:
-                        logger.error("Error occurred updating bots: %s" % boterror["msg"])
-                    else:
-                        logger.error("Error occurred updating bots")
-
-            # Some coins could not be active in a bot, but we should inform other scripts about
-            # those excluded coins (prevent adding those coins)
-            write_cluster_exclude_files(section, botids)
+            process_cluster_bots(section, botids, "update")
 
             # Send notifications for the processed cluster, otherwise the message can
-            # become too long resulting in a bad request
+            # become too long resulting in a bad request in apprise
             notification.send_notification()
         elif section not in ("settings"):
             logger.warning(
