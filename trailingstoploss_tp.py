@@ -245,21 +245,35 @@ def check_float(potential_float):
         return False
 
 
-def get_config_for_profit(section_config, current_profit):
-    """Get the settings from the config corresponding to the current profit"""
+def get_config_for_profit(section_config: dict, current_profit: float, current_so_level: int) -> dict:
+    """
+        Get the settings from the config corresponding to the current profit
+        and current so level.
+
+        @param section_config: The config section to check
+        @param current_profit: The profit percentage of the current deal
+        @param current_so_level: The safety order count of the current deal
+
+        @return: The last matching config entry if there are multiple matches or an empty dict
+    """
 
     profitconfig = {}
 
     for entry in section_config:
-        if current_profit >= float(entry["activation-percentage"]):
+        if (current_profit >= float(entry["activation-percentage"]) and 
+            current_so_level >= int(entry["activation-so-count"])):
             profitconfig = entry
-        else:
-            break
-
-    logger.debug(
-        f"Profit config to use based on current profit {current_profit}% "
-        f"is {profitconfig}"
-    )
+    
+    if profitconfig:
+        logger.debug(
+            f"Profit config to use based on current profit {current_profit}% "
+            f"and current so count {current_so_level} is {profitconfig}"
+        )
+    else:
+        logger.debug(
+            f"No profit config found based on current profit {current_profit}% "
+            f"and so count {current_so_level}."
+        )
 
     return profitconfig
 
@@ -294,16 +308,10 @@ def process_deals(thebot, section_config):
                 existing_deal = check_deal(cursor, deal_id)
 
                 actual_profit_config = get_config_for_profit(
-                    section_config, float(deal["actual_profit_percentage"])
+                    section_config, float(deal["actual_profit_percentage"]), int(deal['completed_safety_orders_count'])
                     )
 
                 if not existing_deal and actual_profit_config:
-                    if not deal['completed_safety_orders_count'] >= int(actual_profit_config.get("activation-so-count")):
-                        logger.debug(
-                            f"\"{thebot['name']}\": {deal['pair']}/{deal['id']} has lower active safety orders then "
-                            f"configured"
-                        )
-                        continue
                     monitored_deals = +1
 
                     handle_new_deal(thebot, deal, actual_profit_config)
