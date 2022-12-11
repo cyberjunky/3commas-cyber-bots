@@ -284,6 +284,11 @@ def process_cmc_section(section_id):
     limit = 1 + (endnumber - startnumber)
     base = config.get(section_id, "percent-change-compared-to")
 
+    logger.debug(
+        f"Processing section {section_id} with start {startnumber} "
+        f"and limit {limit}. Use {base} as base for the pairs."
+    )
+
     baselist = ("BNB", "BTC", "ETH", "USD")
     if base not in baselist:
         logger.error(
@@ -302,7 +307,7 @@ def process_cmc_section(section_id):
     # 2: cmc data
     if data[0] != -1:
         logger.error(
-            f"Received error {data[0]}: {data[1]}. "
+            f"Received error {data[0]}: '{data[1]}'. "
             f"Stop processing and retry in 24h again."
         )
 
@@ -671,7 +676,7 @@ sectionstorage = {}
 
 # Reset some specific data (we don't know how old it is)
 reset_database_data()
-forceupdate = True
+forceupdate = False
 
 # Refresh market data based on several data sources
 while True:
@@ -684,7 +689,7 @@ while True:
     timeint = int(config.get("settings", "timeinterval"))
 
     # Current time to determine which sections to process
-    starttime = int(time.time())
+    currenttime = int(time.time())
 
     # House keeping
     cleanup_database()
@@ -699,11 +704,8 @@ while True:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
-            # Only process the section if it's forced, or it's time for the next interval,
-            # or time exceeds the check interval (clock has changed somehow)
-            if forceupdate or starttime >= nextprocesstime or (
-                    abs(nextprocesstime - starttime) > sectiontimeinterval
-            ):
+            # Only process the section if it's forced, or it's time for the next interval
+            if forceupdate or currenttime >= nextprocesstime:
                 sectionresult = False
                 if iscmcsection:
                     sectionresult = process_cmc_section(section)
@@ -716,9 +718,14 @@ while True:
 
                 # Determine new time to process this section. When processing failed
                 # it will be retried in 24 hours
-                newtime = starttime + sectiontimeinterval
+                newtime = currenttime + sectiontimeinterval
                 if not sectionresult:
-                    newtime = starttime + (24 * 60 * 60)
+                    newtime = currenttime + (24 * 60 * 60)
+
+                    logger.debug(
+                        f"Section {section} failed to process. Next update at "
+                        f"{unix_timestamp_to_string(newtime, '%Y-%m-%d %H:%M:%S')}."
+                    )
 
                 set_next_process_time(db, "sections", "sectionid", section, newtime)
             else:
