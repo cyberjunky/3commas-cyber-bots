@@ -111,8 +111,6 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
         return 0, err, {}
 
-    logger.info("Fetched CoinMarketCap data OK (%s coins)" % (len(cmcdict)))
-
     return errorcode, errormessage, cmcdict
 
 
