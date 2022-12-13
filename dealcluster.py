@@ -352,8 +352,9 @@ def websocket_update(deal_data):
     clusterid = ""
 
     threaddb = init_thread_db()
+    existingdeal = check_deal(threaddb.cursor(), deal_data["id"])
 
-    if deal_data["finished?"]:
+    if existingdeal and deal_data["finished?"]:
         # Deal is finished, remove it from the db
         threaddb.execute(
             f"DELETE FROM deals "
@@ -367,9 +368,12 @@ def websocket_update(deal_data):
             True
         )
 
+        # Finished deal, get the cluster the bot belongs to
+        clusterid = get_bot_cluster(deal_data["bot_id"])
+
         aggregrate = True
     else:
-        if not check_deal(threaddb.cursor(), deal_data["id"]):
+        if not existingdeal:
             # New deal, check if the bot is part of any cluster
             clusterid = get_bot_cluster(deal_data["bot_id"])
 
@@ -377,12 +381,12 @@ def websocket_update(deal_data):
                 add_cluster_deal(threaddb, deal_data, clusterid)
 
                 aggregrate = True
-            else:
-                logger.info(
-                    f"Deal {deal_data['id']}/{deal_data['pair']} on bot \"{deal_data['bot_name']} "
-                    f"opened. Bot is not part of any configured cluster.",
-                    True
-                )
+            #else:
+            #    logger.info(
+            #        f"Deal {deal_data['id']}/{deal_data['pair']} on bot \"{deal_data['bot_name']} "
+            #        f"opened. Bot is not part of any configured cluster.",
+            #        True
+            #    )
         #else:
             # Here we could inform the user about deal updates (filled SO, trailing activated)
 
