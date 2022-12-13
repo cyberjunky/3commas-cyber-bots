@@ -392,6 +392,9 @@ def websocket_update(deal_data):
         aggregrate_cluster(threaddb, clusterid, botlist)
         process_cluster_bots(clusterid, botlist, "update")
 
+    # Send notifications, if there are any
+    notification.send_notification()
+
 
 def process_cluster_bots(cluster_id, bot_list, action):
     """Update the bots in the cluster with the enabled/disabled pairs"""
