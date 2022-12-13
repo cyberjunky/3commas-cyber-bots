@@ -226,6 +226,20 @@ def update_bot_pairs(section_id, base, botdata, coindata):
 
     botupdated = False
 
+    allowbotstopstart = config.getboolean(section_id, "allowbotstopstart")
+    if len(coindata[1]) == 0:
+        logger.info(
+            f"No coins for bot '{botdata['name']}' with id '{botdata['id']}' "
+            f"available. Skip update and stop the bot if allowed in the configuration."
+        )
+
+        # No data available, stop the bot if allowed to
+        if allowbotstopstart:
+            handle_bot_stopstart(botdata, 0)
+
+        botupdated = True
+        return botupdated
+
     # Gather bot settings
     botbase = botdata["pairs"][0].split("_")[0]
     if botbase in ("BTC", "ETH", "BNB"):
@@ -248,10 +262,9 @@ def update_bot_pairs(section_id, base, botdata, coindata):
         return botupdated
 
     # Load tickerlist for this exchange
-    exchange = botdata["account_name"]
     tickerlist = get_threecommas_market(logger, api, marketcode)
     logger.info(
-        f"Bot base pair: {botbase}. Exchange: {exchange} ({marketcode})"
+        f"Bot base pair: {botbase}. Exchange: {botdata['account_name']} ({marketcode})"
     )
 
     # Process list of coins
@@ -286,9 +299,8 @@ def update_bot_pairs(section_id, base, botdata, coindata):
     # change back to original if possible
     paircount = len(newpairs)
     newmaxdeals = False
-    allowmaxdealchange = config.getboolean(section_id, "allowmaxdealchange")
-    allowbotstopstart = config.getboolean(section_id, "allowbotstopstart")
 
+    allowmaxdealchange = config.getboolean(section_id, "allowmaxdealchange")
     if allowmaxdealchange:
         newmaxdeals = determine_bot_maxactivedeals(botdata, paircount)
 
@@ -297,7 +309,9 @@ def update_bot_pairs(section_id, base, botdata, coindata):
 
     # Update the bot with the new pairs
     if newpairs:
-        botupdated = set_threecommas_bot_pairs(logger, api, botdata, newpairs, newmaxdeals, False, False)
+        botupdated = set_threecommas_bot_pairs(
+            logger, api, botdata, newpairs, newmaxdeals, False, False
+            )
 
         if newmaxdeals:
             logger.info(
@@ -311,16 +325,18 @@ def update_bot_pairs(section_id, base, botdata, coindata):
             excludedcount = abs(coindata[0][0] - len(coindata[1]))
             logger.info(
                 f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {paircount} "
-                f"pairs ({newpairs[0]} ... {newpairs[-1]}). Excluded coins: {excludedcount} (filter), "
-                f"{len(blackpairs)} (blacklist), {len(badpairs)} (not on exchange)",
+                f"pairs ({newpairs[0]} ... {newpairs[-1]}). "
+                f"Excluded coins: {excludedcount} (filter), {len(blackpairs)} (blacklist), "
+                f"{len(badpairs)} (not on exchange)",
                 True
             )
     else:
-        # There are no pairs available, which is a normal use-case
+        # No coins in the list are available on the exchange, which can be a normal use-case
         botupdated = True
 
         logger.info(
-            f"None of the pairs have been found on the {exchange} ({marketcode}) exchange!",
+            f"None of the pairs have been found on the {botdata['account_name']} "
+            f"({marketcode}) exchange!",
             True
         )
 
@@ -335,10 +351,6 @@ def determine_bot_maxactivedeals(botdata, paircount):
     # Get stored value from the database. This could be zero, meaning there is
     # no number of active deals stored yet
     originalmaxdeals = get_bot_maxdeals(botdata["id"])
-
-    logger.debug(
-        f"{botdata['id']}: original {originalmaxdeals}, paircount {paircount}, max active deals {botdata['max_active_deals']}"
-    )
 
     if paircount < botdata["max_active_deals"]:
         # Lower number of pairs; limit max active deals
@@ -387,8 +399,6 @@ def handle_bot_stopstart(botdata, paircount):
 
 def get_coins_from_market_data(base, filteroptions):
     """Get pairs based on the specified filtering"""
-
-    #SELECT pairs.coin, rankings.coinmarketcap, prices.change_1h from pairs INNER JOIN rankings ON pairs.coin = rankings.coin INNER JOIN prices ON pairs.coin = prices.coin WHERE pairs.base = 'BTC' AND rankings.coinmarketcap BETWEEN 1 AND 6
 
     # Query for the total count of coins
     countquery = f"SELECT COUNT(pairs.coin) FROM pairs WHERE base = '{base}'"

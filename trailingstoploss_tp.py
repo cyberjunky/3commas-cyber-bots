@@ -539,7 +539,14 @@ def handle_update_deal(thebot, deal, existing_deal, profit_config):
                         ), 2
                 )
 
-                if new_tp_percentage > current_tp_percentage:
+                if new_tp_percentage <= actual_profit_percentage:
+                    logger.info(
+                        f"New TakeProfit {new_tp_percentage} equal or lower than actual "
+                        f"profit of {actual_profit_percentage}. Deal will be closed "
+                        f"by 3C so no point in changing TakeProfit percentage."
+                    )
+                    new_tp_percentage = current_tp_percentage
+                elif new_tp_percentage > current_tp_percentage:
                     logger.info(
                         f"TakeProfit increased from {current_tp_percentage}% "
                         f"to {new_tp_percentage}%.",
