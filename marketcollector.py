@@ -704,6 +704,13 @@ while True:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
+            logger.debug(
+                f"Section {section}: next update at "
+                f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}, "
+                f"current time = "
+                f"{unix_timestamp_to_string(currenttime, '%Y-%m-%d %H:%M:%S')}, "
+            )
+
             # Only process the section if it's forced, or it's time for the next interval
             if forceupdate or currenttime >= nextprocesstime:
                 sectionresult = False
