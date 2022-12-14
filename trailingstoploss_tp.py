@@ -179,22 +179,40 @@ def upgrade_config(thelogger, cfg):
 def update_deal_profit(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
     """Update bot with new SL and TP."""
 
+    dealupdated = False
+
     bot_name = thebot["name"]
     deal_id = deal["id"]
+
+    payload = {
+        "deal_id": thebot["id"],
+        "stop_loss_percentage": new_stoploss,
+        "stop_loss_timeout_enabled": sl_timeout > 0,
+        "stop_loss_timeout_in_seconds": sl_timeout
+    }
+
+    # Only update TP values when no conditional take profit is used
+    # Note: currently the API does not support this. Script cannot be used for MP deals yet!
+    #if not len(thebot['close_strategy_list']):
+    #    payload["take_profit"] = new_take_profit
+    #    payload["trailing_enabled"] = False
+    #else:
+    #    payload["take_profit"] = 0.05
+    #    payload["trailing_enabled"] = False
+    payload["take_profit"] = new_take_profit
+    payload["trailing_enabled"] = deal["trailing_enabled"]
+    payload["tsl_enabled"] = deal["tsl_enabled"]
 
     error, data = api.request(
         entity="deals",
         action="update_deal",
         action_id=str(deal_id),
-        payload={
-            "deal_id": deal_id,
-            "stop_loss_percentage": new_stoploss,
-            "take_profit": new_take_profit,
-            "stop_loss_timeout_enabled": sl_timeout > 0,
-            "stop_loss_timeout_in_seconds": sl_timeout
-        }
+        payload=payload
     )
+
     if data:
+        dealupdated = True
+
         logger.info(
             f"Changing SL for deal {deal['pair']}/{deal['id']} on bot \"{bot_name}\"\n"
             f"Changed SL from {deal['stop_loss_percentage']}% to {new_stoploss}%. "
@@ -320,6 +338,8 @@ def get_deal_open_safety_orders(deal):
 
     return activeorderid
 
+    return dealupdated
+
 
 def calculate_slpercentage_base_price_short(sl_price, base_price):
     """Calculate the SL percentage of the base price for a short deal"""
@@ -366,40 +386,70 @@ def check_float(potential_float):
         return False
 
 
-def get_config_for_profit(section_profit_config, current_profit):
-    """Get the settings from the config corresponding to the current profit"""
+def get_config_for_profit(section_config: dict, current_profit: float, current_so_level: int) -> dict:
+    """
+        Get the profit settings from the config corresponding to the current profit
+        and current so level.
+
+        @param section_config: The config section to check
+        @param current_profit: The profit percentage of the current deal
+        @param current_so_level: The safety order count of the current deal
+
+        @return: The last matching config entry if there are multiple matches or an empty dict
+    """
 
     profitconfig = {}
 
-    for entry in section_profit_config:
-        if current_profit >= float(entry["activation-percentage"]):
+    for entry in section_config:
+        if (current_profit >= float(entry["activation-percentage"]) and 
+            current_so_level >= int(entry["activation-so-count"])):
             profitconfig = entry
-        else:
-            break
-
-    logger.debug(
-        f"Profit config to use based on current profit {current_profit}% "
-        f"is {profitconfig}"
-    )
+    
+    if profitconfig:
+        logger.debug(
+            f"Profit config to use based on current profit {current_profit}% "
+            f"and current so count {current_so_level} is {profitconfig}"
+        )
+    else:
+        logger.debug(
+            f"No profit config found based on current profit {current_profit}% "
+            f"and so count {current_so_level}."
+        )
 
     return profitconfig
 
 
-def get_config_for_safety(section_safety_config, current_profit):
-    """Get the settings from the config corresponding to the current safety"""
+def get_config_for_safety(section_config: dict, current_profit: float, current_so_level: int) -> dict:
+    """
+        Get the safety settings from the config corresponding to the current profit
+        and current so level.
+
+        @param section_config: The config section to check
+        @param current_profit: The profit percentage of the current deal
+        @param current_so_level: The safety order count of the current deal
+
+        @return: The last matching config entry if there are multiple matches or an empty dict
+    """
 
     safetyconfig = {}
 
-    for entry in section_safety_config:
-        if current_profit <= float(entry["activation-percentage"]):
+    for entry in section_config:
+        if (current_profit <= float(entry["activation-percentage"]) and 
+            current_so_level >= int(entry["activation-so-count"])):
             safetyconfig = entry
         else:
             break
 
-    logger.debug(
-        f"Safety config to use based on current profit {current_profit}% "
-        f"is {safetyconfig}"
-    )
+    if safetyconfig:
+        logger.debug(
+            f"Safety config to use based on current profit {current_profit}% "
+            f"and current so count {current_so_level} is {safetyconfig}"
+        )
+    else:
+        logger.debug(
+            f"No safety config found based on current profit {current_profit}% "
+            f"and so count {current_so_level}."
+        )
 
     return safetyconfig
 
@@ -442,7 +492,7 @@ def process_deals(thebot, section_profit_config, section_safety_config):
 
 
                     actual_profit_config = get_config_for_profit(
-                        section_profit_config, float(deal["actual_profit_percentage"])
+                        section_profit_config, float(deal["actual_profit_percentage"]), int(deal['completed_safety_orders_count'])
                         )
 
                     if actual_profit_config:
@@ -456,7 +506,7 @@ def process_deals(thebot, section_profit_config, section_safety_config):
                     totalnegativeprofit = ((float(deal["current_price"]) / float(deal["base_order_average_price"])) * 100.0) - 100.0
 
                     actual_safety_config = get_config_for_safety(
-                            section_safety_config, totalnegativeprofit
+                            section_safety_config, totalnegativeprofit, int(deal['completed_safety_orders_count'])
                         )
 
                     monitored_deals += handle_deal_safety(
@@ -604,12 +654,11 @@ def handle_new_deal(thebot, deal, profit_config):
             )
 
         # Update deal in 3C
-        update_deal_profit(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout)
-
-        # Add deal to our database
-        add_deal_in_db(
-            deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
-        )
+        if update_deal_profit(thebot, deal, sl_data[2], new_tp_percentage, sl_timeout):
+            # Add deal to our database
+            add_deal_in_db(
+                deal["id"], botid, actual_profit_percentage, average_price_sl_percentage, new_tp_percentage
+            )
     else:
         logger.debug(
             f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]} which "
@@ -685,7 +734,14 @@ def handle_deal_profit(thebot, deal, deal_db_data, profit_config):
                         ), 2
                 )
 
-                if new_tp_percentage > current_tp_percentage:
+                if new_tp_percentage <= actual_profit_percentage:
+                    logger.info(
+                        f"New TakeProfit {new_tp_percentage} equal or lower than actual "
+                        f"profit of {actual_profit_percentage}. Deal will be closed "
+                        f"by 3C so no point in changing TakeProfit percentage."
+                    )
+                    new_tp_percentage = current_tp_percentage
+                elif new_tp_percentage > current_tp_percentage:
                     logger.info(
                         f"TakeProfit increased from {current_tp_percentage}% "
                         f"to {new_tp_percentage}%.",
@@ -702,12 +758,11 @@ def handle_deal_profit(thebot, deal, deal_db_data, profit_config):
                     )
 
                 # Update deal in 3C
-                update_deal_profit(thebot, deal, sl_data[2], new_tp_percentage, new_sl_timeout)
-
-                # Update deal in our database
-                update_profit_in_db(
-                    deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
-                )
+                if update_deal_profit(thebot, deal, sl_data[2], new_tp_percentage, new_sl_timeout):
+                    # Update deal in our database
+                    update_deal_in_db(
+                        deal['id'], actual_profit_percentage, new_average_price_sl_percentage, new_tp_percentage
+                    )
             else:
                 logger.debug(
                     f"{deal['pair']}/{deal['id']}: calculated SL of {sl_data[2]}% which "

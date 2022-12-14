@@ -10,7 +10,9 @@ def get_next_process_time(database, table, column, value_id):
             f"SELECT next_processing_timestamp FROM {table} WHERE {column} = '{value_id}'"
         ).fetchone()
 
-    nexttime = int(time.time())
+    # Start with initial time, and substract one second to allow direct processing
+    # for sections that did'nt have any previous process time stored
+    nexttime = int(time.time() - 1.0)
     if dbrow is not None:
         nexttime = dbrow["next_processing_timestamp"]
     else:

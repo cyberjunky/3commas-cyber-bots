@@ -1,5 +1,5 @@
 """Cyberjunky's 3Commas bot helpers."""
-from math import isnan, nan
+from math import nan
 from py3cw.request import Py3CW
 
 
@@ -287,6 +287,8 @@ def get_threecommas_market(logger, api, market_code):
 def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify=True, notify_uptodate=True):
     """Update bot with new pairs."""
 
+    botupdated = False
+
     # Do we already use these pairs?
     if newpairs == thebot["pairs"]:
         logger.info(
@@ -294,14 +296,17 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
             % (thebot["name"], thebot["id"]),
             notify_uptodate,
         )
-        return
+        botupdated = True
+        return botupdated
 
     if not newmaxdeals:
         maxactivedeals = thebot["max_active_deals"]
     else:
         maxactivedeals = newmaxdeals
 
-    logger.debug("Current pair(s): %s\nNew pair(s): %s" % (thebot["pairs"], newpairs))
+    # Sort the list for logging and notification purpose
+    sortednewpairs = sorted(newpairs)
+    logger.debug("Current pair(s): %s\nNew pair(s): %s" % (thebot["pairs"], sortednewpairs))
 
     error, data = api.request(
         entity="bots",
@@ -309,7 +314,7 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
         action_id=str(thebot["id"]),
         payload={
             "name": str(thebot["name"]),
-            "pairs": newpairs,
+            "pairs": sortednewpairs,
             "base_order_volume": float(thebot["base_order_volume"]),
             "take_profit": float(thebot["take_profit"]),
             "safety_order_volume": float(thebot["safety_order_volume"]),
@@ -331,22 +336,24 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
         },
     )
     if data:
+        botupdated = True
+
         logger.debug("Bot pair(s) updated: %s" % data)
-        if len(newpairs) == 1:
+        if len(sortednewpairs) == 1:
             logger.info(
                 "Bot '%s' with id '%s' updated with pair '%s'"
-                % (thebot["name"], thebot["id"], newpairs[0]),
+                % (thebot["name"], thebot["id"], sortednewpairs[0]),
                 notify,
             )
         else:
-            if len(newpairs) < 10:
+            if len(sortednewpairs) < 10:
                 logger.info(
                 "Bot '%s' with id '%s' updated with %d pairs (%s)"
                 % (
                     thebot["name"],
                     thebot["id"],
-                    len(newpairs),
-                    newpairs,
+                    len(sortednewpairs),
+                    sortednewpairs,
                 ),
                 notify,
             )
@@ -356,9 +363,9 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
                     % (
                         thebot["name"],
                         thebot["id"],
-                        len(newpairs),
-                        newpairs[0],
-                        newpairs[-1],
+                        len(sortednewpairs),
+                        sortednewpairs[0],
+                        sortednewpairs[-1],
                     ),
                     notify,
                 )
@@ -379,6 +386,8 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
                 "Error occurred while updating bot '%s'" % thebot["name"],
                 True,
             )
+
+    return botupdated
 
 
 def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):

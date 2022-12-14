@@ -8,7 +8,7 @@ import time
 from logging.handlers import TimedRotatingFileHandler as _TimedRotatingFileHandler
 
 import apprise
-
+from apprise import NotifyFormat
 
 class NotificationHandler:
     """Notification class."""
@@ -37,21 +37,21 @@ class NotificationHandler:
         while True:
             message, attachments = self.queue.get()
             if attachments:
-                self.apobj.notify(body=message, attach=attachments)
+                self.apobj.notify(body=message, attach=attachments, body_format=NotifyFormat.TEXT)
             else:
-                self.apobj.notify(body=message)
+                self.apobj.notify(body=message, body_format=NotifyFormat.TEXT)
             self.queue.task_done()
 
     def queue_notification(self, message):
         """Queue notification messages."""
         if self.enabled:
             message.encode(encoding = 'UTF-8', errors = 'strict')
-            self.message += f"{message}\n\n"
+            self.message += f"{message}\r\n \r\n"
 
     def send_notification(self):
         """Send the notification messages if there are any."""
         if self.enabled and self.message:
-            msg = f"[3C Cyber Bot-Helper {self.program}]\n\n" + self.message
+            msg = f"[3C Cyber Bot-Helper {self.program}]\r\n \r\n" + self.message
             self.queue.put((msg, []))
             self.message = ""
 
