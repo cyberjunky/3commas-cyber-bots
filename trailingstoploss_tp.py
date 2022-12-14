@@ -227,6 +227,8 @@ def update_deal_profit(thebot, deal, new_stoploss, new_take_profit, sl_timeout):
         else:
             logger.error("Error occurred updating deal with new SL/TP valuess")
 
+    return dealupdated
+
 
 def get_data_for_add_funds(deal):
     """Get data for correctly adding funds."""
@@ -338,8 +340,6 @@ def get_deal_open_safety_orders(deal):
 
     return activeorderid
 
-    return dealupdated
-
 
 def calculate_slpercentage_base_price_short(sl_price, base_price):
     """Calculate the SL percentage of the base price for a short deal"""
@@ -419,14 +419,13 @@ def get_config_for_profit(section_config: dict, current_profit: float, current_s
     return profitconfig
 
 
-def get_config_for_safety(section_config: dict, current_profit: float, current_so_level: int) -> dict:
+def get_config_for_safety(section_config: dict, current_profit: float) -> dict:
     """
         Get the safety settings from the config corresponding to the current profit
         and current so level.
 
         @param section_config: The config section to check
         @param current_profit: The profit percentage of the current deal
-        @param current_so_level: The safety order count of the current deal
 
         @return: The last matching config entry if there are multiple matches or an empty dict
     """
@@ -434,8 +433,7 @@ def get_config_for_safety(section_config: dict, current_profit: float, current_s
     safetyconfig = {}
 
     for entry in section_config:
-        if (current_profit <= float(entry["activation-percentage"]) and 
-            current_so_level >= int(entry["activation-so-count"])):
+        if current_profit <= float(entry["activation-percentage"]):
             safetyconfig = entry
         else:
             break
@@ -443,12 +441,11 @@ def get_config_for_safety(section_config: dict, current_profit: float, current_s
     if safetyconfig:
         logger.debug(
             f"Safety config to use based on current profit {current_profit}% "
-            f"and current so count {current_so_level} is {safetyconfig}"
+            f"is {safetyconfig}"
         )
     else:
         logger.debug(
-            f"No safety config found based on current profit {current_profit}% "
-            f"and so count {current_so_level}."
+            f"No safety config found based on current profit {current_profit}%"
         )
 
     return safetyconfig
@@ -506,7 +503,7 @@ def process_deals(thebot, section_profit_config, section_safety_config):
                     totalnegativeprofit = ((float(deal["current_price"]) / float(deal["base_order_average_price"])) * 100.0) - 100.0
 
                     actual_safety_config = get_config_for_safety(
-                            section_safety_config, totalnegativeprofit, int(deal['completed_safety_orders_count'])
+                            section_safety_config, totalnegativeprofit
                         )
 
                     monitored_deals += handle_deal_safety(
