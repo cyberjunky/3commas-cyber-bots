@@ -1047,7 +1047,7 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
 
                     if actual_absolute_profit_percentage <= buy_on_percentage:
                         logger.info(
-                            f"{deal['pair']}/{deal['id']} Adding SO because actual profit {actual_absolute_profit_percentage}% "
+                            f"{deal['pair']}/{deal['id']} Fill SO at {sodata[3]} because actual profit {actual_absolute_profit_percentage}% "
                             f"passed the SL threshold of {buy_on_percentage}%",
                             True
                         )
