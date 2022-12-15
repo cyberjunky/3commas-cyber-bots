@@ -975,7 +975,8 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
             # 0. The number of configured Safety Orders to be filled using a Manual trade
             # 1. The total volume for those number of Safety Orders
             # 2. The buy price of that volume
-            # 3. The next total negative profit percentage on which the next Safety Order is configured
+            # 3. The total negative profit percentage for the current Safety Order
+            # 4. The next total negative profit percentage on which the next Safety Order is configured
             sodata = calculate_safety_order(thebot, deal, deal_db_data, total_negative_profit)
 
             logger.debug(
@@ -983,8 +984,12 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
             )
 
             if sodata[0] > 0:
+                sopercentagedrop = deal_db_data['next_so_percentage']
+                if sopercentagedrop == 0.0:
+                    sopercentagedrop = sodata[3]
+
                 logger.info(
-                    f"{deal['pair']}/{deal['id']} Next SO ({deal_db_data['next_so_percentage']}) required based on profit."
+                    f"{deal['pair']}/{deal['id']} Next SO ({sopercentagedrop}) required based on profit."
                     f"Check if trailing needs to be actived..."
                 )
 
@@ -1000,22 +1005,22 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
                 # Activate and monitor trailing when:
                 # buy_on_percentage is not 0.0 trailing has been activated before and buy level needs to be monitored
                 # or when buy_on is 0.0 and current profit exceeds SO percentage + waiting percentage
-                if buy_on_percentage > 0.0 or actual_absolute_profit_percentage > (deal_db_data['next_so_percentage'] + waitfortrailing):
+                if buy_on_percentage > 0.0 or actual_absolute_profit_percentage > (sopercentagedrop + waitfortrailing):
                     if round(actual_absolute_profit_percentage, 2) > round(last_profit_percentage, 2):
                         # Correct the last profit to have a correct calculation of the buy price for a SO
-                        if last_profit_percentage < deal_db_data["next_so_percentage"]:
+                        if last_profit_percentage < sopercentagedrop:
                             logger.info(
-                                f"{deal['pair']}/{deal['id']} Current last profit {last_profit_percentage} above SO {deal_db_data['next_so_percentage']}. Correcting...",
+                                f"{deal['pair']}/{deal['id']} Current last profit {last_profit_percentage} above SO {sopercentagedrop}. Correcting...",
                                 True
                             )
-                            last_profit_percentage = deal_db_data["next_so_percentage"]
+                            last_profit_percentage = sopercentagedrop
 
-                        if buy_on_percentage < deal_db_data['next_so_percentage']:
+                        if buy_on_percentage < sopercentagedrop:
                             logger.info(
-                                f"{deal['pair']}/{deal['id']} Current buy level {buy_on_percentage} above SO {deal_db_data['next_so_percentage']}. Correcting...",
+                                f"{deal['pair']}/{deal['id']} Current buy level {buy_on_percentage} above SO {sopercentagedrop}. Correcting...",
                                 True
                             )
-                            buy_on_percentage = deal_db_data["next_so_percentage"]
+                            buy_on_percentage = sopercentagedrop
 
                         increment_factor = float(safety_config.get("increment-factor"))
 
@@ -1075,13 +1080,13 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
 
                             newtotalso = deal_db_data["filled_so_count"] + sodata[0]
                             logger.info(
-                                f"Updating deal {deal['pair']}/{deal['id']} SO to {newtotalso} and next SO on {sodata[3]}%"
+                                f"Updating deal {deal['pair']}/{deal['id']} SO to {newtotalso} and next SO on {sodata[4]}% "
                                 f"Open order is {orderid}",
                                 True
                             )
 
                             # Update SO information in DB
-                            update_safetyorder_in_db(deal["id"], newtotalso, sodata[3], orderid)
+                            update_safetyorder_in_db(deal["id"], newtotalso, sodata[4], orderid)
 
                             # Update SO trailing in DB and reset value
                             update_safetyorder_monitor_in_db(deal["id"], actual_absolute_profit_percentage, 0.0)
@@ -1093,12 +1098,12 @@ def handle_deal_safety(thebot, deal, deal_db_data, safety_config, total_negative
                         logger.info(
                             f"Actual {actual_absolute_profit_percentage} did not yet cross SL {buy_on_percentage}. SO could be placed on lower price next interval."
                         )
-            elif deal_db_data["next_so_percentage"] == 0.0 or sodata[3] > deal_db_data["next_so_percentage"]:
+            elif deal_db_data["next_so_percentage"] == 0.0 or sodata[4] > deal_db_data["next_so_percentage"]:
                 logger.info(
-                    f"{deal['pair']}/{deal['id']} Set next SO to {sodata[3]}%",
+                    f"{deal['pair']}/{deal['id']} Set next SO to {sodata[4]}%",
                     True
                 )
-                update_safetyorder_in_db(deal["id"], deal_db_data["filled_so_count"], sodata[3], 0)
+                update_safetyorder_in_db(deal["id"], deal_db_data["filled_so_count"], sodata[4], 0)
                 update_safetyorder_monitor_in_db(deal["id"], actual_absolute_profit_percentage, 0.0)
             #else:
             #    logger.info("No safety funds for deal required at this time")
@@ -1189,7 +1194,7 @@ def calculate_safety_order(thebot, deal_data, deal_db_data, total_negative_profi
         f"SO level {socounter} reached. Need to buy {sobuycount} - {sobuyvolume}/{sobuyprice}! Next SO at {sonextdroppercentage}"
     )
 
-    return sobuycount, sobuyvolume, sobuyprice, sonextdroppercentage
+    return sobuycount, sobuyvolume, sobuyprice, percentagetotaldrop, sonextdroppercentage
 
 
 #######################################################################################################################################################
