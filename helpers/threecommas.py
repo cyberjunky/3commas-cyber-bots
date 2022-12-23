@@ -530,3 +530,72 @@ def get_threecommas_bots(logger, api, accountid):
     # No else, there are just no bots for the account
 
     return None
+
+def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_price):
+    """Add funds to existing deal."""
+
+    orderplaced = False
+
+    error, data = api.request(
+        entity="deals",
+        action="add_funds",
+        action_id=str(deal_id),
+        payload={
+            "quantity": quantity,
+            "is_market": False,
+            "rate": limit_price,
+            "deal_id": deal_id,
+        },
+    )
+    if data:
+        logger.debug(
+            f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
+            f"at limit price {limit_price}."
+        )
+
+        if data["status"] == "success":
+            orderplaced = True
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred adding funds to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred adding funds to deal")
+
+    return orderplaced
+
+
+def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal_id):
+    """Get the current active manual safety order for the specified deal."""
+
+    activeorderid = 0
+
+    error, data = api.request(
+        entity="deals",
+        action="market_orders",
+        action_id=str(deal_id)
+    )
+
+    if data:
+        logger.debug(
+            f"Open orders for deal {deal_pair}/{deal_id}: {data}"
+        )
+
+        for order in data:
+            order_id = order["order_id"]
+            order_type = order["deal_order_type"]
+            order_status = order["status_string"]
+
+            if order_type == "Manual Safety" and order_status == "Active":
+                activeorderid = order_id
+                break
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred while fetching active market orders for deal")
+
+    return activeorderid
