@@ -2,6 +2,8 @@
 from math import nan
 from py3cw.request import Py3CW
 
+from helpers.misc import get_round_digits
+
 
 def load_blacklist(logger, api, blacklistfile):
     """Return blacklist data to be used."""
@@ -548,9 +550,11 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
         },
     )
     if data:
+        rounddigits = get_round_digits(deal_pair)
+
         logger.debug(
             f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
-            f"at limit price {limit_price}."
+            f"at limit price {limit_price:0.{rounddigits}f}."
         )
 
         if data["status"] == "success":

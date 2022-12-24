@@ -68,8 +68,8 @@ def get_safety_db_data(cursor, dealid):
     return cursor.execute(f"SELECT * FROM deal_safety WHERE dealid = {dealid}").fetchone()
 
 
-def calculate_safety_order(logger, bot_data, deal_data, deal_db_data, current_profit):
-    """Calculate the next SO order."""
+def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current_profit):
+    """Calculate the next safety order."""
 
     # Number of SO to buy
     sobuycount = 0
@@ -91,7 +91,7 @@ def calculate_safety_order(logger, bot_data, deal_data, deal_db_data, current_pr
     socounter = 0
     while socounter < deal_data['max_safety_orders']:
         logger.debug(
-            f"At SO {socounter} --- Volume: {sovolume}/{totalvolume}, Drop: {sopercentagedropfrombaseprice}/{totaldroppercentage}, Price: {sobuyprice}"
+            f"{deal_data['pair']}/{deal_data['id']}: at SO {socounter} --- Volume: {sovolume}/{totalvolume}, Drop: {sopercentagedropfrombaseprice}/{totaldroppercentage}, Price: {sobuyprice}"
         )
 
         nextsovolume = 0.0
@@ -111,31 +111,31 @@ def calculate_safety_order(logger, bot_data, deal_data, deal_db_data, current_pr
 
         # Print data for next SO
         logger.debug(
-            f"Calculated next SO {socounter + 1} --- Volume: {nextsovolume}/{nextsototalvolume}, Drop: {nextsopercentagedropfrombaseprice}/{nextsopercentagetotaldrop}, Price: {nextsobuyprice}"
+            f"{deal_data['pair']}/{deal_data['id']}: calculated next SO {socounter + 1} --- Volume: {nextsovolume}/{nextsototalvolume}, Drop: {nextsopercentagedropfrombaseprice}/{nextsopercentagetotaldrop}, Price: {nextsobuyprice}"
         )
 
         # Descision making :) Optimize later...
-        if socounter < deal_db_data["filled_so_count"]:
+        if socounter < filled_so_count:
             logger.debug(f"SO {socounter} already filled!")
 
             sovolume = nextsovolume
             totalvolume = nextsototalvolume
             sopercentagedropfrombaseprice = nextsopercentagedropfrombaseprice
-            percentagetotaldrop = nextsopercentagetotaldrop
+            totaldroppercentage = nextsopercentagetotaldrop
             sobuyprice = nextsobuyprice
         elif nextsopercentagetotaldrop <= current_profit:
-            logger.debug(f"Next SO {socounter + 1} not filled and required based on (negative) profit!")
+            logger.debug(f"{deal_data['pair']}/{deal_data['id']}: next SO {socounter + 1} not filled and required based on (negative) profit!")
 
             sovolume = nextsovolume
             totalvolume = nextsototalvolume
             sopercentagedropfrombaseprice = nextsopercentagedropfrombaseprice
-            percentagetotaldrop = nextsopercentagetotaldrop
+            totaldroppercentage = nextsopercentagetotaldrop
             sobuyprice = nextsobuyprice
 
             sobuycount += 1
             sobuyvolume += nextsovolume
         elif nextsopercentagetotaldrop > current_profit:
-            logger.debug(f"Next SO {socounter + 1} not filled and not required! Stop at SO {socounter}")
+            logger.debug(f"{deal_data['pair']}/{deal_data['id']}: next SO {socounter + 1} not filled and not required! Stop at SO {socounter}")
 
             sonextdroppercentage = nextsopercentagetotaldrop
 
@@ -144,7 +144,7 @@ def calculate_safety_order(logger, bot_data, deal_data, deal_db_data, current_pr
         socounter += 1
 
     logger.info(
-        f"SO level {socounter} reached. Need to buy {sobuycount} - {sobuyvolume}/{sobuyprice}! Next SO at {sonextdroppercentage}"
+        f"{deal_data['pair']}/{deal_data['id']}: SO level {socounter} reached. Need to buy {sobuycount} - {sobuyvolume}/{sobuyprice}! Next SO at {sonextdroppercentage}"
     )
 
-    return sobuycount, sobuyvolume, sobuyprice, percentagetotaldrop, sonextdroppercentage
+    return sobuycount, sobuyvolume, sobuyprice, totaldroppercentage, sonextdroppercentage
