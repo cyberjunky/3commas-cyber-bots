@@ -431,10 +431,10 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         deal_db_data = get_safety_db_data(cursor, deal_data["id"])
 
         # SO mode requires the total % drop without filled safety oders
-        totalprofit = fabs(
+        totalprofit = round(fabs(
             ((float(deal_data["current_price"]) /
             float(deal_data["base_order_average_price"])) * 100.0) - 100.0
-        )
+        ),2)
         sorelativeprofit = totalprofit - deal_db_data["next_so_percentage"]
 
         if sorelativeprofit >= 0.0:
@@ -797,6 +797,20 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
 
     requiremonitoring = 0
 
+    # Debug data, remove later...
+    logger.debug(
+        f"Processing deal {deal_data['id']} with current "
+        f"profit {float(deal_data['actual_profit_percentage'])}%. "
+        f"Total profit is {current_profit_percentage}%. "
+        f"Max SO: {deal_data['max_safety_orders']}, "
+        f"Active: {deal_data['active_safety_orders_count']}, "
+        f"Current active: {deal_data['current_active_safety_orders_count']}, "
+        f"Completed: {deal_data['completed_safety_orders_count']}. "
+        f"Manual SO active: {deal_data['active_manual_safety_orders']}, "
+        f"Completed manual SO: {deal_data['completed_manual_safety_orders_count']}. "
+        f"Stored bought SO: {deal_db_data['filled_so_count']}"
+    )
+
     # Return if deal has used all the Safety Orders. Nothing to do anymore.
     if deal_db_data['filled_so_count'] == deal_data['max_safety_orders']:
         logger.debug(
@@ -820,20 +834,6 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             True
         )
         update_safetyorder_active_order_in_db(deal_data["id"], 0)
-
-    # Debug data, remove later...
-    logger.debug(
-        f"Processing deal {deal_data['id']} with current "
-        f"profit {float(deal_data['actual_profit_percentage'])}%. "
-        f"Total profit is {current_profit_percentage}%. "
-        f"Max SO: {deal_data['max_safety_orders']}, "
-        f"Active: {deal_data['active_safety_orders_count']}, "
-        f"Current active: {deal_data['current_active_safety_orders_count']}, "
-        f"Completed: {deal_data['completed_safety_orders_count']}. "
-        f"Manual SO active: {deal_data['active_manual_safety_orders']}, "
-        f"Completed manual SO: {deal_data['completed_manual_safety_orders_count']}. "
-        f"Stored bought SO: {deal_db_data['filled_so_count']}"
-    )
 
     logger.info(
         f"{deal_data['pair']}/{deal_data['id']} current profit: {current_profit_percentage}, "
@@ -881,6 +881,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         requiremonitoring = 1
     elif current_profit_percentage <= buypercentage:
         # Current profit passed or equal to buy percentage. Add funds to the deal
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']} profit {current_profit_percentage:0.2f}% "
+            f"passed buy SL of {buypercentage}%."
+        )
 
         # When current profit is below the desired Safety Order, reset and start from the beginning
         if current_profit_percentage < float(deal_db_data["next_so_percentage"]):
