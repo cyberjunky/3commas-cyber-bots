@@ -592,7 +592,7 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
             order_status = order["status_string"]
 
             if order_type == "Manual Safety" and order_status == "Active":
-                activeorderid = order_id
+                activeorderid = int(order_id)
                 break
     else:
         if error and "msg" in error:
