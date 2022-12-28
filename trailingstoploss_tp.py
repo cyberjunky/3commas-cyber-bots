@@ -806,7 +806,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         update_safetyorder_active_order_in_db(deal_data["id"], 0)
 
     profitprefix = ""
-    if deal_data["strategy"]  == "short":
+    if deal_data["strategy"] == "long":
         profitprefix = "-"
 
     logger.info(
@@ -830,7 +830,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
                 f"profit {profitprefix}{current_profit_percentage:0.2f}% dropped below "
                 f"Safety Order at {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%. "
-                f"Next Safety Order set to {profitprefix}{addfundspercentage:0.2f}%.",
+                f"Add Funds threshold set to {profitprefix}{addfundspercentage:0.2f}%.",
                 True
             )
         else:
@@ -841,9 +841,9 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             )
 
             logger.info(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit changed "
-                f"from {profitprefix}{last_profit_percentage:0.2f}% to {profitprefix}{current_profit_percentage:0.2f}%. "
-                f"Add Funds changed from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% to "
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit from "
+                f"{profitprefix}{last_profit_percentage:0.2f}% to {profitprefix}{current_profit_percentage:0.2f}%. "
+                f"Add Funds threshold from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% to "
                 f"{profitprefix}{addfundspercentage:0.2f}%.",
                 True
             )
@@ -857,7 +857,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         # Current profit passed or equal to buy percentage. Add funds to the deal
         logger.debug(
             f"{deal_data['pair']}/{deal_data['id']} profit {profitprefix}{current_profit_percentage:0.2f}% "
-            f"passed Add Funds of {profitprefix}{addfundspercentage}%."
+            f"passed Add Funds threshold of {profitprefix}{addfundspercentage}%."
         )
 
         # When current profit is below the desired Safety Order, reset and start from the beginning
@@ -916,21 +916,21 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
 
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit "
-                        f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds moment "
+                        f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds threshold "
                         f"at {profitprefix}{addfundspercentage:0.2f}%. "
                         f"Created order {activeorderid} for {quantity} of "
-                        f"{deal_data['pair'].split('_')[1]}. In total {totalfilledso} out of "
-                        f"{deal_data['max_safety_orders']} Safety Order(s) are filled.",
+                        f"{deal_data['pair'].split('_')[1]}. "
+                        f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
                         True
                     )
                 else:
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit "
-                        f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds moment "
+                        f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds threshold "
                         f"at {profitprefix}{addfundspercentage:0.2f}%. "
                         f"Filled {sodata[0]} Safety Order(s) for {quantity} of "
-                        f"{deal_data['pair'].split('_')[1]}. In total {totalfilledso} out of "
-                        f"{deal_data['max_safety_orders']} Safety Order(s) are filled.",
+                        f"{deal_data['pair'].split('_')[1]}. "
+                        f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
                         True
                     )
 
@@ -951,7 +951,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             f"{deal_data['pair']}/{deal_data['id']}: no profit decrease "
             f"(current: {profitprefix}{current_profit_percentage}%, "
             f"previous: {profitprefix}{last_profit_percentage}%, "
-            f"Add Funds: {profitprefix}{addfundspercentage}%). "
+            f"Add Funds threshold: {profitprefix}{addfundspercentage}%). "
             f"Keep on monitoring."
         )
 
