@@ -337,11 +337,9 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
                         section_profit_config, bot_data, deal
                     )
                 else:
-                    #Todo: implement this also for short deals
-                    if deal["strategy"] == "long":
-                        monitored_deals += process_deal_for_safety_order(
-                            section_safety_config, bot_data, deal
-                        )
+                    monitored_deals += process_deal_for_safety_order(
+                        section_safety_config, bot_data, deal
+                    )
             else:
                 logger.warning(
                     f"Unknown strategy {deal['strategy']} for deal {deal['id']}"
@@ -886,10 +884,17 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             )
 
             limitprice = sodata[2]
-            if limitprice > float(deal_data["current_price"]):
+            if deal_data["strategy"] == "long" and limitprice > float(deal_data["current_price"]):
                 logger.debug(
                     f"{deal_data['pair']}/{deal_data['id']} current price "
                     f"{deal_data['current_price']} lower than calculated "
+                    f"price {limitprice}, so using the current price."
+                )
+                limitprice = float(deal_data["current_price"])
+            elif deal_data["strategy"] == "short" and limitprice < float(deal_data["current_price"]):
+                logger.debug(
+                    f"{deal_data['pair']}/{deal_data['id']} current price "
+                    f"{deal_data['current_price']} higher than calculated "
                     f"price {limitprice}, so using the current price."
                 )
                 limitprice = float(deal_data["current_price"])
