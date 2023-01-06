@@ -286,17 +286,6 @@ def get_settings(section_config: dict, current_profit: float, current_so_level: 
             current_so_level >= int(entry["activation-so-count"])):
             settings = entry
 
-    if settings:
-        logger.debug(
-            f"Settings to use based on current profit {current_profit}% "
-            f"and current so count {current_so_level} is {settings}"
-        )
-    else:
-        logger.debug(
-            f"No settings found based on current profit {current_profit}% "
-            f"and so count {current_so_level}."
-        )
-
     return settings
 
 
@@ -372,7 +361,7 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     profit_config = get_settings(
         section_profit_config,
         float(deal_data["actual_profit_percentage"]),
-        int(deal_data['completed_safety_orders_count'])
+        int(deal_data["completed_safety_orders_count"])
     )
 
     # Available profit_config means trailing must be applied. So for deals
@@ -382,6 +371,12 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
         requiremonitoring = handle_deal_profit(
                 bot_data, deal_data, deal_db_data, profit_config
             )
+    else:
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+            f"no profit config available for profit {deal_data['actual_profit_percentage']}% "
+            f"and {deal_data['completed_safety_orders_count']} filled SO."
+        )
 
     return requiremonitoring
 
@@ -399,8 +394,8 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         totalprofit = round(fabs(
             ((float(deal_data["current_price"]) /
             float(deal_data["base_order_average_price"])) * 100.0) - 100.0
-        ),2)
-        sorelativeprofit = totalprofit - deal_db_data["next_so_percentage"]
+        ), 2)
+        sorelativeprofit = round(totalprofit - deal_db_data["next_so_percentage"], 2)
 
         if sorelativeprofit >= 0.0:
             safety_config = get_settings(
@@ -412,13 +407,14 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
                     )
         else:
             logger.debug(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} has not "
-                f"yet reached next SO at {deal_db_data['next_so_percentage']}%."
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                f"requires {abs(sorelativeprofit)}% change before next SO "
+                f"at {deal_db_data['next_so_percentage']}% will be reached."
             )
     else:
         logger.warning(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} has "
-            f"active Safety Orders by bot configuration which will break the "
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+            f"has active Safety Orders by bot configuration which will break the "
             f"functionality of this script. Not processing this deal!"
         )
 
@@ -483,13 +479,6 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
     requiremonitoring = 0
 
-    if not deal_data['completed_safety_orders_count'] >= int(profit_config.get("activation-so-count")):
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} has "
-            f"lower active safety orders then configured"
-        )
-        return requiremonitoring
-
     current_profit_percentage = float(deal_data["actual_profit_percentage"])
     last_profit_percentage = float(deal_db_data["last_profit_percentage"])
 
@@ -515,7 +504,10 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
         current_sl_percentage = float(deal_data["stop_loss_percentage"])
 
         # Only calculate and update deal when SL has changed or TP will be changed
-        if (fabs(sl_data[2]) > 0.0 and sl_data[2] != current_sl_percentage) or (tp_increment_factor > 0.0):
+        if (
+            (fabs(sl_data[2]) > 0.0 and sl_data[2] != current_sl_percentage) or
+            (tp_increment_factor > 0.0)
+        ):
             new_sl_timeout = int(profit_config.get("sl-timeout"))
 
             # Calculate understandable SL percentage (TP axis range) based on average price
@@ -537,13 +529,24 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 f"SL price {sl_data[1]}."
             )
 
-            logger.info(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit increased "
-                f"from {last_profit_percentage}% to {current_profit_percentage}%. "
-                f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% to "
-                f"{new_average_price_sl_percentage}%. ",
-                True
+            message = (
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                f"profit increased from {last_profit_percentage}% to {current_profit_percentage}%. "
             )
+
+            if deal_db_data['last_readable_sl_percentage'] != new_average_price_sl_percentage:
+                message += (
+                    f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% "
+                    f"to {new_average_price_sl_percentage}%. "
+                )
+
+            # Check whether there is an old timeout, and log when the new time out is different
+            current_sl_timeout = deal_data["stop_loss_timeout_in_seconds"]
+            if current_sl_timeout is not None and current_sl_timeout != new_sl_timeout:
+                message += (
+                    f"StopLoss timeout changed from {current_sl_timeout}s "
+                    f"to {new_sl_timeout}s. "
+                )
 
             # Calculate new TP percentage based on the increased profit and increment factor
             current_tp_percentage = float(deal_data["take_profit"])
@@ -555,19 +558,9 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             )
 
             if new_tp_percentage > current_tp_percentage:
-                logger.info(
+                message += (
                     f"TakeProfit increased from {current_tp_percentage}% "
-                    f"to {new_tp_percentage}%.",
-                    True
-                )
-
-            # Check whether there is an old timeout, and log when the new time out is different
-            current_sl_timeout = deal_data["stop_loss_timeout_in_seconds"]
-            if current_sl_timeout is not None and current_sl_timeout != new_sl_timeout:
-                logger.info(
-                    f"StopLoss timeout changed from {current_sl_timeout}s "
-                    f"to {new_sl_timeout}s.",
-                    True
+                    f"to {new_tp_percentage}%. "
                 )
 
             # Update deal in 3C
@@ -578,6 +571,13 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 update_profit_in_db(
                     deal_data['id'], current_profit_percentage,
                     new_average_price_sl_percentage, new_tp_percentage
+                )
+
+                # Send the message to the user
+                logger.info(message, True)
+            else:
+                logger.info(
+                    f"Update failed for message: {message}"
                 )
         else:
             logger.debug(
@@ -807,20 +807,21 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
     if deal_data["strategy"] == "long":
         profitprefix = "-"
 
-    logger.info(
-        f"{deal_data['pair']}/{deal_data['id']} current profit: {profitprefix}{current_profit_percentage}, "
-        f"next SO at {profitprefix}{deal_db_data['next_so_percentage']}"
-    )
-
     addfundspercentage = deal_db_data["add_funds_percentage"]
     last_profit_percentage = float(deal_db_data["last_profit_percentage"])
     if safety_config and current_profit_percentage > last_profit_percentage:
         if last_profit_percentage == 0.0:
-            # First time activation, calculate initial buy percentage
-            activation_diff = current_profit_percentage - deal_db_data["next_so_percentage"]
+            # First time activation, calculate initial add funds threshold
+            initialbuy = float(safety_config.get("initial-buy-percentage"))
+            activation_diff = (
+                current_profit_percentage -
+                deal_db_data["next_so_percentage"] -
+                initialbuy
+            )
+
             addfundspercentage = (
                 deal_db_data["next_so_percentage"] +
-                float(safety_config.get("initial-buy-percentage")) +
+                initialbuy +
                 (activation_diff * float(safety_config.get("buy-increment-factor")))
             )
 
@@ -840,9 +841,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
 
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit from "
-                f"{profitprefix}{last_profit_percentage:0.2f}% to {profitprefix}{current_profit_percentage:0.2f}%. "
-                f"Add Funds threshold from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% to "
-                f"{profitprefix}{addfundspercentage:0.2f}%.",
+                f"{profitprefix}{last_profit_percentage:0.2f}% to "
+                f"{profitprefix}{current_profit_percentage:0.2f}%. "
+                f"Add Funds threshold from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% "
+                f"to {profitprefix}{addfundspercentage:0.2f}%.",
                 True
             )
 
