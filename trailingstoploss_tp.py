@@ -128,9 +128,10 @@ def upgrade_config(thelogger, cfg):
 
                 cfgsectionsafetyconfig = list()
                 cfgsectionsafetyconfig.append({
-                    "activation-percentage": "-1.0",
-                    "increment-factor": "0.25",
-                    "limit-order-deviation": "0.00",
+                    "activation-percentage": "0.25",
+                    "activation-so-count": "0",
+                    "initial-buy-percentage": "0.0",
+                    "buy-increment-factor": "0.50",
                 })
 
                 cfg.set(cfgsection, "safety-config", json.dumps(cfgsectionsafetyconfig))
