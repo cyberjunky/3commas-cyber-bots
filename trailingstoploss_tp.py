@@ -25,11 +25,9 @@ from helpers.threecommas import (
     threecommas_deal_add_funds
 )
 from helpers.trailingstoploss_tp import (
-    calculate_average_price_sl_percentage_long,
-    calculate_average_price_sl_percentage_short,
     calculate_safety_order,
-    calculate_slpercentage_base_price_long,
-    calculate_slpercentage_base_price_short,
+    calculate_sl_percentage,
+    calculate_tp_percentage,
     check_float,
     get_profit_db_data,
     get_safety_db_data,
@@ -355,12 +353,12 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
 
     requiremonitoring = 0
 
-    if float(deal_data["actual_profit_percentage"]) >= float(deal_data["take_profit"]):
+    if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
         logger.debug(
             f"{deal_data['pair']}/{deal_data['id']}: current profit "
-            f"{deal_data['actual_profit_percentage']} equal or above take profit, "
-            f"so there is no point in updating TP and/or SL value. "
-            f"Deal should be closed by 3Commas any moment now."
+            f"{deal_data['actual_profit_percentage']} above take profit of "
+            f"{deal_data['take_profit']}, so there is no point in updating "
+            f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
         )
         return requiremonitoring
 
@@ -448,70 +446,17 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         else:
             logger.debug(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"no safety config available for profit {sorelativeprofit}% "
+                f"no safety config available for profit -{sorelativeprofit}% "
                 f"and {dealdbdata['filled_so_count']} filled SO."
             )
     else:
         logger.debug(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-            f"requires {abs(sorelativeprofit)}% change before next SO "
+            f"requires {fabs(sorelativeprofit)}% change before next SO "
             f"at {dealdbdata['next_so_percentage']}% will be reached."
         )
 
     return requiremonitoring
-
-
-def calculate_sl_percentage(deal_data, profit_config, activation_diff):
-    """Calculate the SL percentage in 3C range"""
-
-    initialstoplosspercentage = float(profit_config.get("initial-stoploss-percentage"))
-    slincrementfactor = float(profit_config.get("sl-increment-factor"))
-
-    # SL is calculated by 3C on base order price. Because of filled SO's,
-    # we must first calculate the SL price based on the average price
-    averageprice = 0.0
-    if deal_data["strategy"] == "short":
-        averageprice = float(deal_data["sold_average_price"])
-    else:
-        averageprice = float(deal_data["bought_average_price"])
-
-    # Calculate the amount we need to substract or add to the average price based
-    # on the configured increments and activation
-    percentageprice = averageprice * ((initialstoplosspercentage / 100.0)
-                                        + ((activation_diff / 100.0) * slincrementfactor))
-
-    slprice = averageprice
-    if deal_data["strategy"] == "short":
-        slprice -= percentageprice
-    else:
-        slprice += percentageprice
-
-    logger.debug(
-        f"{deal_data['pair']}/{deal_data['id']}: SL price {slprice} calculated based on average "
-        f"price {averageprice}, initial SL of {initialstoplosspercentage}, "
-        f"activation diff of {activation_diff} and sl factor {slincrementfactor}"
-    )
-
-    # Now we know the SL price, let's calculate the percentage from
-    # the base order price so we have the desired SL for 3C
-    baseprice = float(deal_data["base_order_average_price"])
-    basepriceslpercentage = 0.0
-
-    if deal_data["strategy"] == "short":
-        basepriceslpercentage = calculate_slpercentage_base_price_short(
-                slprice, baseprice
-            )
-    else:
-        basepriceslpercentage = calculate_slpercentage_base_price_long(
-                slprice, baseprice
-            )
-
-    logger.debug(
-        f"{deal_data['pair']}/{deal_data['id']}: base SL of {basepriceslpercentage}% calculated "
-        f"based on base price {baseprice} and SL price {slprice}."
-    )
-
-    return averageprice, slprice, basepriceslpercentage
 
 
 def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
@@ -522,57 +467,37 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
     currentprofitpercentage = float(deal_data["actual_profit_percentage"])
     lastprofitpercentage = float(deal_db_data["last_profit_percentage"])
     if currentprofitpercentage > lastprofitpercentage:
-        tpincrementfactor = float(profit_config.get("tp-increment-factor"))
+        message = (
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+            f"profit increased from {lastprofitpercentage}% to {currentprofitpercentage}%. "
+        )
 
         activationdiff = (
             currentprofitpercentage - float(profit_config.get("activation-percentage"))
         )
 
-        # SL data contains three values:
-        # 0. The sold or bought average price
-        # 1. The calculated SL price
-        # 2. The SL percentage on 3C axis (inverted range compared to TP axis)
-        sl_data = calculate_sl_percentage(deal_data, profit_config, activationdiff)
+        # SL data contains five values:
+        # 0. The current SL percentage on 3C axis (inverted range compared to TP axis)
+        # 1. The SL percentage on 3C axis (inverted range compared to TP axis)
+        # 2. The SL percentage on TP axis (understandable for the user)
+        sldata = calculate_sl_percentage(logger, deal_data, profit_config, activationdiff)
 
-        currentslpercentage = float(deal_data["stop_loss_percentage"])
+        # TP data contains two values:
+        # 0. The current TP value
+        # 1. The new TP value
+        tpdata = calculate_tp_percentage(
+            logger, deal_data, profit_config, activationdiff, lastprofitpercentage
+        )
 
-        # Only calculate and update deal when SL has changed or TP will be changed
-        if (
-            (fabs(sl_data[2]) > 0.0 and sl_data[2] != currentslpercentage) or
-            (tpincrementfactor > 0.0)
-        ):
-            # Calculate understandable SL percentage (TP axis range) based on average price
-            newslpercentage = 0.0
-
-            if deal_data["strategy"] == "short":
-                newslpercentage = calculate_average_price_sl_percentage_short(
-                        sl_data[1], sl_data[0]
-                    )
-            else:
-                newslpercentage = calculate_average_price_sl_percentage_long(
-                        sl_data[1], sl_data[0]
-                    )
-
-            logger.debug(
-                f"{deal_data['pair']}/{deal_data['id']}: new average SL "
-                f"of {newslpercentage}% calculated "
-                f"based on average price {sl_data[0]} and "
-                f"SL price {sl_data[1]}."
-            )
-
-            message = (
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"profit increased from {lastprofitpercentage}% to {currentprofitpercentage}%. "
-            )
-
-            if deal_db_data['last_readable_sl_percentage'] != newslpercentage:
+        newsltimeout = int(profit_config.get("sl-timeout"))
+        if (fabs(sldata[1]) > 0.0 and sldata[1] != sldata[0]):
+            if deal_db_data['last_readable_sl_percentage'] != sldata[4]:
                 message += (
                     f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% "
-                    f"to {newslpercentage}%. "
+                    f"to {sldata[2]}%. "
                 )
 
             # Check whether there is an old timeout, and log when the new time out is different
-            newsltimeout = int(profit_config.get("sl-timeout"))
             currentsltimeout = deal_data["stop_loss_timeout_in_seconds"]
             if currentsltimeout is not None and currentsltimeout != newsltimeout:
                 message += (
@@ -580,55 +505,33 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                     f"to {newsltimeout}s. "
                 )
 
-            # Calculate new TP percentage based on the increased profit and increment factor
-            if lastprofitpercentage == 0.0:
-                # Only for first time TP is going to be calculated and last profit must
-                # reflect the activation setting, otherwise the TP value will make
-                # a huge jump
-                lastprofitpercentage = activationdiff
-
-            currenttppercentage = float(deal_data["take_profit"])
-            newtppercentage = round(
-                currenttppercentage + (
-                        (currentprofitpercentage - lastprofitpercentage)
-                        * tpincrementfactor
-                    ), 2
+        if tpdata[1] > tpdata[0]:
+            message += (
+                f"TakeProfit increased from {tpdata[0]}% "
+                f"to {tpdata[1]}%. "
             )
 
-            if newtppercentage > currenttppercentage:
-                message += (
-                    f"TakeProfit increased from {currenttppercentage}% "
-                    f"to {newtppercentage}%. "
-                )
+        # Update deal in 3C
+        if update_deal_profit(
+            bot_data, deal_data, sldata[1], [1], newsltimeout
+        ):
+            # Update deal in our database
+            update_profit_in_db(
+                deal_data['id'], currentprofitpercentage,
+                sldata[2], tpdata[1]
+            )
 
-            # Update deal in 3C
-            if update_deal_profit(
-                bot_data, deal_data, sl_data[2], newtppercentage, newsltimeout
-            ):
-                # Update deal in our database
-                update_profit_in_db(
-                    deal_data['id'], currentprofitpercentage,
-                    newslpercentage, newtppercentage
-                )
-
-                # Send the message to the user
-                logger.info(message, True)
-            else:
-                logger.info(
-                    f"Update failed for message: {message}"
-                )
+            # Send the message to the user
+            logger.info(message, True)
         else:
-            logger.debug(
-                f"{deal_data['pair']}/{deal_data['id']}: calculated SL of {sl_data[2]}% which "
-                f"is equal to current SL {currentslpercentage}% or "
-                f"is 0.0 which causes 3C to deactive SL; no change made!"
+            logger.info(
+                f"Update failed for message: {message}"
             )
 
-        # SL calculated, so deal must be monitored for any changes (even if an
-        # invalid SL has been calculated)
+        # SL and/or TP calculated, so deal must be monitored for any changes
         requiremonitoring = 1
     else:
-        # Profit has not increased, but SL active so check frequently
+        # Profit has not increased, but SL and/or TP active so check frequently
         requiremonitoring = 1
 
         logger.debug(
