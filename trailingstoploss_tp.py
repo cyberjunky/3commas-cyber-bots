@@ -513,7 +513,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
         # Update deal in 3C
         if update_deal_profit(
-            bot_data, deal_data, sldata[1], [1], newsltimeout
+            bot_data, deal_data, sldata[1], tpdata[1], newsltimeout
         ):
             # Update deal in our database
             update_profit_in_db(
