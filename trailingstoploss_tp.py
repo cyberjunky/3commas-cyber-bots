@@ -292,13 +292,13 @@ def get_settings(section_config: dict, current_profit: float, current_so_level: 
 def process_deals(bot_data, section_profit_config, section_safety_config):
     """Check deals from bot, compare against the database and handle them."""
 
-    monitored_deals = 0
+    monitoreddeals = 0
 
     botid = bot_data["id"]
     deals = bot_data["active_deals"]
 
     if deals:
-        current_deals = []
+        currentdeals = []
 
         for deal in deals:
             if deal["strategy"] in ("short", "long"):
@@ -312,7 +312,7 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
                     )
                     continue
 
-                current_deals.append(deal["id"])
+                currentdeals.append(deal["id"])
 
                 if is_new_deal(cursor, deal["id"]):
                     add_deal_in_db(deal["id"], botid)
@@ -322,11 +322,11 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
                         set_first_safety_order(bot_data, deal, 0, 0.0)
 
                 if float(deal["actual_profit_percentage"]) >= 0.0:
-                    monitored_deals += process_deal_for_profit(
+                    monitoreddeals += process_deal_for_profit(
                         section_profit_config, bot_data, deal
                     )
                 else:
-                    monitored_deals += process_deal_for_safety_order(
+                    monitoreddeals += process_deal_for_safety_order(
                         section_safety_config, bot_data, deal
                     )
             else:
@@ -335,11 +335,11 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
                 )
 
         # Housekeeping, clean things up and prevent endless growing database
-        remove_closed_deals(botid, current_deals)
+        remove_closed_deals(botid, currentdeals)
 
         logger.debug(
             f"Bot \"{bot_data['name']}\" ({botid}) has {len(deals)} deal(s) "
-            f"of which {monitored_deals} require monitoring."
+            f"of which {monitoreddeals} require monitoring."
         )
     else:
         logger.debug(
@@ -347,7 +347,7 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
         )
         remove_all_deals(botid)
 
-    return monitored_deals
+    return monitoreddeals
 
 
 def process_deal_for_profit(section_profit_config, bot_data, deal_data):
@@ -355,10 +355,19 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
 
     requiremonitoring = 0
 
-    # Deal is in positive profit, so TSL mode which requires the profit-config
-    deal_db_data = get_profit_db_data(cursor, deal_data["id"])
+    if float(deal_data["actual_profit_percentage"]) >= float(deal_data["take_profit"]):
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']}: current profit "
+            f"{deal_data['actual_profit_percentage']} equal or above take profit, "
+            f"so there is no point in updating TP and/or SL value. "
+            f"Deal should be closed by 3Commas any moment now."
+        )
+        return requiremonitoring
 
-    profit_config = get_settings(
+    # Deal is in positive profit, so TSL mode which requires the profit-config
+    dealdbdata = get_profit_db_data(cursor, deal_data["id"])
+
+    profitconfig = get_settings(
         section_profit_config,
         float(deal_data["actual_profit_percentage"]),
         int(deal_data["completed_safety_orders_count"])
@@ -367,9 +376,9 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     # Available profit_config means trailing must be applied. So for deals
     # which have not reached the desired profit yet,
     # no profit_config can be found.
-    if profit_config:
+    if profitconfig:
         requiremonitoring = handle_deal_profit(
-                bot_data, deal_data, deal_db_data, profit_config
+                bot_data, deal_data, dealdbdata, profitconfig
             )
     else:
         logger.debug(
@@ -386,36 +395,67 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
 
     requiremonitoring = 0
 
-    # Deal is in negative profit, so SO mode.
-    if deal_data['active_safety_orders_count'] == 0:
-        deal_db_data = get_safety_db_data(cursor, deal_data["id"])
-
-        # SO mode requires the total % drop without filled safety oders
-        totalprofit = round(fabs(
-            ((float(deal_data["current_price"]) /
-            float(deal_data["base_order_average_price"])) * 100.0) - 100.0
-        ), 2)
-        sorelativeprofit = round(totalprofit - deal_db_data["next_so_percentage"], 2)
-
-        if sorelativeprofit >= 0.0:
-            safety_config = get_settings(
-                    section_safety_config, sorelativeprofit, deal_db_data["filled_so_count"]
-                )
-
-            requiremonitoring = handle_deal_safety(
-                        bot_data, deal_data, deal_db_data, safety_config, totalprofit
-                    )
-        else:
-            logger.debug(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"requires {abs(sorelativeprofit)}% change before next SO "
-                f"at {deal_db_data['next_so_percentage']}% will be reached."
-            )
-    else:
+    if deal_data['active_safety_orders_count'] != 0:
         logger.warning(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
             f"has active Safety Orders by bot configuration which will break the "
             f"functionality of this script. Not processing this deal!"
+        )
+        return requiremonitoring
+
+    # Fetch data from local DB for this deal
+    dealdbdata = get_safety_db_data(cursor, deal_data["id"])
+
+    if dealdbdata["active_order_id"] > 0:
+        if deal_data['active_manual_safety_orders'] > 0:
+            logger.debug(
+                f"{deal_data['pair']}/{deal_data['id']} has pending Safety Order. "
+                f"Wait for it to fill, before handling next Safety Order."
+            )
+            return requiremonitoring
+
+        # No return, meaning order has been filled
+        logger.info(
+            f"{deal_data['pair']}/{deal_data['id']}: "
+            f"order {dealdbdata['active_order_id']} has been filled!",
+            True
+        )
+        update_safetyorder_active_order_in_db(deal_data["id"], 0)
+
+    if dealdbdata['filled_so_count'] == deal_data['max_safety_orders']:
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']} has filled "
+            f"all {deal_data['max_safety_orders']} Safety Orders."
+        )
+        return requiremonitoring
+
+    # SO mode requires the total % drop without filled safety oders
+    totalprofit = round(fabs(
+        ((float(deal_data["current_price"]) /
+        float(deal_data["base_order_average_price"])) * 100.0) - 100.0
+    ), 2)
+    sorelativeprofit = round(totalprofit - dealdbdata["next_so_percentage"], 2)
+
+    if sorelativeprofit >= 0.0:
+        safetyconfig = get_settings(
+                section_safety_config, sorelativeprofit, dealdbdata["filled_so_count"]
+            )
+
+        if safetyconfig:
+            requiremonitoring = handle_deal_safety(
+                        bot_data, deal_data, dealdbdata, safetyconfig, totalprofit
+                    )
+        else:
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                f"no safety config available for profit {sorelativeprofit}% "
+                f"and {dealdbdata['filled_so_count']} filled SO."
+            )
+    else:
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+            f"requires {abs(sorelativeprofit)}% change before next SO "
+            f"at {dealdbdata['next_so_percentage']}% will be reached."
         )
 
     return requiremonitoring
@@ -424,54 +464,54 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
 def calculate_sl_percentage(deal_data, profit_config, activation_diff):
     """Calculate the SL percentage in 3C range"""
 
-    initial_stoploss_percentage = float(profit_config.get("initial-stoploss-percentage"))
-    sl_increment_factor = float(profit_config.get("sl-increment-factor"))
+    initialstoplosspercentage = float(profit_config.get("initial-stoploss-percentage"))
+    slincrementfactor = float(profit_config.get("sl-increment-factor"))
 
     # SL is calculated by 3C on base order price. Because of filled SO's,
     # we must first calculate the SL price based on the average price
-    average_price = 0.0
+    averageprice = 0.0
     if deal_data["strategy"] == "short":
-        average_price = float(deal_data["sold_average_price"])
+        averageprice = float(deal_data["sold_average_price"])
     else:
-        average_price = float(deal_data["bought_average_price"])
+        averageprice = float(deal_data["bought_average_price"])
 
     # Calculate the amount we need to substract or add to the average price based
     # on the configured increments and activation
-    percentage_price = average_price * ((initial_stoploss_percentage / 100.0)
-                                        + ((activation_diff / 100.0) * sl_increment_factor))
+    percentageprice = averageprice * ((initialstoplosspercentage / 100.0)
+                                        + ((activation_diff / 100.0) * slincrementfactor))
 
-    sl_price = average_price
+    slprice = averageprice
     if deal_data["strategy"] == "short":
-        sl_price -= percentage_price
+        slprice -= percentageprice
     else:
-        sl_price += percentage_price
+        slprice += percentageprice
 
     logger.debug(
-        f"{deal_data['pair']}/{deal_data['id']}: SL price {sl_price} calculated based on average "
-        f"price {average_price}, initial SL of {initial_stoploss_percentage}, "
-        f"activation diff of {activation_diff} and sl factor {sl_increment_factor}"
+        f"{deal_data['pair']}/{deal_data['id']}: SL price {slprice} calculated based on average "
+        f"price {averageprice}, initial SL of {initialstoplosspercentage}, "
+        f"activation diff of {activation_diff} and sl factor {slincrementfactor}"
     )
 
     # Now we know the SL price, let's calculate the percentage from
     # the base order price so we have the desired SL for 3C
-    base_price = float(deal_data["base_order_average_price"])
-    base_price_sl_percentage = 0.0
+    baseprice = float(deal_data["base_order_average_price"])
+    basepriceslpercentage = 0.0
 
     if deal_data["strategy"] == "short":
-        base_price_sl_percentage = calculate_slpercentage_base_price_short(
-                sl_price, base_price
+        basepriceslpercentage = calculate_slpercentage_base_price_short(
+                slprice, baseprice
             )
     else:
-        base_price_sl_percentage = calculate_slpercentage_base_price_long(
-                sl_price, base_price
+        basepriceslpercentage = calculate_slpercentage_base_price_long(
+                slprice, baseprice
             )
 
     logger.debug(
-        f"{deal_data['pair']}/{deal_data['id']}: base SL of {base_price_sl_percentage}% calculated "
-        f"based on base price {base_price} and SL price {sl_price}."
+        f"{deal_data['pair']}/{deal_data['id']}: base SL of {basepriceslpercentage}% calculated "
+        f"based on base price {baseprice} and SL price {slprice}."
     )
 
-    return average_price, sl_price, base_price_sl_percentage
+    return averageprice, slprice, basepriceslpercentage
 
 
 def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
@@ -479,98 +519,96 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
     requiremonitoring = 0
 
-    current_profit_percentage = float(deal_data["actual_profit_percentage"])
-    last_profit_percentage = float(deal_db_data["last_profit_percentage"])
+    currentprofitpercentage = float(deal_data["actual_profit_percentage"])
+    lastprofitpercentage = float(deal_db_data["last_profit_percentage"])
+    if currentprofitpercentage > lastprofitpercentage:
+        tpincrementfactor = float(profit_config.get("tp-increment-factor"))
 
-    if current_profit_percentage >= float(deal_data["take_profit"]):
-        logger.debug(
-            f"{deal_data['pair']}/{deal_data['id']}: current profit {current_profit_percentage} "
-            f"above take profit, so there is no point in updating TP and/or SL value. "
-            f"Deal should be closed by 3C any moment now."
-        )
-    elif current_profit_percentage > last_profit_percentage:
-        tp_increment_factor = float(profit_config.get("tp-increment-factor"))
-
-        activation_diff = (
-            current_profit_percentage - float(profit_config.get("activation-percentage"))
+        activationdiff = (
+            currentprofitpercentage - float(profit_config.get("activation-percentage"))
         )
 
         # SL data contains three values:
         # 0. The sold or bought average price
         # 1. The calculated SL price
         # 2. The SL percentage on 3C axis (inverted range compared to TP axis)
-        sl_data = calculate_sl_percentage(deal_data, profit_config, activation_diff)
+        sl_data = calculate_sl_percentage(deal_data, profit_config, activationdiff)
 
-        current_sl_percentage = float(deal_data["stop_loss_percentage"])
+        currentslpercentage = float(deal_data["stop_loss_percentage"])
 
         # Only calculate and update deal when SL has changed or TP will be changed
         if (
-            (fabs(sl_data[2]) > 0.0 and sl_data[2] != current_sl_percentage) or
-            (tp_increment_factor > 0.0)
+            (fabs(sl_data[2]) > 0.0 and sl_data[2] != currentslpercentage) or
+            (tpincrementfactor > 0.0)
         ):
-            new_sl_timeout = int(profit_config.get("sl-timeout"))
-
             # Calculate understandable SL percentage (TP axis range) based on average price
-            new_average_price_sl_percentage = 0.0
+            newslpercentage = 0.0
 
             if deal_data["strategy"] == "short":
-                new_average_price_sl_percentage = calculate_average_price_sl_percentage_short(
+                newslpercentage = calculate_average_price_sl_percentage_short(
                         sl_data[1], sl_data[0]
                     )
             else:
-                new_average_price_sl_percentage = calculate_average_price_sl_percentage_long(
+                newslpercentage = calculate_average_price_sl_percentage_long(
                         sl_data[1], sl_data[0]
                     )
 
             logger.debug(
                 f"{deal_data['pair']}/{deal_data['id']}: new average SL "
-                f"of {new_average_price_sl_percentage}% calculated "
+                f"of {newslpercentage}% calculated "
                 f"based on average price {sl_data[0]} and "
                 f"SL price {sl_data[1]}."
             )
 
             message = (
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"profit increased from {last_profit_percentage}% to {current_profit_percentage}%. "
+                f"profit increased from {lastprofitpercentage}% to {currentprofitpercentage}%. "
             )
 
-            if deal_db_data['last_readable_sl_percentage'] != new_average_price_sl_percentage:
+            if deal_db_data['last_readable_sl_percentage'] != newslpercentage:
                 message += (
                     f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% "
-                    f"to {new_average_price_sl_percentage}%. "
+                    f"to {newslpercentage}%. "
                 )
 
             # Check whether there is an old timeout, and log when the new time out is different
-            current_sl_timeout = deal_data["stop_loss_timeout_in_seconds"]
-            if current_sl_timeout is not None and current_sl_timeout != new_sl_timeout:
+            newsltimeout = int(profit_config.get("sl-timeout"))
+            currentsltimeout = deal_data["stop_loss_timeout_in_seconds"]
+            if currentsltimeout is not None and currentsltimeout != newsltimeout:
                 message += (
-                    f"StopLoss timeout changed from {current_sl_timeout}s "
-                    f"to {new_sl_timeout}s. "
+                    f"StopLoss timeout changed from {currentsltimeout}s "
+                    f"to {newsltimeout}s. "
                 )
 
             # Calculate new TP percentage based on the increased profit and increment factor
-            current_tp_percentage = float(deal_data["take_profit"])
-            new_tp_percentage = round(
-                current_tp_percentage + (
-                        (current_profit_percentage - last_profit_percentage)
-                        * tp_increment_factor
+            if lastprofitpercentage == 0.0:
+                # Only for first time TP is going to be calculated and last profit must
+                # reflect the activation setting, otherwise the TP value will make
+                # a huge jump
+                lastprofitpercentage = activationdiff
+
+            currenttppercentage = float(deal_data["take_profit"])
+            newtppercentage = round(
+                currenttppercentage + (
+                        (currentprofitpercentage - lastprofitpercentage)
+                        * tpincrementfactor
                     ), 2
             )
 
-            if new_tp_percentage > current_tp_percentage:
+            if newtppercentage > currenttppercentage:
                 message += (
-                    f"TakeProfit increased from {current_tp_percentage}% "
-                    f"to {new_tp_percentage}%. "
+                    f"TakeProfit increased from {currenttppercentage}% "
+                    f"to {newtppercentage}%. "
                 )
 
             # Update deal in 3C
             if update_deal_profit(
-                bot_data, deal_data, sl_data[2], new_tp_percentage, new_sl_timeout
+                bot_data, deal_data, sl_data[2], newtppercentage, newsltimeout
             ):
                 # Update deal in our database
                 update_profit_in_db(
-                    deal_data['id'], current_profit_percentage,
-                    new_average_price_sl_percentage, new_tp_percentage
+                    deal_data['id'], currentprofitpercentage,
+                    newslpercentage, newtppercentage
                 )
 
                 # Send the message to the user
@@ -582,7 +620,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
         else:
             logger.debug(
                 f"{deal_data['pair']}/{deal_data['id']}: calculated SL of {sl_data[2]}% which "
-                f"is equal to current SL {current_sl_percentage}% or "
+                f"is equal to current SL {currentslpercentage}% or "
                 f"is 0.0 which causes 3C to deactive SL; no change made!"
             )
 
@@ -595,8 +633,8 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
         logger.debug(
             f"{deal_data['pair']}/{deal_data['id']}: no profit increase "
-            f"(current: {current_profit_percentage}%, "
-            f"previous: {last_profit_percentage}%). Keep on monitoring."
+            f"(current: {currentprofitpercentage}%, "
+            f"previous: {lastprofitpercentage}%). Keep on monitoring."
         )
 
     return requiremonitoring
@@ -779,37 +817,13 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         f"Stored bought SO: {deal_db_data['filled_so_count']}"
     )
 
-    # Return if deal has used all the Safety Orders. Nothing to do anymore.
-    if deal_db_data['filled_so_count'] == deal_data['max_safety_orders']:
-        logger.debug(
-            f"{deal_data['pair']}/{deal_data['id']} has filled "
-            f"all {deal_data['max_safety_orders']} Safety Orders."
-        )
-        return requiremonitoring
-
-    if deal_data['active_manual_safety_orders'] == 1:
-        logger.debug(
-            f"{deal_data['pair']}/{deal_data['id']} has pending Safety Order. "
-            f"Wait for it to fill, before next Safety Order can be filled."
-        )
-        return requiremonitoring
-
-    # Notify when pending safety order has been filled
-    if deal_data['active_manual_safety_orders'] == 0 and deal_db_data["active_order_id"] > 0:
-        logger.info(
-            f"{deal_data['pair']}/{deal_data['id']}: "
-            f"order {deal_db_data['active_order_id']} has been filled!",
-            True
-        )
-        update_safetyorder_active_order_in_db(deal_data["id"], 0)
-
     profitprefix = ""
     if deal_data["strategy"] == "long":
         profitprefix = "-"
 
     addfundspercentage = deal_db_data["add_funds_percentage"]
     last_profit_percentage = float(deal_db_data["last_profit_percentage"])
-    if safety_config and current_profit_percentage > last_profit_percentage:
+    if current_profit_percentage > last_profit_percentage:
         if last_profit_percentage == 0.0:
             # First time activation, calculate initial add funds threshold
             initialbuy = float(safety_config.get("initial-buy-percentage"))
