@@ -603,3 +603,35 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
             logger.error("Error occurred while fetching active market orders for deal")
 
     return activeorderid
+
+
+def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
+    """Cancel an earlier placed order."""
+
+    ordercancelled = False
+
+    error, data = api.request(
+        entity="deals",
+        action="cancel_order",
+        action_id=str(deal_id),
+        payload={
+            "order_id": order_id,
+            "deal_id": deal_id,
+        },
+    )
+    if data:
+        logger.debug(
+            f"{deal_id}: cancel of order {order_id} succesfull."
+        )
+
+        if data["status"] == "success":
+            ordercancelled = True
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred cancelling order for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred cancelling order for deal")
+
+    return ordercancelled
