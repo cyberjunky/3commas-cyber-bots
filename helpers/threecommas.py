@@ -550,15 +550,19 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
         },
     )
     if data:
-        rounddigits = get_round_digits(deal_pair)
-
-        logger.debug(
-            f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
-            f"at limit price {limit_price:0.{rounddigits}f}."
-        )
-
         if data["status"] == "success":
+            rounddigits = get_round_digits(deal_pair)
+
+            logger.debug(
+                f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
+                f"at limit price {limit_price:0.{rounddigits}f}."
+            )
+
             orderplaced = True
+        else:
+            logger.debug(
+                f"{deal_id}: add funds not succesfull: {data}."
+            )
     else:
         if error and "msg" in error:
             logger.error(
@@ -620,12 +624,15 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
         },
     )
     if data:
-        logger.debug(
-            f"{deal_id}: cancel of order {order_id} succesfull."
-        )
-
         if data["status"] == "success":
+            logger.debug(
+                f"{deal_id}: cancel of order {order_id} succesfull."
+            )
             ordercancelled = True
+        else:
+            logger.debug(
+                f"{deal_id}: cancel of order not succesfull: {data}."
+            )
     else:
         if error and "msg" in error:
             logger.error(
