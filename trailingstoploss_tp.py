@@ -29,6 +29,7 @@ from helpers.trailingstoploss_tp import (
     calculate_sl_percentage,
     calculate_tp_percentage,
     check_float,
+    get_pending_order_db_data,
     get_profit_db_data,
     get_safety_db_data,
     is_new_deal
@@ -402,24 +403,63 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         )
         return requiremonitoring
 
+    # SO mode requires the total % drop without filled safety oders
+    totalprofit = round(fabs(
+        ((float(deal_data["current_price"]) /
+        float(deal_data["base_order_average_price"])) * 100.0) - 100.0
+    ), 2)
+
     # Fetch data from local DB for this deal
     dealdbdata = get_safety_db_data(cursor, deal_data["id"])
+    orderdbdata = get_pending_order_db_data(cursor, deal_data["id"])
 
-    if dealdbdata["active_order_id"] > 0:
+    if orderdbdata is not None and orderdbdata["order_id"] > 0:
         if deal_data['active_manual_safety_orders'] > 0:
-            logger.debug(
-                f"{deal_data['pair']}/{deal_data['id']} has pending Safety Order. "
-                f"Wait for it to fill, before handling next Safety Order."
-            )
-            return requiremonitoring
+            if totalprofit >= orderdbdata["cancel_at_percentage"]:
+                logger.debug(
+                    f"{deal_data['pair']}/{deal_data['id']} has pending Safety Order. "
+                    f"Current profit {totalprofit}% has not reached cancel at "
+                    f"{orderdbdata['cancel_at_percentage']}%. "
+                    f"Wait for it to fill, before handling next Safety Order."
+                )
+                return requiremonitoring
 
-        # No return, meaning order has been filled
-        logger.info(
-            f"{deal_data['pair']}/{deal_data['id']}: "
-            f"order {dealdbdata['active_order_id']} has been filled!",
-            True
-        )
-        update_safetyorder_active_order_in_db(deal_data["id"], 0)
+            # Profit has passed the SO boundary, time to cancel the pending order
+            # and start over with trailing
+            logger.info(
+                f"{deal_data['pair']}/{deal_data['id']}: "
+                f"order {orderdbdata['order_id']} cancelled because profit  "
+                f"{totalprofit}% exceeded {orderdbdata['cancel_at_percentage']}%",
+                True
+            )
+
+            # Remove pending order
+            remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+        else:
+            # No active order anymore, so it has been filled
+            totalfilledso = dealdbdata["filled_so_count"] + orderdbdata["number_of_so"]
+            logger.info(
+                f"{deal_data['pair']}/{deal_data['id']}: "
+                f"order {orderdbdata['order_id']} has been filled. "
+                f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
+                True
+            )
+
+            # Save total filled and next SO to database
+            update_safetyorder_in_db(
+                deal_data["id"], totalfilledso, orderdbdata["next_so_percentage"]
+            )
+
+            # Set up trailing for next SO
+            update_safetyorder_monitor_in_db(
+                deal_data["id"], 0.0, orderdbdata["next_so_percentage"]
+            )
+
+            # Remove pending order as it has been filled
+            remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+
+            # Refresh the data as it has been changed
+            dealdbdata = get_safety_db_data(cursor, deal_data["id"])
 
     if dealdbdata['filled_so_count'] == deal_data['max_safety_orders']:
         logger.debug(
@@ -428,11 +468,7 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         )
         return requiremonitoring
 
-    # SO mode requires the total % drop without filled safety oders
-    totalprofit = round(fabs(
-        ((float(deal_data["current_price"]) /
-        float(deal_data["base_order_average_price"])) * 100.0) - 100.0
-    ), 2)
+    # We use the relative profit to the next SO for determining if further processing is required
     sorelativeprofit = round(totalprofit - dealdbdata["next_so_percentage"], 2)
 
     if sorelativeprofit >= 0.0:
@@ -560,6 +596,10 @@ def remove_closed_deals(bot_id, current_deals):
             f"DELETE FROM deal_safety WHERE botid = {bot_id} "
             f"AND dealid NOT IN ({current_deals_str})"
         )
+        db.execute(
+            f"DELETE FROM pending_orders WHERE botid = {bot_id} "
+            f"AND dealid NOT IN ({current_deals_str})"
+        )
 
         db.commit()
 
@@ -576,6 +616,9 @@ def remove_all_deals(bot_id):
     )
     db.execute(
         f"DELETE FROM deal_safety WHERE botid = {bot_id}"
+    )
+    db.execute(
+        f"DELETE FROM pending_orders WHERE botid = {bot_id}"
     )
 
     db.commit()
@@ -635,10 +678,9 @@ def add_deal_in_db(deal_id, bot_id):
         f"last_profit_percentage, "
         f"add_funds_percentage, "
         f"next_so_percentage, "
-        f"filled_so_count, "
-        f"active_order_id "
+        f"filled_so_count "
         f") VALUES ("
-        f"{deal_id}, {bot_id}, {0.0}, {0.0}, {0.0}, {0}, {0}"
+        f"{deal_id}, {bot_id}, {0.0}, {0.0}, {0.0}, {0}"
         f")"
     )
 
@@ -689,13 +731,31 @@ def update_safetyorder_monitor_in_db(deal_id, last_profit_percentage, add_funds_
     db.commit()
 
 
-def update_safetyorder_active_order_in_db(deal_id, active_order_id):
-    """Update deal safety monitor fields (short or long) in database."""
+def add_pending_order_in_db(deal_id, bot_id, active_order_id, cancel_at_percentage, number_of_so, next_so_percentage):
+    """Add deal safety order (short or long) in database."""
 
     db.execute(
-        f"UPDATE deal_safety SET "
-        f"active_order_id = {active_order_id} "
-        f"WHERE dealid = {deal_id}"
+        f"INSERT INTO pending_orders ("
+        f"dealid, "
+        f"botid, "
+        f"order_id, "
+        f"cancel_at_percentage, "
+        f"number_of_so, "
+        f"next_so_percentage "
+        f") VALUES ("
+        f"{deal_id}, {bot_id}, {active_order_id}, {cancel_at_percentage}, {number_of_so}, {next_so_percentage}"
+        f")"
+    )
+
+    db.commit()
+
+
+def remove_pending_order_from_db(deal_id, order_id):
+    """Remove deal safety order (short or long) from database."""
+
+    db.execute(
+        f"DELETE FROM pending_orders WHERE dealid = {deal_id} "
+        f"AND order_id = {order_id}"
     )
 
     db.commit()
@@ -743,9 +803,13 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 (activation_diff * float(safety_config.get("buy-increment-factor")))
             )
 
+            profittext = "dropped below"
+            if deal_data["strategy"] == "short":
+                profittext = "increased above"
+
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"profit {profitprefix}{current_profit_percentage:0.2f}% dropped below "
+                f"profit {profitprefix}{current_profit_percentage:0.2f}% {profittext} "
                 f"Safety Order at {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%. "
                 f"Add Funds threshold set to {profitprefix}{addfundspercentage:0.2f}%.",
                 True
@@ -834,21 +898,20 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 activeorderid = get_threecommas_deal_active_manual_safety_order(
                     logger, api, deal_data["pair"], deal_data["id"]
                 )
-                totalfilledso = deal_db_data["filled_so_count"] + sodata[0]
-
                 if activeorderid > 0:
-                    update_safetyorder_active_order_in_db(deal_data["id"], activeorderid)
-
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit "
                         f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds threshold "
                         f"at {profitprefix}{addfundspercentage:0.2f}%. "
                         f"Created order {activeorderid} for {quantity} of "
-                        f"{deal_data['pair'].split('_')[1]}. "
-                        f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
+                        f"{deal_data['pair'].split('_')[1]}. ",
                         True
                     )
+
+                    add_pending_order_in_db(deal_data["id"], bot_data["id"], activeorderid, sodata[3], sodata[0], sodata[4])
                 else:
+                    totalfilledso = deal_db_data["filled_so_count"] + sodata[0]
+
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit "
                         f"{profitprefix}{current_profit_percentage:0.2f}% passed Add Funds threshold "
@@ -859,11 +922,11 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         True
                     )
 
-                # Save total filled and next SO to database
-                update_safetyorder_in_db(deal_data["id"], totalfilledso, sodata[4])
+                    # Save total filled and next SO to database
+                    update_safetyorder_in_db(deal_data["id"], totalfilledso, sodata[4])
 
-                # Set up trailing for next SO
-                update_safetyorder_monitor_in_db(deal_data["id"], 0.0, sodata[4])
+                    # Set up trailing for next SO
+                    update_safetyorder_monitor_in_db(deal_data["id"], 0.0, sodata[4])
             else:
                 logger.error(
                     f"{deal_data['pair']}/{deal_data['id']} failed to Add Funds!"
@@ -943,8 +1006,18 @@ def open_tsl_db():
             "last_profit_percentage FLOAT, "
             "add_funds_percentage FLOAT, "
             "next_so_percentage FLOAT, "
-            "filled_so_count INT, "
-            "active_order_id INT "
+            "filled_so_count INT "
+            ")"
+        )
+
+        dbcursor.execute(
+            "CREATE TABLE IF NOT EXISTS pending_orders ("
+            "dealid INT Primary Key, "
+            "botid INT, "
+            "order_id INT, "
+            "cancel_at_percentage FLOAT, "
+            "number_of_so INT, "
+            "next_so_percentage FLOAT "
             ")"
         )
 
@@ -996,8 +1069,18 @@ def upgrade_trailingstoploss_tp_db():
             "last_profit_percentage FLOAT, "
             "add_funds_percentage FLOAT, "
             "next_so_percentage FLOAT, "
-            "filled_so_count INT, "
-            "active_order_id INT "
+            "filled_so_count INT "
+            ")"
+        )
+
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS pending_orders ("
+            "dealid INT Primary Key, "
+            "botid INT, "
+            "order_id INT, "
+            "cancel_at_percentage FLOAT, "
+            "number_of_so INT, "
+            "next_so_percentage FLOAT "
             ")"
         )
 
