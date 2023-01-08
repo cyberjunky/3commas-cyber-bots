@@ -22,7 +22,8 @@ from helpers.misc import (
 from helpers.threecommas import (
     get_threecommas_deal_active_manual_safety_order,
     init_threecommas_api,
-    threecommas_deal_add_funds
+    threecommas_deal_add_funds,
+    threecommas_deal_cancel_order
 )
 from helpers.trailingstoploss_tp import (
     calculate_safety_order,
@@ -426,15 +427,21 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
 
             # Profit has passed the SO boundary, time to cancel the pending order
             # and start over with trailing
-            logger.info(
-                f"{deal_data['pair']}/{deal_data['id']}: "
-                f"order {orderdbdata['order_id']} cancelled because profit  "
-                f"{totalprofit}% exceeded {orderdbdata['cancel_at_percentage']}%",
-                True
-            )
+            if threecommas_deal_cancel_order(logger, api, deal_data["id"], orderdbdata["order_id"]):
+                logger.info(
+                    f"{deal_data['pair']}/{deal_data['id']}: "
+                    f"order {orderdbdata['order_id']} cancelled because profit  "
+                    f"{totalprofit}% exceeded {orderdbdata['cancel_at_percentage']}%",
+                    True
+                )
 
-            # Remove pending order
-            remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+                # Remove pending order
+                remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+            else:
+                logger.warning(
+                    f"{deal_data['pair']}/{deal_data['id']}: "
+                    f"Cancellation of order {orderdbdata['order_id']} failed. Will be retried."
+                )
         else:
             # No active order anymore, so it has been filled
             totalfilledso = dealdbdata["filled_so_count"] + orderdbdata["number_of_so"]
