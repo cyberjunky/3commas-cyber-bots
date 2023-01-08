@@ -13,6 +13,12 @@ def get_safety_db_data(cursor, dealid):
     return cursor.execute(f"SELECT * FROM deal_safety WHERE dealid = {dealid}").fetchone()
 
 
+def get_pending_order_db_data(cursor, dealid):
+    """Check if order for deal was logged and get stored data."""
+
+    return cursor.execute(f"SELECT * FROM pending_orders WHERE dealid = {dealid}").fetchone()
+
+
 def check_float(potential_float):
     """Check if the passed argument is a valid float"""
 
