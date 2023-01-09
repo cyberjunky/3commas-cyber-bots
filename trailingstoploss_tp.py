@@ -478,6 +478,18 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
     # We use the relative profit to the next SO for determining if further processing is required
     sorelativeprofit = round(totalprofit - dealdbdata["next_so_percentage"], 2)
 
+    # Only logging
+    if deal_data["strategy"] == "short":
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']} data: "
+            f"actual profit: {deal_data['actual_profit_percentage']} "
+            f"totalprofit: {totalprofit}, "
+            f"sorelativeprofit: {sorelativeprofit}, "
+            f"DB last_profit_percentage: {dealdbdata['last_profit_percentage']}, "
+            f"DB add_funds_percentage: {dealdbdata['add_funds_percentage']}, "
+            f"DB next_so_percentage: {dealdbdata['next_so_percentage']}."
+        )
+
     if sorelativeprofit >= 0.0:
         safetyconfig = get_settings(
                 section_safety_config, sorelativeprofit, dealdbdata["filled_so_count"]
