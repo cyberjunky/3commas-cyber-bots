@@ -624,6 +624,8 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
         },
     )
     if data:
+        logger.info(f"Received data on cancel: {data}")
+
         if data["status"] == "success":
             logger.debug(
                 f"{deal_id}: cancel of order {order_id} succesfull."
