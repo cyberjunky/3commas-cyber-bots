@@ -520,7 +520,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             currentprofitpercentage - float(profit_config.get("activation-percentage"))
         )
 
-        # SL data contains five values:
+        # SL data contains three values:
         # 0. The current SL percentage on 3C axis (inverted range compared to TP axis)
         # 1. The SL percentage on 3C axis (inverted range compared to TP axis)
         # 2. The SL percentage on TP axis (understandable for the user)
@@ -535,7 +535,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
         newsltimeout = int(profit_config.get("sl-timeout"))
         if (fabs(sldata[1]) > 0.0 and sldata[1] != sldata[0]):
-            if deal_db_data['last_readable_sl_percentage'] != sldata[4]:
+            if deal_db_data['last_readable_sl_percentage'] != sldata[2]:
                 message += (
                     f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% "
                     f"to {sldata[2]}%. "
