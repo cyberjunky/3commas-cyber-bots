@@ -200,7 +200,7 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
     socounter = 0
     while socounter < deal_data['max_safety_orders']:
         logger.debug(
-            f"{deal_data['pair']}/{deal_data['id']}: at SO {socounter}, "
+            f"{deal_data['pair']}/{deal_data['id']}: at SO {socounter}/{deal_data['max_safety_orders']}, "
             f"Volume: {sovolume}/{totalvolume}, "
             f"Drop: {sopercentagedropfrombaseprice}/{totaldroppercentage}, "
             f"Price: {sobuyprice}"
