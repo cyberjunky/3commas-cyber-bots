@@ -586,18 +586,23 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
     )
 
     if data:
-        logger.debug(
-            f"Open orders for deal {deal_pair}/{deal_id}: {data}"
-        )
-
         for order in data:
-            order_id = order["order_id"]
-            order_type = order["deal_order_type"]
-            order_status = order["status_string"]
+            orderid = order["order_id"]
+            ordertype = order["deal_order_type"]
+            orderstatus = order["status_string"]
 
-            if order_type == "Manual Safety" and order_status == "Active":
-                activeorderid = int(order_id)
+            if ordertype == "Manual Safety" and orderstatus == "Active":
+                logger.debug(
+                    f"{deal_pair}/{deal_id}: found Manual Safety order '{orderid}'"
+                )
+                activeorderid = int(orderid)
                 break
+
+        if activeorderid == 0:
+            logger.debug(
+                f"{deal_pair}/{deal_id}: no active Manual Safety order found! "
+                f"Received data from 3C: {data}."
+            )
     else:
         if error and "msg" in error:
             logger.error(
@@ -624,18 +629,22 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
         },
     )
     if data:
-        ordercancelled = True
+        for order in data:
+            orderid = order["order_id"]
+            orderstatus = order["status_string"]
 
-        # TODO; handle reply data
-        #if data["status"] == "success":
-        #    logger.debug(
-        #        f"{deal_id}: cancel of order {order_id} succesfull."
-        #    )
-        #    ordercancelled = True
-        #else:
-        #    logger.debug(
-        #        f"{deal_id}: cancel of order not succesfull: {data}."
-        #    )
+            if orderid == order_id and orderstatus == "Cancelled":
+                logger.debug(
+                    f"{deal_id}: order '{orderid}' is Cancelled!"
+                )
+                ordercancelled = True
+                break
+
+        if not ordercancelled:
+            logger.debug(
+                f"{deal_id}: cancel of order {order_id} failed! "
+                f"Received data from 3C: {data}."
+            )
     else:
         if error and "msg" in error:
             logger.error(
