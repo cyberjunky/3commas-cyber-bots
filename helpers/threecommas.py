@@ -630,7 +630,7 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
     )
     if data:
         for order in data:
-            orderid = order["order_id"]
+            orderid = int(order["order_id"])
             orderstatus = order["status_string"]
 
             if orderid == order_id and orderstatus == "Cancelled":
