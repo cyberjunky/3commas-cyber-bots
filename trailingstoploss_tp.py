@@ -1257,6 +1257,7 @@ while True:
                             deals_to_monitor += bot_deals_to_monitor
                         except Exception as err:
                             logger.error(traceback.print_tb(err.__traceback__))
+                            sys.exit(0)
                     else:
                         if boterror and "msg" in boterror:
                             logger.error("Error occurred updating bots: %s" % boterror["msg"])
