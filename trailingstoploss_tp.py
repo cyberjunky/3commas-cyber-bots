@@ -8,6 +8,7 @@ import os
 import sqlite3
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from helpers.logging import Logger, NotificationHandler
@@ -505,12 +506,34 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
                 f"no safety config available for profit -{sorelativeprofit}% "
                 f"and {dealdbdata['filled_so_count']} filled SO."
             )
+
+            if (dealdbdata["last_profit_percentage"] != 0.0 or
+                dealdbdata["add_funds_percentage"] != dealdbdata["next_so_percentage"]
+            ):
+                logger.error(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                    f"Last profit of {dealdbdata['last_profit_percentage']}% or "
+                    f"Add Funds {dealdbdata['add_funds_percentage']}% invalid "
+                    f"because deal is without safetyconfig. Missed Add Funds moment?"
+                )
+                update_safetyorder_monitor_in_db(deal_data["id"], 0.0, dealdbdata['next_so_percentage'])
     else:
         logger.debug(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
             f"requires {fabs(sorelativeprofit)}% change before next SO "
             f"at {dealdbdata['next_so_percentage']}% will be reached."
         )
+
+        if (dealdbdata["last_profit_percentage"] != 0.0 or
+            dealdbdata["add_funds_percentage"] != dealdbdata["next_so_percentage"]
+        ):
+            logger.error(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                f"Last profit of {dealdbdata['last_profit_percentage']}% or "
+                f"Add Funds {dealdbdata['add_funds_percentage']}% invalid "
+                f"because profit is below next SO. Trailing missed somewhere?"
+            )
+            update_safetyorder_monitor_in_db(deal_data["id"], 0.0, dealdbdata['next_so_percentage'])
 
     return requiremonitoring
 
@@ -805,7 +828,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         profitprefix = "-"
 
     addfundspercentage = deal_db_data["add_funds_percentage"]
-    last_profit_percentage = float(deal_db_data["last_profit_percentage"])
+    last_profit_percentage = deal_db_data["last_profit_percentage"]
     if current_profit_percentage > last_profit_percentage:
         if last_profit_percentage == 0.0:
             # First time activation, calculate initial add funds threshold
@@ -816,10 +839,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 initialbuy
             )
 
-            addfundspercentage = (
+            addfundspercentage = round(
                 deal_db_data["next_so_percentage"] +
                 initialbuy +
-                (activation_diff * float(safety_config.get("buy-increment-factor")))
+                (activation_diff * float(safety_config.get("buy-increment-factor"))), 2
             )
 
             profittext = "dropped below"
@@ -836,9 +859,9 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         else:
             # Shift buy percentage based on profit change
             profit_diff = current_profit_percentage - last_profit_percentage
-            addfundspercentage = addfundspercentage + (
+            addfundspercentage = round(addfundspercentage + (
                 profit_diff * float(safety_config.get("buy-increment-factor"))
-            )
+            ), 2)
 
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} profit from "
@@ -862,7 +885,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         )
 
         # When current profit is below the desired Safety Order, reset and start from the beginning
-        if current_profit_percentage < float(deal_db_data["next_so_percentage"]):
+        if current_profit_percentage < deal_db_data["next_so_percentage"]:
             update_safetyorder_monitor_in_db(
                 deal_data["id"], 0.0, deal_db_data["next_so_percentage"]
             )
@@ -983,6 +1006,7 @@ def set_first_safety_order(bot_data, deal_data, filled_so_count, current_profit_
 
     # Update data in database
     update_safetyorder_in_db(deal_data["id"], filled_so_count, sodata[4])
+    update_safetyorder_monitor_in_db(deal_data["id"], 0, sodata[4])
 
     logger.debug(
         f"{deal_data['pair']}/{deal_data['id']}: new deal and set first SO to {sodata[4]}%",
@@ -1221,15 +1245,18 @@ while True:
                         action_id=str(bot),
                     )
                     if botdata:
-                        bot_deals_to_monitor = process_deals(botdata, sectionprofitconfig, sectionsafetyconfig)
+                        try:
+                            bot_deals_to_monitor = process_deals(botdata, sectionprofitconfig, sectionsafetyconfig)
 
-                        # Determine new time to process this bot, based on the monitored deals
-                        newtime = starttime + (
-                                check_interval if bot_deals_to_monitor == 0 else monitor_interval
-                            )
-                        set_next_process_time(db, "bots", "botid", bot, newtime)
+                            # Determine new time to process this bot, based on the monitored deals
+                            newtime = starttime + (
+                                    check_interval if bot_deals_to_monitor == 0 else monitor_interval
+                                )
+                            set_next_process_time(db, "bots", "botid", bot, newtime)
 
-                        deals_to_monitor += bot_deals_to_monitor
+                            deals_to_monitor += bot_deals_to_monitor
+                        except Exception as err:
+                            logger.error(traceback.print_tb(err.__traceback__))
                     else:
                         if boterror and "msg" in boterror:
                             logger.error("Error occurred updating bots: %s" % boterror["msg"])
