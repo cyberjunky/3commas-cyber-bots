@@ -577,7 +577,7 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
 def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal_id):
     """Get the current active manual safety order for the specified deal."""
 
-    activeorderid = 0
+    activeorderid = ""
 
     error, data = api.request(
         entity="deals",
@@ -595,10 +595,10 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
                 logger.debug(
                     f"{deal_pair}/{deal_id}: found Manual Safety order '{orderid}'"
                 )
-                activeorderid = int(orderid)
+                activeorderid = orderid
                 break
 
-        if activeorderid == 0:
+        if not activeorderid:
             logger.debug(
                 f"{deal_pair}/{deal_id}: no active Manual Safety order found! "
                 f"Received data from 3C: {data}."
@@ -630,7 +630,7 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
     )
     if data:
         for order in data:
-            orderid = int(order["order_id"])
+            orderid = order["order_id"]
             orderstatus = order["status_string"]
 
             if orderid == order_id and orderstatus == "Cancelled":
