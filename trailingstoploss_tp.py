@@ -306,11 +306,21 @@ def process_deals(bot_data, section_profit_config, section_safety_config):
             if deal["strategy"] in ("short", "long"):
                 # Check whether the actual_profit_percentage can be obtained from the deal,
                 # If it can't, skip this deal.
-
                 if not check_float(deal["actual_profit_percentage"]):
                     logger.warning(
                         f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} does no longer "
                         f"exist on the exchange! Cancel or handle deal manually on 3Commas!"
+                    )
+                    continue
+
+                # Only process deals with bought status. Created or base order placed
+                # means not all data is available for further calculations. Failed,
+                # cancelled, completed and panic_sell_pending are states in which we
+                # don't need to do anything or should not interfere with.
+                if deal["status"] != "bought":
+                    logger.warning(
+                        f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
+                        f"'{deal['status']}' which is not valid for further processing!"
                     )
                     continue
 
@@ -516,7 +526,9 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
                     f"Add Funds {dealdbdata['add_funds_percentage']}% invalid "
                     f"because deal is without safetyconfig. Missed Add Funds moment?"
                 )
-                update_safetyorder_monitor_in_db(deal_data["id"], 0.0, dealdbdata['next_so_percentage'])
+                update_safetyorder_monitor_in_db(
+                    deal_data["id"], 0.0, dealdbdata['next_so_percentage']
+                )
     else:
         logger.debug(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
