@@ -592,9 +592,6 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
             orderstatus = order["status_string"]
 
             if ordertype == "Manual Safety" and orderstatus == "Active":
-                logger.debug(
-                    f"{deal_pair}/{deal_id}: found Manual Safety order '{orderid}'"
-                )
                 activeorderid = orderid
                 break
 
@@ -628,12 +625,19 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
             "deal_id": deal_id,
         },
     )
+
     if data:
         for order in data:
             orderid = order["order_id"]
             orderstatus = order["status_string"]
 
-            if orderid == order_id and orderstatus == "Cancelled":
+            logger.debug(
+                f"Cancellation compares order {orderid} with {order_id} "
+                f"and status {orderstatus}...",
+                True
+            )
+
+            if str(orderid) == str(order_id) and orderstatus == "Cancelled":
                 logger.debug(
                     f"{deal_id}: order '{orderid}' is Cancelled!"
                 )
