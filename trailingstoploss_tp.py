@@ -522,9 +522,8 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
             ):
                 logger.error(
                     f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                    f"Last profit of {dealdbdata['last_profit_percentage']}% or "
-                    f"Add Funds {dealdbdata['add_funds_percentage']}% invalid "
-                    f"because deal is without safetyconfig. Missed Add Funds moment?"
+                    f"Profit suddenly increased and passed Add Funds threshold. "
+                    f"Trailing will be reset to avoid invalid buy of SO."
                 )
                 update_safetyorder_monitor_in_db(
                     deal_data["id"], 0.0, dealdbdata['next_so_percentage']
@@ -541,9 +540,9 @@ def process_deal_for_safety_order(section_safety_config, bot_data, deal_data):
         ):
             logger.error(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-                f"Last profit of {dealdbdata['last_profit_percentage']}% or "
-                f"Add Funds {dealdbdata['add_funds_percentage']}% invalid "
-                f"because profit is below next SO. Trailing missed somewhere?"
+                f"Profit suddenly increased and passed SO. "
+                f"Trailing will be reset and start again when profit reaches "
+                f"the SO again."
             )
             update_safetyorder_monitor_in_db(deal_data["id"], 0.0, dealdbdata['next_so_percentage'])
 
@@ -1005,6 +1004,10 @@ def set_first_safety_order(bot_data, deal_data, filled_so_count, current_profit_
 
     # Next SO percentage is unknown / not set. This will, logically, only be the case
     # for newly started deals. So, let's calculate...
+    logger.debug(
+        f"{deal_data['pair']}/{deal_data['id']}: "
+        f"new deal data for first so calculation: {deal_data}"
+    )
 
     # SO data contains five values:
     # 0. The number of configured Safety Orders to be filled using a Manual trade
@@ -1268,6 +1271,8 @@ while True:
 
                             deals_to_monitor += bot_deals_to_monitor
                         except Exception as err:
+                            logger.error(err)
+                            logger.error(traceback.print_exc())
                             logger.error(traceback.print_tb(err.__traceback__))
                             sys.exit(0)
                     else:
