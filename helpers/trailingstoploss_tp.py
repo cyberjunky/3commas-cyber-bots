@@ -175,9 +175,7 @@ def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, l
     return currenttppercentage, newtppercentage
 
 
-# TODO: let this function return a table with the complete data, which can be saved in memory
-# or be used for additional functionality
-def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current_profit):
+def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current_profit, merge_so):
     """Calculate the next safety order."""
 
     # Number of SO to buy
@@ -258,6 +256,12 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
 
             sobuycount += 1
             sobuyvolume += nextsovolume
+
+            # Stop here if only one SO must be calculated, instead of merging all SO's
+            # up and until the current profit
+            if not merge_so:
+                sonextdroppercentage = nextsopercentagetotaldrop
+                break
         elif nextsopercentagetotaldrop > current_profit:
             logger.debug(
                 f"{deal_data['pair']}/{deal_data['id']}: next SO {socounter + 1} "
@@ -265,7 +269,6 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
             )
 
             sonextdroppercentage = nextsopercentagetotaldrop
-
             break
 
         socounter += 1
