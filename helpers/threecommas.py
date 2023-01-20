@@ -574,10 +574,45 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
     return orderplaced
 
 
-def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal_id):
-    """Get the current active manual safety order for the specified deal."""
+def get_threecommas_deal_order_status(logger, api, deal_pair, deal_id, order_id):
+    """Get the status of the specified order."""
 
-    activeorderid = ""
+    orderstatus = ""
+
+    error, data = api.request(
+        entity="deals",
+        action="market_orders",
+        action_id=str(deal_id)
+    )
+
+    if data:
+        for order in data:
+            orderid = order["order_id"]
+            orderstatus = order["status_string"]
+
+            if str(orderid) == str(order_id):
+                break
+
+        if not orderstatus:
+            logger.debug(
+                f"{deal_pair}/{deal_id}: order {order_id} not found! "
+                f"Received data from 3C: {data}."
+            )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred while fetching active market orders for deal")
+
+    return orderstatus
+
+
+def get_threecommas_deal_order_id(logger, api, deal_pair, deal_id, order_type, order_status):
+    """Get the order id for the specified deal, type and status."""
+
+    orderid = ""
 
     error, data = api.request(
         entity="deals",
@@ -591,13 +626,14 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
             ordertype = order["deal_order_type"]
             orderstatus = order["status_string"]
 
-            if ordertype == "Manual Safety" and orderstatus == "Active":
-                activeorderid = orderid
+            if (ordertype.lower() == order_type.lower() and
+              orderstatus.lower() == order_status.lower()):
                 break
 
-        if not activeorderid:
+        if not orderid:
             logger.debug(
-                f"{deal_pair}/{deal_id}: no active Manual Safety order found! "
+                f"{deal_pair}/{deal_id}: order with type {order_type} "
+                f"and status {order_status} not found! "
                 f"Received data from 3C: {data}."
             )
     else:
@@ -608,7 +644,7 @@ def get_threecommas_deal_active_manual_safety_order(logger, api, deal_pair, deal
         else:
             logger.error("Error occurred while fetching active market orders for deal")
 
-    return activeorderid
+    return orderid
 
 
 def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
@@ -637,7 +673,7 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
                 True
             )
 
-            if str(orderid) == str(order_id) and orderstatus == "Cancelled":
+            if str(orderid) == str(order_id) and orderstatus.lower() == "cancelled":
                 logger.debug(
                     f"{deal_id}: order '{orderid}' is Cancelled!"
                 )
