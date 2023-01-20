@@ -175,7 +175,8 @@ def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, l
     return currenttppercentage, newtppercentage
 
 
-def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current_profit, merge_so):
+# # TODO: optimize and improve readability of this function
+def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current_profit):
     """Calculate the next safety order."""
 
     # Number of SO to buy
@@ -201,7 +202,7 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
             f"{deal_data['pair']}/{deal_data['id']}: at SO {socounter}/{deal_data['max_safety_orders']}, "
             f"Volume: {sovolume}/{totalvolume}, "
             f"Drop: {sopercentagedropfrombaseprice}/{totaldroppercentage}, "
-            f"Price: {sobuyprice}"
+            f"Price: {sobuyprice}."
         )
 
         nextsovolume = 0.0
@@ -233,7 +234,7 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
             f"Price: {nextsobuyprice}"
         )
 
-        # Descision making :) Optimize later...
+        # Descision making :)
         if socounter < filled_so_count:
             logger.debug(f"SO {socounter} already filled!")
 
@@ -245,7 +246,7 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
         elif nextsopercentagetotaldrop <= current_profit:
             logger.debug(
                 f"{deal_data['pair']}/{deal_data['id']}: next SO {socounter + 1} "
-                f"not filled and required based on (negative) profit!"
+                f"not filled and required based on (negative) profit."
             )
 
             sovolume = nextsovolume
@@ -256,12 +257,6 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
 
             sobuycount += 1
             sobuyvolume += nextsovolume
-
-            # Stop here if only one SO must be calculated, instead of merging all SO's
-            # up and until the current profit
-            if not merge_so:
-                sonextdroppercentage = nextsopercentagetotaldrop
-                break
         elif nextsopercentagetotaldrop > current_profit:
             logger.debug(
                 f"{deal_data['pair']}/{deal_data['id']}: next SO {socounter + 1} "
