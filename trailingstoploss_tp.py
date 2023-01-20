@@ -22,7 +22,8 @@ from helpers.misc import (
     wait_time_interval
 )
 from helpers.threecommas import (
-    get_threecommas_deal_active_manual_safety_order,
+    get_threecommas_deal_order_id,
+    get_threecommas_deal_order_status,
     init_threecommas_api,
     threecommas_deal_add_funds,
     threecommas_deal_cancel_order
@@ -205,9 +206,6 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
 
     dealupdated = False
 
-    bot_name = bot_data["name"]
-    deal_id = deal_data["id"]
-
     payload = {
         "deal_id": bot_data["id"],
         "stop_loss_percentage": new_stoploss,
@@ -230,7 +228,7 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     error, data = api.request(
         entity="deals",
         action="update_deal",
-        action_id=str(deal_id),
+        action_id=str(deal_data["id"]),
         payload=payload
     )
 
@@ -326,7 +324,7 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
                 # means not all data is available for further calculations. Failed,
                 # cancelled, completed and panic_sell_pending are states in which we
                 # don't need to do anything or should not interfere with.
-                if deal["status"] != "bought":
+                if deal["status"].lower() not in("bought", "close_strategy_activated"):
                     logger.info(
                         f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
                         f"'{deal['status']}' which is not valid for further processing!"
@@ -339,14 +337,14 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
                     add_deal_in_db(deal["id"], botid)
 
                     # Only deals without 3C Safety Orders active can be processed by this script
-                    if deal['active_safety_orders_count'] == 0:
+                    if deal['active_safety_orders_count'] == 0 and len(section_safety_config) > 0:
                         set_first_safety_order(bot_data, deal, 0, 0.0)
 
-                if float(deal["actual_profit_percentage"]) >= 0.0:
+                if float(deal["actual_profit_percentage"]) > 0.0 and len(section_profit_config) > 0:
                     monitoreddeals += process_deal_for_profit(
                         section_profit_config, bot_data, deal
                     )
-                else:
+                elif float(deal["actual_profit_percentage"]) < 0.0 and len(section_safety_config) > 0:
                     monitoreddeals += process_deal_for_safety_order(
                         section_safety_config, section_safety_mode, bot_data, deal
                     )
@@ -377,14 +375,15 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
 
     requiremonitoring = 0
 
-    if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-            f"current profit {deal_data['actual_profit_percentage']} above take profit of "
-            f"{deal_data['take_profit']}, so there is no point in updating "
-            f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
-        )
-        return requiremonitoring
+    if deal_data["status"].lower() not in("close_strategy_activated"):
+        if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"current profit {deal_data['actual_profit_percentage']} above take profit of "
+                f"{deal_data['take_profit']}, so there is no point in updating "
+                f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
+            )
+            return requiremonitoring
 
     # Deal is in positive profit, so TSL mode which requires the profit-config
     dealdbdata = get_profit_db_data(cursor, deal_data["id"])
@@ -408,6 +407,20 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
             f"no profit config available for profit {deal_data['actual_profit_percentage']}% "
             f"and {deal_data['completed_safety_orders_count']} filled SO."
         )
+
+        # Reset trailing data if trailing was activated before (profit has dropped)
+        # TODO: else case for close_strategy where the SL needs to be restored (if there was any)
+        if deal_data["status"].lower() not in("close_strategy_activated"):
+            if float(dealdbdata["last_profit_percentage"]) > float(bot_data["take_profit"]):
+                if update_deal_profit(bot_data, deal_data, 0.0, float(bot_data["take_profit"]), 0):
+                    update_profit_in_db(
+                        deal_data['id'], 0.0, 0.0, 0.0
+                    )
+                    logger.info(
+                        f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                        f"profit has decreased below configured profit-config. Trailing "
+                        f"has been reset and TP restored to {bot_data['take_profit']}%."
+                    )
 
     return requiremonitoring
 
@@ -433,6 +446,7 @@ def process_deal_for_safety_order(section_safety_config, section_safety_mode, bo
     dealdbdata = get_safety_db_data(cursor, deal_data["id"])
     orderdbdata = get_pending_order_db_data(cursor, deal_data["id"])
 
+    openorderfilled = False
     if orderdbdata is not None and orderdbdata["order_id"]:
         if deal_data['active_manual_safety_orders'] > 0:
             if totalprofit >= orderdbdata["cancel_at_percentage"]:
@@ -455,53 +469,58 @@ def process_deal_for_safety_order(section_safety_config, section_safety_mode, bo
                     True
                 )
 
-                # Remove pending order
-                remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
-            else:
-                logger.warning(
-                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                    f"cancellation of order {orderdbdata['order_id']} failed. Will be retried."
+                # Reset trailing
+                update_safetyorder_monitor_in_db(
+                    deal_data["id"], 0.0, orderdbdata["next_so_percentage"]
                 )
 
-                # Double check if the active order is the one we also have in our administration
-                activeorderid = get_threecommas_deal_active_manual_safety_order(logger, api, deal_data["pair"], deal_data["id"])
+                # Remove pending order
+                remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
 
-                # Oh now, somehow we are not in sync so let's repair that
-                if activeorderid != orderdbdata["order_id"]:
-                    update_pending_order_in_db(deal_data["id"], orderdbdata["order_id"], activeorderid)
+                # Refresh the data as it has been changed
+                dealdbdata = get_safety_db_data(cursor, deal_data["id"])
+            else:
+                orderstatus = get_threecommas_deal_order_status(logger, api, deal_data["pair"], deal_data["id"], orderdbdata["order_id"])
 
-                    logger.debug(
+                if orderstatus.lower() == "filled":
+                    # Order is filled, however deal data not yet updated at 3C?
+                    openorderfilled = True
+                else:
+                    logger.warning(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                        f"update id of open order from {orderdbdata['order_id']} "
-                        f"to {activeorderid}."
+                        f"cancellation of order {orderdbdata['order_id']} failed. "
+                        f"Current state is {orderstatus}. Will be retried next interval..."
                     )
 
-                return 1 #Deal requires monitoring
+                    return 1 #Deal requires monitoring
         else:
             # No active order anymore, so it has been filled
-            totalfilledso = dealdbdata["filled_so_count"] + orderdbdata["number_of_so"]
-            logger.info(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"order {orderdbdata['order_id']} has been filled. "
-                f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
-                True
-            )
+            openorderfilled = True
 
-            # Save total filled and next SO to database
-            update_safetyorder_in_db(
-                deal_data["id"], totalfilledso, orderdbdata["next_so_percentage"], orderdbdata["shift_percentage"]
-            )
+    if openorderfilled:
+        totalfilledso = dealdbdata["filled_so_count"] + orderdbdata["number_of_so"]
+        logger.info(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"order {orderdbdata['order_id']} has been filled. "
+            f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
+            True
+        )
 
-            # Set up trailing for next SO
-            update_safetyorder_monitor_in_db(
-                deal_data["id"], 0.0, orderdbdata["next_so_percentage"]
-            )
+        # Save total filled and next SO to database
+        update_safetyorder_in_db(
+            deal_data["id"], totalfilledso, orderdbdata["next_so_percentage"], orderdbdata["shift_percentage"]
+        )
 
-            # Remove pending order as it has been filled
-            remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+        # Set up trailing for next SO
+        update_safetyorder_monitor_in_db(
+            deal_data["id"], 0.0, orderdbdata["next_so_percentage"]
+        )
 
-            # Refresh the data as it has been changed
-            dealdbdata = get_safety_db_data(cursor, deal_data["id"])
+        # Remove pending order as it has been filled
+        remove_pending_order_from_db(deal_data["id"], orderdbdata["order_id"])
+
+        # Refresh the data as it has been changed
+        dealdbdata = get_safety_db_data(cursor, deal_data["id"])
 
     if dealdbdata['filled_so_count'] == deal_data['max_safety_orders']:
         logger.debug(
@@ -910,7 +929,16 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"Add Funds threshold set to {profitprefix}{addfundspercentage:0.2f}%.",
                 True
             )
+
+            ## Alternative calculation, not used yet
+            newaddfundspercentage = deal_db_data["next_so_percentage"] + float(safety_config.get("initial-buy-percentage")) + ((current_profit_percentage - last_profit_percentage) * float(safety_config.get("buy-increment-factor")))
+            logger.debug(
+                f"Alternative Add Funds calculation calculated {newaddfundspercentage}%."
+            )
         else:
+            # TODO: involve initial-buy-percentage into the calculation. Based on config this percentage
+            # must be used as base to add the profit (multiplied with the factor) to it.
+
             # Shift buy percentage based on profit change
             profit_diff = current_profit_percentage - last_profit_percentage
             addfundspercentage = round(addfundspercentage + (
@@ -924,6 +952,12 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"Add Funds threshold from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% "
                 f"to {profitprefix}{addfundspercentage:0.2f}%.",
                 True
+            )
+
+            ## Alternative calculation, not used yet
+            newaddfundspercentage = deal_db_data["next_so_percentage"] + float(safety_config.get("initial-buy-percentage")) + ((current_profit_percentage - last_profit_percentage) * float(safety_config.get("buy-increment-factor")))
+            logger.debug(
+                f"Alternative Add Funds calculation calculated {newaddfundspercentage}%."
             )
 
         # Update data in database
@@ -959,10 +993,9 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             # 2. The buy price of that volume
             # 3. The total negative profit percentage for the current Safety Order
             # 4. The total negative profit percentage on which the next Safety Order is configured
-            mergeso = (safety_mode.lower() == "merge")
             sodata = calculate_safety_order(
                 logger, bot_data, deal_data,
-                deal_db_data["filled_so_count"], current_profit_percentage, mergeso
+                deal_db_data["filled_so_count"], current_profit_percentage
             )
 
             limitprice = sodata[2]
@@ -994,8 +1027,8 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             if threecommas_deal_add_funds(
                 logger, api, deal_data["pair"], deal_data["id"], quantity, limitprice
             ):
-                orderid = get_threecommas_deal_active_manual_safety_order(
-                    logger, api, deal_data["pair"], deal_data["id"]
+                orderid = get_threecommas_deal_order_id(
+                    logger, api, deal_data["pair"], deal_data["id"], "Manual Safety", "Active"
                 )
 
                 rounddigits = get_round_digits(deal_data["pair"])
@@ -1004,7 +1037,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 shiftpercentage = deal_db_data["shift_percentage"]
 
                 if safety_mode.lower() == "shift":
-                    previoussopercentage = deal_db_data["next_so_percentage"] - shiftpercentage
+                    previoussopercentage = sodata[3]
                     diffsopercentage = fabs(nextsopercentage - previoussopercentage)
 
                     nextsopercentage = current_profit_percentage + diffsopercentage
@@ -1014,7 +1047,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"shifting SO by {diffsopercentage}% based on prev SO "
                         f"{previoussopercentage}% and next SO {sodata[4]}%. "
-                        f"Resulting SO on {nextsopercentage}%."
+                        f"New next SO on {nextsopercentage}%."
                         f"Total shift is now {shiftpercentage}%.",
                         True
                     )
@@ -1087,7 +1120,7 @@ def set_first_safety_order(bot_data, deal_data, filled_so_count, current_profit_
     # 3. The total negative profit percentage for the current Safety Order
     # 4. The next total negative profit percentage on which the next Safety Order is configured
     sodata = calculate_safety_order(
-        logger, bot_data, deal_data, filled_so_count, current_profit_percentage, False
+        logger, bot_data, deal_data, filled_so_count, current_profit_percentage
     )
 
     # Update data in database
@@ -1313,21 +1346,10 @@ while True:
 
             # Get and check the profit-config for this section
             sectionprofitconfig = json.loads(config.get(section, "profit-config"))
-            if len(sectionprofitconfig) == 0:
-                logger.warning(
-                    f"Section {section} has an empty \'profit-config\'. Skipping this section!"
-                )
-                continue
-
             sectionsafetyconfig = json.loads(config.get(section, "safety-config"))
-            if len(sectionsafetyconfig) == 0:
-                logger.warning(
-                    f"Section {section} has an empty \'safety-config\'. Skipping this section!"
-                )
-                continue
-
             sectionsafetymode = config.get(section, "safety-mode")
-            if sectionsafetymode.lower() not in ("merge", "shift"):
+            #if sectionsafetymode.lower() not in ("merge", "shift"):
+            if sectionsafetymode.lower() not in ("merge"):
                 logger.warning(
                     f"Section {section} has an invalid \'safety-mode\'. Skipping this section!"
                 )
