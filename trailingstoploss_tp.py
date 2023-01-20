@@ -216,6 +216,7 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     # Only update TP values when no conditional take profit is used
     # Note: currently the API does not support this. Script cannot be used for MP deals yet!
     #if not len(thebot['close_strategy_list']):
+    #if deal_data["status"].lower() not in("close_strategy_activated"):
     #    payload["take_profit"] = new_take_profit
     #    payload["trailing_enabled"] = False
     #else:
@@ -324,7 +325,8 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
                 # means not all data is available for further calculations. Failed,
                 # cancelled, completed and panic_sell_pending are states in which we
                 # don't need to do anything or should not interfere with.
-                if deal["status"].lower() not in("bought", "close_strategy_activated"):
+                #if deal["status"].lower() not in("bought", "close_strategy_activated"):
+                if deal["status"].lower() not in("bought"):
                     logger.info(
                         f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
                         f"'{deal['status']}' which is not valid for further processing!"
@@ -641,11 +643,13 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                     f"to {newsltimeout}s. "
                 )
 
-        if tpdata[1] > tpdata[0]:
-            message += (
-                f"TakeProfit increased from {tpdata[0]}% "
-                f"to {tpdata[1]}%. "
-            )
+        # TODO; improve and get rid of this check everywhere
+        if deal_data["status"].lower() not in("close_strategy_activated"):
+            if tpdata[1] > tpdata[0]:
+                message += (
+                    f"TakeProfit increased from {tpdata[0]}% "
+                    f"to {tpdata[1]}%. "
+                )
 
         # Update deal in 3C
         if update_deal_profit(
