@@ -694,3 +694,32 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
             logger.error("Error occurred cancelling order for deal")
 
     return ordercancelled
+
+
+def threecommas_get_data_for_adding_funds(logger, api, deal):
+    """Get data about tick size."""
+
+    fundsdata = {}
+
+    error, data = api.request(
+        entity="deals",
+        action="data_for_adding_funds",
+        action_id=str(deal["id"])
+    )
+
+    if data:
+        logger.info(
+            f"Data for adding funds to deal {deal['pair']}/{deal['id']}: "
+            f"Received response data: {data}"
+        )
+
+        fundsdata = data
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred retrieving data for adding funds to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred retrieving data for adding funds to deal")
+
+    return fundsdata
