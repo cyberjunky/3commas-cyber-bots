@@ -18,6 +18,7 @@ from helpers.database import (
 )
 from helpers.misc import (
     get_round_digits,
+    round_decimals_up,
     unix_timestamp_to_string,
     wait_time_interval
 )
@@ -26,7 +27,8 @@ from helpers.threecommas import (
     get_threecommas_deal_order_status,
     init_threecommas_api,
     threecommas_deal_add_funds,
-    threecommas_deal_cancel_order
+    threecommas_deal_cancel_order,
+    threecommas_get_data_for_adding_funds
 )
 from helpers.trailingstoploss_tp import (
     calculate_safety_order,
@@ -251,30 +253,6 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
             logger.error("Error occurred updating deal with new SL/TP valuess")
 
     return dealupdated
-
-
-#def get_data_for_add_funds(deal):
-#    """Get data for correctly adding funds."""
-#
-#    deal_id = deal["id"]
-#
-#    error, data = api.request(
-#        entity="deals",
-#        action="data_for_adding_funds",
-#        action_id=str(deal_id)
-#    )
-#    if data:
-#        logger.info(
-#            f"Data for adding funds to deal {deal['pair']}/{deal['id']}: "
-#            f"Received response data: {data}"
-#        )
-#    else:
-#        if error and "msg" in error:
-#            logger.error(
-#                "Error occurred retrieving data for adding funds to deal: %s" % error["msg"]
-#            )
-#        else:
-#            logger.error("Error occurred retrieving data for adding funds to deal")
 
 
 def get_settings(section_config: dict, current_profit: float, current_so_level: int) -> dict:
@@ -996,8 +974,39 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"volume {sodata[1]} and price {limitprice}."
             )
 
-            # Required for later, in order to use tick size ed
-            #get_data_for_add_funds(deal)
+            # TODO: use the data to validate the request
+            fundsdata = threecommas_get_data_for_adding_funds(logger, api, deal_data)
+            if fundsdata:
+                limitvalue = fundsdata["limits"]["lotStep"].split(".")
+                #decimals = fundsdata["limits"]["lotStep"][::-1].find('.')
+                decimals = 0
+                if int(limitvalue[1]) > 0:
+                    decimals = len(limitvalue[1])
+                quantity = round_decimals_up(quantity, decimals)
+
+                logger.debug(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"changed quantity to {quantity} based on "
+                    f"lotStep {fundsdata['limits']['lotStep']} and value {limitvalue}."
+                )
+
+                #TODO: below is only debugging. Incorperate when it's clear how this works
+                if float(fundsdata["limits"]["marketBuyMinTotal"]) < sodata[1] < float(fundsdata["limits"]["maxMarketBuyAmount"]):
+                    logger.error(
+                        f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                        f"buy amount of {sodata[1]} not between "
+                        f"{fundsdata['limits']['marketBuyMinTotal']} and "
+                        f"{fundsdata['limits']['maxMarketBuyAmount']}!"
+                    )
+
+                if (quantity - float(fundsdata["limits"]["minLotSize"])) % float(fundsdata["limits"]["lotStep"]) != 0:
+                    logger.error(
+                        f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                        f"quantity {quantity} not a multiply of stepsize "
+                        f"{fundsdata['limits']['lotStep']}, taking min size of "
+                        f"{fundsdata['limits']['minLotSize']} into account!"
+                    )
+
 
             if threecommas_deal_add_funds(
                 logger, api, deal_data["pair"], deal_data["id"], quantity, limitprice
