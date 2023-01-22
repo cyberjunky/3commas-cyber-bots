@@ -1194,10 +1194,6 @@ def upgrade_trailingstoploss_tp_db():
 
     # Changes required for handling Safety Orders
     try:
-        # TODO: remove after test users upgraded the script
-        cursor.execute("ALTER TABLE deal_safety ADD COLUMN shift_percentage FLOAT DEFAULT 0.0")
-        cursor.execute("ALTER TABLE pending_orders ADD COLUMN shift_percentage FLOAT DEFAULT 0.0")
-
         cursor.execute("ALTER TABLE deals RENAME TO deal_profit")
 
         cursor.execute(
