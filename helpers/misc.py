@@ -1,5 +1,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import datetime
+import math
 import time
 
 from constants.pair import PAIREXCLUDE_EXT
@@ -159,3 +160,13 @@ def calculate_deal_funds(start_bo, start_so, max_so, martingale_volume_coefficie
         isafetyorder += 1
 
     return totalusedperdeal, nextsofunds
+
+
+def round_decimals_up(number:float, decimals:int = 2):
+    """Returns a value rounded up to a specific number of decimal places."""
+
+    if decimals == 0:
+        return math.ceil(number)
+
+    factor = 10 ** decimals
+    return math.ceil(number * factor) / factor
