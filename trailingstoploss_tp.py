@@ -991,7 +991,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 )
 
                 #TODO: below is only debugging. Incorperate when it's clear how this works
-                if float(fundsdata["limits"]["marketBuyMinTotal"]) < sodata[1] < float(fundsdata["limits"]["maxMarketBuyAmount"]):
+                if float(fundsdata["limits"]["marketBuyMinTotal"]) > sodata[1] < float(fundsdata["limits"]["maxMarketBuyAmount"]):
                     logger.error(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"buy amount of {sodata[1]} not between "
