@@ -173,13 +173,22 @@ def update_bot_order_volumes(
     #### If not, add the value from the DB to the new BO
     if db_lastpassupdate == 'No':
         new_base_order_volume = (db_lastcalcbo + bo_profit)
-        new_safety_order_volume = (db_lastcalcso + so_profit)
         logger.debug(
             f"bo_profit is ({bo_profit:0.{rounddigits}f})\n"
-            f"so_profit is ({so_profit:0.{rounddigits}f})\n"
-            f"new_base_order_volume ({new_base_order_volume:0.{rounddigits}f}) is db_lastcalcbo ({db_lastcalcbo:0.{rounddigits}f}) + bo_profit ({bo_profit:0.{rounddigits}f})\n"
-            f"new_safety_order_volume ({new_safety_order_volume:0.{rounddigits}f}) is db_lastcalcso ({db_lastcalcso:0.{rounddigits}f}) + so_profit ({so_profit:0.{rounddigits}f})"
+            f"new_base_order_volume ({new_base_order_volume:0.{rounddigits}f}) is "
+            f"db_lastcalcbo ({db_lastcalcbo:0.{rounddigits}f}) + "
+            f"bo_profit ({bo_profit:0.{rounddigits}f})"
         )
+
+        if max_safety_orders > 0:
+            new_safety_order_volume = (db_lastcalcso + so_profit)
+            logger.debug(
+                f"so_profit is ({so_profit:0.{rounddigits}f})\n"
+                f"new_safety_order_volume ({new_safety_order_volume:0.{rounddigits}f}) is "
+                f"db_lastcalcso ({db_lastcalcso:0.{rounddigits}f}) + "
+                f"so_profit ({so_profit:0.{rounddigits}f})"
+            )
+
     db.execute(
         f"UPDATE bots SET lastcalcbo = {new_base_order_volume} WHERE botid = {bot_id}"
     )
@@ -187,7 +196,8 @@ def update_bot_order_volumes(
         "Calculated BO volume changed from: %s to %s"
         % (base_order_volume, new_base_order_volume)
     )
-    if max_safety_orders >= 1:
+
+    if max_safety_orders > 0:
         db.execute(
             f"UPDATE bots SET lastcalcso = {new_safety_order_volume} WHERE botid = {bot_id}"
         )
@@ -197,20 +207,22 @@ def update_bot_order_volumes(
         )
     db.commit()
 
-    #### Instead of rounding, truncate the last values from the digits, so we don't accidentally round up
+    #### Instead of rounding, truncate the last values from the digits, so we don't
+    #### accidentally round up
     factor = 10.0 ** rounddigits
     new_bo = math.trunc(new_base_order_volume * factor) / factor
     logger.debug(
         f"Calculated BO volume is {new_bo} \n"
         f"Number of digits is {rounddigits}, resulting in a factor of {factor}"
     )
-    #### Check to see whether or not the new, rounded value of the BO is sufficient to be stored, if not, only store in the database
+    #### Check to see whether or not the new, rounded value of the BO is sufficient to be
+    #### stored, if not, only store in the database
     if new_bo == base_order_volume:
         logger.debug(
             f"Calculated BO volume {new_bo} is equal to base_order_volume {base_order_volume}"
         )
         logger.info(
-            f"The new BO value would not change with these deals, only storing value in database"
+            "The new BO value would not change with these deals, only storing value in database"
         )
         db.execute(
             f"UPDATE bots SET lastpassupdate = 'No' WHERE botid = {bot_id}"
@@ -240,6 +252,7 @@ def update_bot_order_volumes(
                 "leverage_custom_value": thebot["leverage_custom_value"],
             },
         )
+
         if data:
             db.execute(
                 f"UPDATE bots SET lastpassupdate = 'Yes' WHERE botid = {bot_id}"
@@ -271,6 +284,7 @@ def update_bot_order_volumes(
                 )
             else:
                 logger.error("Error occurred updating bot with new BO/SO values")
+
 
 def process_deals(deals):
     """Check deals from bot."""
@@ -315,6 +329,7 @@ def get_bot_values(thebot):
     data = cursor.execute(
         f"SELECT startbo, startso, startactivedeals FROM bots WHERE botid = {bot_id}"
     ).fetchone()
+
     if data:
         # Fetch values from database
         startbo = data[0]
