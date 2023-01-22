@@ -323,9 +323,9 @@ def process_cmc_section(section_id):
                 continue
 
             rank = entry["cmc_rank"]
-            coinpercent1h = fabs(float(entry["quote"][base]["percent_change_1h"]))
-            coinpercent24h = fabs(float(entry["quote"][base]["percent_change_24h"]))
-            coinpercent7d = fabs(float(entry["quote"][base]["percent_change_7d"]))
+            coinpercent1h = float(entry["quote"][base]["percent_change_1h"])
+            coinpercent24h = float(entry["quote"][base]["percent_change_24h"])
+            coinpercent7d = float(entry["quote"][base]["percent_change_7d"])
 
             if not has_pair(base, coin):
                 # Pair does not yet exist
