@@ -77,7 +77,9 @@ def calculate_average_price_sl_percentage_long(sl_price, average_price):
 def calculate_sl_percentage(logger, deal_data, profit_config, activation_diff):
     """Calculate the SL percentage in 3C and TP range"""
 
-    currentslpercentage = float(deal_data["stop_loss_percentage"])
+    currentslpercentage = (
+        float(deal_data["stop_loss_percentage"]) if deal_data["stop_loss_percentage"] else 0.0
+    )
     initialstoplosspercentage = float(profit_config.get("initial-stoploss-percentage"))
     slincrementfactor = float(profit_config.get("sl-increment-factor"))
 

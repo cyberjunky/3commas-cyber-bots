@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+import decimal
 import json
 from math import fabs
 import os
@@ -58,6 +59,8 @@ def load_config():
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "notify-trailing-update": True,
+        "notify-trailing-reset": True,
     }
 
     cfgsectionprofitconfig = list()
@@ -147,31 +150,10 @@ def upgrade_config(thelogger, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Upgraded section %s to have profit- and safety- config list" % cfgsection)
-            elif not cfg.has_option(cfgsection, "config") and not cfg.has_option(cfgsection, "profit-config"):
-                cfgsectionconfig = list()
-                cfgsectionconfig.append({
-                    "activation-percentage": cfg.get(cfgsection, "activation-percentage"),
-                    "activation-so-count": cfg.get("settings", "activation-so-count"),
-                    "initial-stoploss-percentage": cfg.get(cfgsection, "initial-stoploss-percentage"),
-                    "sl-timeout": cfg.get(cfgsection, "sl-timeout"),
-                    "sl-increment-factor": cfg.get(cfgsection, "sl-increment-factor"),
-                    "tp-increment-factor": cfg.get(cfgsection, "tp-increment-factor"),
-                })
-
-
-                cfg.set(cfgsection, "config", json.dumps(cfgsectionconfig))
-
-                cfg.remove_option(cfgsection, "activation-percentage")
-                cfg.remove_option(cfgsection, "initial-stoploss-percentage")
-                cfg.remove_option(cfgsection, "sl-increment-factor")
-                cfg.remove_option(cfgsection, "tp-increment-factor")
-
-                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-                    cfg.write(cfgfile)
-
-                thelogger.info("Upgraded section %s to have config list" % cfgsection)
-            elif cfg.has_option(cfgsection, "profit-config"):
+                thelogger.info(
+                    "Upgraded section %s to have profit- and safety- config list" % cfgsection
+                    )
+            else:
                 jsonconfiglist = list()
                 for configsectionconfig in json.loads(cfg.get(cfgsection, "profit-config")):
                     if "activation-so-count" not in configsectionconfig:
@@ -200,6 +182,16 @@ def upgrade_config(thelogger, cfg):
                     cfg.write(cfgfile)
 
                 thelogger.info("Updates section %s to add safety-mode" % cfgsection)
+
+    if not cfg.has_option("settings", "notify-trailing-update"):
+        cfg.set("settings", "notify-trailing-update", "True")
+        cfg.set("settings", "notify-trailing-reset", "True")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Updates settings to add notify options")
+
     return cfg
 
 
@@ -242,7 +234,8 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
             f"changed SL from {deal_data['stop_loss_percentage']}% to {new_stoploss}%. "
             f"Changed TP from {deal_data['take_profit']}% to {new_take_profit}%. "
-            f"Changed SL timeout from {deal_data['stop_loss_timeout_in_seconds']}s to {sl_timeout}s."
+            f"Changed SL timeout from {deal_data['stop_loss_timeout_in_seconds']}s "
+            f"to {sl_timeout}s."
         )
     else:
         if error and "msg" in error:
@@ -320,11 +313,11 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
                     if deal['active_safety_orders_count'] == 0 and len(section_safety_config) > 0:
                         set_first_safety_order(bot_data, deal, 0, 0.0)
 
-                if float(deal["actual_profit_percentage"]) > 0.0 and len(section_profit_config) > 0:
+                if float(deal["actual_profit_percentage"]) > 0.0:
                     monitoreddeals += process_deal_for_profit(
                         section_profit_config, bot_data, deal
                     )
-                elif float(deal["actual_profit_percentage"]) < 0.0 and len(section_safety_config) > 0:
+                elif float(deal["actual_profit_percentage"]) < 0.0:
                     monitoreddeals += process_deal_for_safety_order(
                         section_safety_config, section_safety_mode, bot_data, deal
                     )
@@ -353,7 +346,8 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
 def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     """Process a deal which has positive profit"""
 
-    requiremonitoring = 0
+    if len(section_profit_config) == 0:
+        return 0 #Deal does not require monitoring
 
     if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
         logger.debug(
@@ -362,7 +356,9 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
             f"{deal_data['take_profit']}, so there is no point in updating "
             f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
         )
-        return requiremonitoring
+        return 0 #Deal does not require monitoring
+
+    requiremonitoring = 0
 
     # Deal is in positive profit, so TSL mode which requires the profit-config
     dealdbdata = get_profit_db_data(cursor, deal_data["id"])
@@ -397,7 +393,8 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
                 logger.info(
                     f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                     f"profit has decreased below configured profit-config. Trailing "
-                    f"has been reset and TP restored to {bot_data['take_profit']}%."
+                    f"has been reset and TP restored to {bot_data['take_profit']}%.",
+                    True
                 )
 
     return requiremonitoring
@@ -405,6 +402,9 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
 
 def process_deal_for_safety_order(section_safety_config, section_safety_mode, bot_data, deal_data):
     """Process a deal which has negative profit"""
+
+    if len(section_safety_config) == 0:
+        return 0 #Deal does not require monitoring
 
     if deal_data['active_safety_orders_count'] != 0:
         logger.warning(
@@ -852,78 +852,44 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
     if deal_data["strategy"] == "long":
         profitprefix = "-"
 
-    addfundspercentage = deal_db_data["add_funds_percentage"]
-    last_profit_percentage = deal_db_data["last_profit_percentage"]
-    if current_profit_percentage > last_profit_percentage:
+    currentaddfundspercentage = deal_db_data["add_funds_percentage"]
+    lastprofitpercentage = deal_db_data["last_profit_percentage"]
+    if current_profit_percentage > lastprofitpercentage:
         initialbuy = float(safety_config.get("initial-buy-percentage"))
-        if last_profit_percentage == 0.0:
-            # First time activation, calculate initial add funds threshold
-            activation_diff = (
-                current_profit_percentage -
-                deal_db_data["next_so_percentage"] -
-                initialbuy
+
+        newaddfundspercentage = deal_db_data["next_so_percentage"] + initialbuy
+        newaddfundspercentage += round(
+            (current_profit_percentage - newaddfundspercentage) *
+            float(safety_config.get("buy-increment-factor")),
+            2
+        )
+
+        if newaddfundspercentage > currentaddfundspercentage:
+            # Update data in database
+            update_safetyorder_monitor_in_db(
+                deal_data["id"], current_profit_percentage, currentaddfundspercentage
             )
 
-            addfundspercentage = round(
-                deal_db_data["next_so_percentage"] +
-                initialbuy +
-                (activation_diff * float(safety_config.get("buy-increment-factor"))), 2
-            )
-
-            profittext = "dropped below"
-            if deal_data["strategy"] == "short":
-                profittext = "increased above"
-
+            # Send message to user
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"profit {profitprefix}{current_profit_percentage:0.2f}% {profittext} "
-                f"Safety Order at {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%. "
-                f"Add Funds threshold set to {profitprefix}{addfundspercentage:0.2f}%.",
+                f"profit from {profitprefix}{lastprofitpercentage:0.2f}% to "
+                f"{profitprefix}{current_profit_percentage:0.2f}% (trailing "
+                f"from SO at {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%)."
+                f"Add Funds threshold from "
+                f"{profitprefix}{currentaddfundspercentage:0.2f}% "
+                f"to {profitprefix}{newaddfundspercentage:0.2f}%.",
                 True
             )
 
-            ## Alternative calculation, not used yet
-            newaddfundspercentage = deal_db_data["next_so_percentage"] + initialbuy + ((current_profit_percentage - initialbuy - last_profit_percentage) * float(safety_config.get("buy-increment-factor")))
-            logger.debug(
-                f"Alternative Add Funds calculation calculated {newaddfundspercentage}%."
-            )
-        else:
-            # TODO: involve initial-buy-percentage into the calculation. Based on config this percentage
-            # must be used as base to add the profit (multiplied with the factor) to it.
-
-            # Shift buy percentage based on profit change
-            profit_diff = current_profit_percentage - last_profit_percentage
-            addfundspercentage = round(addfundspercentage + (
-                profit_diff * float(safety_config.get("buy-increment-factor"))
-            ), 2)
-
-            logger.info(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"profit from {profitprefix}{last_profit_percentage:0.2f}% to "
-                f"{profitprefix}{current_profit_percentage:0.2f}%. "
-                f"Add Funds threshold from {profitprefix}{deal_db_data['add_funds_percentage']:0.2f}% "
-                f"to {profitprefix}{addfundspercentage:0.2f}%.",
-                True
-            )
-
-            ## Alternative calculation, not used yet
-            newaddfundspercentage = deal_db_data["next_so_percentage"] + initialbuy + ((current_profit_percentage - initialbuy - last_profit_percentage) * float(safety_config.get("buy-increment-factor")))
-            logger.debug(
-                f"Alternative Add Funds calculation calculated {newaddfundspercentage}%."
-            )
-
-        # TODO: only save when addfundspercentage has changed
-        # Update data in database
-        update_safetyorder_monitor_in_db(deal_data["id"], current_profit_percentage, addfundspercentage)
-
-        # Buy percentage has changed, monitor profit for changes
+        # Profit percentage has changed, monitor profit for changes
         requiremonitoring = 1
-    elif current_profit_percentage <= addfundspercentage:
+    elif current_profit_percentage <= currentaddfundspercentage:
         # Current profit passed or equal to buy percentage. Add funds to the deal
         logger.debug(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
             f"profit {profitprefix}{current_profit_percentage:0.2f}% "
-            f"passed Add Funds threshold of {profitprefix}{addfundspercentage}%."
+            f"passed Add Funds threshold of {profitprefix}{currentaddfundspercentage}%."
         )
 
         # When current profit is below the desired Safety Order, reset and start from the beginning
@@ -999,7 +965,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         f"{fundsdata['limits']['maxMarketBuyAmount']}!"
                     )
 
-                if (quantity - float(fundsdata["limits"]["minLotSize"])) % float(fundsdata["limits"]["lotStep"]) != 0:
+                if decimal.Decimal(quantity - float(fundsdata["limits"]["minLotSize"])) % decimal.Decimal(fundsdata["limits"]["lotStep"]) != 0.0:
                     logger.error(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"quantity {quantity} not a multiply of stepsize "
@@ -1040,20 +1006,22 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"profit {profitprefix}{current_profit_percentage:0.2f}% passed Add Funds "
-                        f"threshold at {profitprefix}{addfundspercentage:0.2f}%. "
+                        f"threshold at {profitprefix}{currentaddfundspercentage:0.2f}%. "
                         f"Created order '{orderid}' for {quantity:0.{rounddigits}f} "
                         f"{deal_data['pair'].split('_')[1]}. ",
                         True
                     )
 
-                    add_pending_order_in_db(deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], nextsopercentage, shiftpercentage)
+                    add_pending_order_in_db(
+                        deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], nextsopercentage, shiftpercentage
+                    )
                 else:
                     totalfilledso = deal_db_data["filled_so_count"] + sodata[0]
 
                     logger.info(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"profit {profitprefix}{current_profit_percentage:0.2f}% passed Add Funds "
-                        f"threshold at {profitprefix}{addfundspercentage:0.2f}%. "
+                        f"threshold at {profitprefix}{currentaddfundspercentage:0.2f}%. "
                         f"Filled {sodata[0]} Safety Order(s) for {quantity:0.{rounddigits}f} "
                         f"{deal_data['pair'].split('_')[1]}. "
                         f"{totalfilledso}/{deal_data['max_safety_orders']} Safety Order(s) are filled.",
@@ -1061,7 +1029,9 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                     )
 
                     # Save total filled and next SO to database
-                    update_safetyorder_in_db(deal_data["id"], totalfilledso, nextsopercentage, shiftpercentage)
+                    update_safetyorder_in_db(
+                        deal_data["id"], totalfilledso, nextsopercentage, shiftpercentage
+                    )
 
                     # Set up trailing for next SO
                     update_safetyorder_monitor_in_db(deal_data["id"], 0.0, nextsopercentage)
@@ -1077,8 +1047,8 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
             f"no profit decrease "
             f"(current: {profitprefix}{current_profit_percentage}%, "
-            f"previous: {profitprefix}{last_profit_percentage}%, "
-            f"Add Funds threshold: {profitprefix}{addfundspercentage}%). "
+            f"previous: {profitprefix}{lastprofitpercentage}%, "
+            f"Add Funds threshold: {profitprefix}{currentaddfundspercentage}%). "
             f"Keep on monitoring."
         )
 
@@ -1344,12 +1314,14 @@ while True:
                     )
                     if botdata:
                         try:
-                            bot_deals_to_monitor = process_deals(botdata, sectionprofitconfig, sectionsafetyconfig, sectionsafetymode)
+                            bot_deals_to_monitor = process_deals(
+                                botdata, sectionprofitconfig, sectionsafetyconfig, sectionsafetymode
+                            )
 
                             # Determine new time to process this bot, based on the monitored deals
                             newtime = starttime + (
-                                    check_interval if bot_deals_to_monitor == 0 else monitor_interval
-                                )
+                                check_interval if bot_deals_to_monitor == 0 else monitor_interval
+                            )
                             set_next_process_time(db, "bots", "botid", bot, newtime)
 
                             deals_to_monitor += bot_deals_to_monitor
