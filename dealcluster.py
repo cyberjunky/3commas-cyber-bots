@@ -390,11 +390,17 @@ def websocket_update(deal_data):
         #else:
             # Here we could inform the user about deal updates (filled SO, trailing activated)
 
-    if aggregrate and clusterid:
-        # Get Bot list
-        botlist = json.loads(config.get(clusterid, "botids"))
-        aggregrate_cluster(threaddb, clusterid, botlist)
-        process_cluster_bots(clusterid, botlist, "update")
+    if aggregrate:
+        if clusterid:
+            # Get Bot list
+            botlist = json.loads(config.get(clusterid, "botids"))
+            aggregrate_cluster(threaddb, clusterid, botlist)
+            process_cluster_bots(clusterid, botlist, "update")
+        else:
+            logger.error(
+                f"Deal {deal_data['id']}/{deal_data['pair']} needs "
+                f"to be aggregated but cluster is unknown!"
+            )
 
     # Send notifications, if there are any
     notification.send_notification()
