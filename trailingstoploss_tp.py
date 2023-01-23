@@ -384,7 +384,6 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
         )
 
         # Reset trailing data if trailing was activated before (profit has dropped)
-        # TODO: else case for close_strategy where the SL needs to be restored (if there was any)
         if float(dealdbdata["last_profit_percentage"]) > float(bot_data["take_profit"]):
             if update_deal_profit(bot_data, deal_data, 0.0, float(bot_data["take_profit"]), 0):
                 update_profit_in_db(
@@ -394,7 +393,7 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
                     f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                     f"profit has decreased below configured profit-config. Trailing "
                     f"has been reset and TP restored to {bot_data['take_profit']}%.",
-                    True
+                    notifytrailingreset
                 )
 
     return requiremonitoring
@@ -531,11 +530,11 @@ def process_deal_for_safety_order(section_safety_config, section_safety_mode, bo
             if (dealdbdata["last_profit_percentage"] != 0.0 or
                 dealdbdata["add_funds_percentage"] != dealdbdata["next_so_percentage"]
             ):
-                #TODO: add setting to receive notification
                 logger.info(
                     f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                     f"trailing reset because current profit suddenly changed above "
-                    f"the first configured safety config."
+                    f"the first configured safety config.",
+                    notifytrailingreset
                 )
                 update_safetyorder_monitor_in_db(
                     deal_data["id"], 0.0, dealdbdata['next_so_percentage']
@@ -550,11 +549,11 @@ def process_deal_for_safety_order(section_safety_config, section_safety_mode, bo
         if (dealdbdata["last_profit_percentage"] != 0.0 or
             dealdbdata["add_funds_percentage"] != dealdbdata["next_so_percentage"]
         ):
-            #TODO: add setting to receive notification
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                 f"trailing reset because profit suddenly changed and went above "
-                f"the SO at {dealdbdata['next_so_percentage']:0.2f}%."
+                f"the SO at {dealdbdata['next_so_percentage']:0.2f}%.",
+                notifytrailingreset
             )
             update_safetyorder_monitor_in_db(deal_data["id"], 0.0, dealdbdata['next_so_percentage'])
 
@@ -864,10 +863,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
             2
         )
 
-        if newaddfundspercentage > currentaddfundspercentage:
+        if fabs(newaddfundspercentage) > fabs(currentaddfundspercentage):
             # Update data in database
             update_safetyorder_monitor_in_db(
-                deal_data["id"], current_profit_percentage, currentaddfundspercentage
+                deal_data["id"], current_profit_percentage, newaddfundspercentage
             )
 
             # Send message to user
@@ -875,7 +874,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                 f"profit from {profitprefix}{lastprofitpercentage:0.2f}% to "
                 f"{profitprefix}{current_profit_percentage:0.2f}% (trailing "
-                f"from SO at {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%)."
+                f"from {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%). "
                 f"Add Funds threshold from "
                 f"{profitprefix}{currentaddfundspercentage:0.2f}% "
                 f"to {profitprefix}{newaddfundspercentage:0.2f}%.",
@@ -903,7 +902,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"profit {profitprefix}{current_profit_percentage:0.2f}% above Safety Order "
                 f"of {profitprefix}{deal_db_data['next_so_percentage']:0.2f}%. Missed Add Funds "
                 f"oppertunity; reset so trailing can start over again.",
-                True
+                notifytrailingreset
             )
         else:
             # SO data contains five values:
@@ -965,12 +964,16 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         f"{fundsdata['limits']['maxMarketBuyAmount']}!"
                     )
 
-                if decimal.Decimal(quantity - float(fundsdata["limits"]["minLotSize"])) % decimal.Decimal(fundsdata["limits"]["lotStep"]) != 0.0:
+                # Modulo executed with Decimal and string to prevent rounding and 
+                # floating point issues.
+                sizemodulo = decimal.Decimal(str(quantity - float(fundsdata["limits"]["minLotSize"]))) % decimal.Decimal(fundsdata["limits"]["lotStep"])
+                if sizemodulo != 0.0:
                     logger.error(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"quantity {quantity} not a multiply of stepsize "
                         f"{fundsdata['limits']['lotStep']}, taking min size of "
-                        f"{fundsdata['limits']['minLotSize']} into account!"
+                        f"{fundsdata['limits']['minLotSize']} into account! Remaining "
+                        f"is {sizemodulo}"
                     )
 
 
@@ -1075,7 +1078,6 @@ def set_first_safety_order(bot_data, deal_data, filled_so_count, current_profit_
     update_safetyorder_in_db(deal_data["id"], filled_so_count, sodata[4], 0.0)
     update_safetyorder_monitor_in_db(deal_data["id"], 0, sodata[4])
 
-    # TODO: remove the True for pushing notification. Only log is ok
     logger.debug(
         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
         f"new deal with next SO on {sodata[4]}%"
@@ -1275,6 +1277,9 @@ while True:
     # Configuration settings
     check_interval = int(config.get("settings", "check-interval"))
     monitor_interval = int(config.get("settings", "monitor-interval"))
+
+    notifytrailingupdate = config.getboolean("settings", "notify-trailing-update")
+    notifytrailingreset = config.getboolean("settings", "notify-trailing-reset")
 
     # Used to determine the correct interval
     deals_to_monitor = 0
