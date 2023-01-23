@@ -147,6 +147,14 @@ def calculate_sl_percentage(logger, deal_data, profit_config, activation_diff):
 def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, last_profit_percentage):
     """Calculate the TP percentage TP range"""
 
+    # Closing strategy means 3C will monitor the condition and manage the TP
+    if len(deal_data["close_strategy_list"]) > 0:
+        minprofitpercentage = float(deal_data["min_profit_percentage"])
+        logger.info(
+            f"Deal data: {deal_data}. "
+        )
+        return minprofitpercentage, minprofitpercentage
+
     tpincrementfactor = float(profit_config.get("tp-increment-factor"))
 
     currenttppercentage = float(deal_data["take_profit"])

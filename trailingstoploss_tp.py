@@ -216,7 +216,9 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     #else:
     #    payload["take_profit"] = 0.05
     #    payload["trailing_enabled"] = False
-    payload["take_profit"] = new_take_profit
+    if len(deal_data["close_strategy_list"]) > 0:
+        payload["take_profit"] = new_take_profit
+
     payload["trailing_enabled"] = deal_data["trailing_enabled"]
     payload["tsl_enabled"] = deal_data["tsl_enabled"]
 
@@ -297,7 +299,7 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
                 # cancelled, completed and panic_sell_pending are states in which we
                 # don't need to do anything or should not interfere with.
                 #if deal["status"].lower() not in("bought", "close_strategy_activated"):
-                if deal["status"].lower() not in("bought"):
+                if deal["status"].lower() not in("bought", "close_strategy_activated"):
                     logger.info(
                         f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
                         f"'{deal['status']}' which is not valid for further processing!"
@@ -349,14 +351,20 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     if len(section_profit_config) == 0:
         return 0 #Deal does not require monitoring
 
-    if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-            f"current profit {deal_data['actual_profit_percentage']} above take profit of "
-            f"{deal_data['take_profit']}, so there is no point in updating "
-            f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
-        )
-        return 0 #Deal does not require monitoring
+    # Close strategy is based on conditions, which means minimal take profit
+    # is used and not the regular take profit
+    if len(deal_data["close_strategy_list"]) == 0:
+        if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
+            logger.info(
+                f"Deal data: {deal_data}. "
+            )
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"current profit {deal_data['actual_profit_percentage']} above take profit of "
+                f"{deal_data['take_profit']}, so there is no point in updating "
+                f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
+            )
+            return 0 #Deal does not require monitoring
 
     requiremonitoring = 0
 
@@ -964,7 +972,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         f"{fundsdata['limits']['maxMarketBuyAmount']}!"
                     )
 
-                # Modulo executed with Decimal and string to prevent rounding and 
+                # Modulo executed with Decimal and string to prevent rounding and
                 # floating point issues.
                 sizemodulo = decimal.Decimal(str(quantity - float(fundsdata["limits"]["minLotSize"]))) % decimal.Decimal(fundsdata["limits"]["lotStep"])
                 if sizemodulo != 0.0:
