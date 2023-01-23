@@ -667,12 +667,6 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
             orderid = order["order_id"]
             orderstatus = order["status_string"]
 
-            logger.debug(
-                f"Cancellation compares order {orderid} with {order_id} "
-                f"and status {orderstatus}...",
-                True
-            )
-
             if str(orderid) == str(order_id) and orderstatus.lower() == "cancelled":
                 logger.debug(
                     f"{deal_id}: order '{orderid}' is Cancelled!"
