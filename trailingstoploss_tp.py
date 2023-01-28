@@ -598,6 +598,8 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             logger, deal_data, profit_config, activationdiff, lastprofitpercentage
         )
 
+        sendnotification = notifytrailingupdate
+
         newsltimeout = int(profit_config.get("sl-timeout"))
         if (fabs(sldata[1]) > 0.0 and sldata[1] != sldata[0]):
             if deal_db_data['last_readable_sl_percentage'] != sldata[2]:
@@ -615,6 +617,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 )
 
         if tpdata[1] > tpdata[0]:
+            sendnotification = (lastprofitpercentage == 0.0) or notifytrailingupdate
             message += (
                 f"TakeProfit increased from {tpdata[0]}% "
                 f"to {tpdata[1]}%. "
@@ -631,7 +634,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             )
 
             # Send the message to the user
-            logger.info(message, True)
+            logger.info(message, sendnotification)
         else:
             logger.info(
                 f"Update failed for message: {message}"
@@ -872,6 +875,8 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         )
 
         if fabs(newaddfundspercentage) > fabs(currentaddfundspercentage):
+            sendnotification = (lastprofitpercentage == 0.0) or notifytrailingupdate
+
             # Update data in database
             update_safetyorder_monitor_in_db(
                 deal_data["id"], current_profit_percentage, newaddfundspercentage
@@ -886,7 +891,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 f"Add Funds threshold from "
                 f"{profitprefix}{currentaddfundspercentage:0.2f}% "
                 f"to {profitprefix}{newaddfundspercentage:0.2f}%.",
-                True
+                sendnotification
             )
 
         # Profit percentage has changed, monitor profit for changes
@@ -924,6 +929,12 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 deal_db_data["filled_so_count"], current_profit_percentage
             )
 
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"complete deal data is {deal_data}."
+            )
+
+            quantity = sodata[1]
             limitprice = sodata[2]
             if deal_data["strategy"] == "long" and limitprice > float(deal_data["current_price"]):
                 logger.debug(
@@ -940,12 +951,19 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                 )
                 limitprice = float(deal_data["current_price"])
 
-            quantity = sodata[1] / limitprice
-            logger.debug(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"calculated quantity {quantity} based on "
-                f"volume {sodata[1]} and price {limitprice}."
-            )
+            if deal_data["safety_order_volume_type"] == "quote_currency":
+                quantity = quantity / limitprice
+                logger.debug(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"calculated quantity {quantity} based on "
+                    f"volume {sodata[1]} and price {limitprice}."
+                )
+            else:
+                logger.info(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"using quantity {quantity} based on 'base_currency' volume "
+                    f"order type."
+                )
 
             # TODO: use the data to validate the request
             fundsdata = threecommas_get_data_for_adding_funds(logger, api, deal_data)
