@@ -342,10 +342,6 @@ def write_bot_exclude_file(bot_id, coins):
 def websocket_update(deal_data):
     """Handle the received deal data from the websocket"""
 
-    logger.info(
-        f"Websocket update; bot_id '{deal_data['bot_id']}' received data: {deal_data}"
-    )
-
     # Indicator if the cluster should be aggregrated again. Updates over the websocket
     # also contain filled SO's which don't have impact on the cluster
     aggregrate = False
@@ -380,13 +376,11 @@ def websocket_update(deal_data):
             if clusterid:
                 add_cluster_deal(threaddb, deal_data, clusterid)
 
+                threaddb.commit()
+
                 aggregrate = True
             #else:
-            #    logger.info(
-            #        f"Deal {deal_data['id']}/{deal_data['pair']} on bot \"{deal_data['bot_name']} "
-            #        f"opened. Bot is not part of any configured cluster.",
-            #        True
-            #    )
+                # Here we could inform the user about opened deals outside any cluster
         #else:
             # Here we could inform the user about deal updates (filled SO, trailing activated)
 
