@@ -2,20 +2,25 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
-from math import fabs
 import os
 import sqlite3
 import sys
 import time
 from pathlib import Path
-from helpers.database import get_next_process_time, set_next_process_time
-
+from helpers.database import (
+    get_next_process_time,
+    set_next_process_time
+)
 from helpers.datasources import (
     get_botassist_data,
+    get_coingecko_data,
     get_coinmarketcap_data,
     get_lunarcrush_data
 )
-from helpers.logging import Logger, NotificationHandler
+from helpers.logging import (
+    Logger,
+    NotificationHandler
+)
 from helpers.misc import (
     unix_timestamp_to_string,
     wait_time_interval,
@@ -36,10 +41,18 @@ def load_config():
         "debug": False,
         "logrotate": 7,
         "cmc-apikey": "Your CoinMarketCap API Key",
+        "cg-apikey": "Your CoinGecko API key (only required for paid plans), or empty",
+        "index-provider": "CoinMarketCap / CoinGecko",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
     cfg["cmc_btc"] = {
+        "start-number": 1,
+        "end-number": 200,
+        "timeinterval": 3600,
+        "percent-change-compared-to": "BTC",
+    }
+    cfg["cg_btc"] = {
         "start-number": 1,
         "end-number": 200,
         "timeinterval": 3600,
@@ -77,9 +90,18 @@ def load_config():
 def upgrade_config(cfg):
     """Upgrade config file if needed."""
 
-    logger.info(
-        "No configuration file upgrade required at this moment."
-    )
+    if not cfg.has_option("settings", "cg-apikey"):
+        cfg.set(
+            "settings", "cg-apikey",
+            "Your CoinGecko API key (only required for paid plans), or empty"
+        )
+
+        cfg.set("settings", "index-provider", "CoinMarketCap / CoinGecko")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Updates settings to add cg-apikey")
 
     return cfg
 
@@ -128,6 +150,10 @@ def open_shared_db():
             "change_1h FLOAT DEFAULT 0.0, "
             "change_24h FLOAT DEFAULT 0.0, "
             "change_7d FLOAT DEFAULT 0.0, "
+            "change_14d FLOAT DEFAULT 0.0, "
+            "change_30d FLOAT DEFAULT 0.0, "
+            "change_200d FLOAT DEFAULT 0.0, "
+            "change_1y FLOAT DEFAULT 0.0, "
             "volatility_24h FLOAT DEFAULT 0.0, "
             "PRIMARY KEY(base, coin)"
             ")"
@@ -167,15 +193,31 @@ def open_mc_db():
     return dbconnection
 
 
+def upgrade_mc_db(db_cursor):
+    """Upgrade database if needed."""
+    try:
+        db_cursor.execute("ALTER TABLE prices ADD COLUMN change_14d FLOAT DEFAULT 0.0")
+        db_cursor.execute("ALTER TABLE prices ADD COLUMN change_30d FLOAT DEFAULT 0.0")
+        db_cursor.execute("ALTER TABLE prices ADD COLUMN change_200d FLOAT DEFAULT 0.0")
+        db_cursor.execute("ALTER TABLE prices ADD COLUMN change_1y FLOAT DEFAULT 0.0")
+
+        logger.info("Database schema upgraded")
+    except sqlite3.OperationalError:
+        logger.debug("Database schema is up-to-date")
+
+
 def has_pair(base, coin):
     """Check if pair already exists in database."""
 
+    ubase = base.upper()
+    ucoin = coin.upper()
+
     query = "SELECT * FROM pairs WHERE "
 
-    if base != "*":
-        query += f"base = '{base}' AND "
+    if ubase != "*":
+        query += f"base = '{ubase}' AND "
 
-    query += f"coin = '{coin}'"
+    query += f"coin = '{ucoin}'"
 
     return sharedcursor.execute(query).fetchone()
 
@@ -183,8 +225,11 @@ def has_pair(base, coin):
 def add_pair(base, coin):
     """Add a new base_coin to the tables in the database"""
 
+    ubase = base.upper()
+    ucoin = coin.upper()
+
     logger.debug(
-        f"Add pair {base}_{coin} to database."
+        f"Add pair {ubase}_{ucoin} to database."
     )
 
     shareddb.execute(
@@ -193,7 +238,7 @@ def add_pair(base, coin):
         f"coin, "
         f"last_updated "
         f") VALUES ("
-        f"'{base}', '{coin}', {int(time.time())}"
+        f"'{ubase}', '{ucoin}', {int(time.time())}"
         f")"
     )
     shareddb.execute(
@@ -201,7 +246,7 @@ def add_pair(base, coin):
         f"base, "
         f"coin "
         f") VALUES ("
-        f"'{base}', '{coin}'"
+        f"'{ubase}', '{ucoin}'"
         f")"
     )
     shareddb.execute(
@@ -209,7 +254,7 @@ def add_pair(base, coin):
         f"base, "
         f"coin "
         f") VALUES ("
-        f"'{base}', '{coin}'"
+        f"'{ubase}', '{ucoin}'"
         f")"
     )
     # shareddb.commit() left out on purpose
@@ -218,21 +263,24 @@ def add_pair(base, coin):
 def remove_pair(base, coin):
     """Remove a base_coin from the tables in the database"""
 
+    ubase = base.upper()
+    ucoin = coin.upper()
+
     logger.debug(
-        f"Remove pair {base}_{coin} from database."
+        f"Remove pair {ubase}_{ucoin} from database."
     )
 
     shareddb.execute(
         f"DELETE FROM pairs "
-        f"WHERE base = '{base}' AND coin = '{coin}'"
+        f"WHERE base = '{ubase}' AND coin = '{ucoin}'"
     )
     shareddb.execute(
         f"DELETE FROM rankings "
-        f"WHERE base = '{base}' AND coin = '{coin}'"
+        f"WHERE base = '{ubase}' AND coin = '{ucoin}'"
     )
     shareddb.execute(
         f"DELETE FROM prices "
-        f"WHERE base = '{base}' AND coin = '{coin}'"
+        f"WHERE base = '{ubase}' AND coin = '{ucoin}'"
     )
     # shareddb.commit() left out on purpose
 
@@ -240,15 +288,21 @@ def remove_pair(base, coin):
 def update_pair_last_updated(base, coin):
     """Update the pair's last updated value in database."""
 
+    ubase = base.upper()
+    ucoin = coin.upper()
+
     shareddb.execute(
         f"UPDATE pairs SET last_updated = {int(time.time())} "
-        f"WHERE base = '{base}' AND coin = '{coin}'"
+        f"WHERE base = '{ubase}' AND coin = '{ucoin}'"
     )
     # shareddb.commit() left out on purpose
 
 
 def update_values(table, base, coin, data):
     """Update one or more specific field(s) in a single table in the database"""
+
+    ubase = base.upper()
+    ucoin = coin.upper()
 
     query = f"UPDATE {table} SET "
 
@@ -262,13 +316,13 @@ def update_values(table, base, coin, data):
     query += keyvalues
     query += " WHERE "
 
-    if base != "*":
-        query += f" base = '{base}' AND "
+    if ubase != "*":
+        query += f"base = '{ubase}' AND "
 
-    query += f"coin = '{coin}'"
+    query += f"coin = '{ucoin}'"
 
     logger.debug(
-        f"Execute query '{query}' for pair {base}_{coin}."
+        f"Execute query '{query}' for pair {ubase}_{ucoin}."
     )
 
     shareddb.execute(query)
@@ -302,8 +356,8 @@ def process_cmc_section(section_id):
     )
 
     # Check if CMC replied with an error
-    # 0: errorcode
-    # 1: errormessage
+    # 0: statuscode
+    # 1: statusmessage
     # 2: cmc data
     if data[0] != -1:
         logger.error(
@@ -314,27 +368,36 @@ def process_cmc_section(section_id):
         # And exit loop so we can wait 24h before trying again
         return False
 
+    isindexprovider = config.get("settings", "index-provider").lower() == "coinmarketcap"
+
     for entry in data[2]:
         try:
-            coin = entry["symbol"]
+            coin = str(entry["symbol"])
 
             # The base could be as coin inside the list, and then skip it
             if base == coin:
                 continue
 
-            rank = entry["cmc_rank"]
             coinpercent1h = float(entry["quote"][base]["percent_change_1h"])
             coinpercent24h = float(entry["quote"][base]["percent_change_24h"])
             coinpercent7d = float(entry["quote"][base]["percent_change_7d"])
 
             if not has_pair(base, coin):
-                # Pair does not yet exist
-                add_pair(base, coin)
+                if isindexprovider:
+                    # Pair does not yet exist and CoinMarketCap is the index provider
+                    add_pair(base, coin)
+                else:
+                    # Coin does not exist, skip this one
+                    logger.debug(
+                        f"Coin {coin} not in database, cannot update data for this coin."
+                    )
+                    continue
 
-            # Update rankings data
-            rankdata = {}
-            rankdata["coinmarketcap"] = rank
-            update_values("rankings", base, coin, rankdata)
+            if isindexprovider:
+                # Update rankings data
+                rankdata = {}
+                rankdata["coinmarketcap"] = entry["cmc_rank"]
+                update_values("rankings", base, coin, rankdata)
 
             # Update pricings data
             pricesdata = {}
@@ -359,6 +422,133 @@ def process_cmc_section(section_id):
 
     logger.info(
         f"CoinMarketCap; updated {len(data[2])} coins ({startnumber}-{endnumber}) "
+        f"for base '{base}'.",
+        True
+    )
+
+    # No exceptions or other cases happened, everything went Ok
+    return True
+
+
+def process_cg_section(section_id):
+    """Process the cg section from the configuration"""
+
+    # Download CoinGecko data
+    startnumber = int(config.get(section_id, "start-number"))
+    endnumber = int(config.get(section_id, "end-number"))
+    base = config.get(section_id, "percent-change-compared-to")
+
+    logger.debug(
+        f"Processing section {section_id} with start {startnumber} "
+        f"and end {endnumber}. Use {base} as base for the pairs."
+    )
+
+    baselist = ("BNB", "BTC", "ETH", "USD")
+    if base not in baselist:
+        logger.error(
+            f"Percent change ('{base}') must be one of the following: "
+            f"{baselist}"
+        )
+        return False
+
+    data = get_coingecko_data(
+        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base
+    )
+
+    # Check if CG replied with an error
+    # 0: statuscode
+    # 1: cg data
+    if data[0] != -1:
+        logger.error(
+            f"Received error {data[0]}: "
+            f"Stop processing and retry in 24h again."
+        )
+
+        # And exit loop so we can wait 24h before trying again
+        return False
+
+    isindexprovider = config.get("settings", "index-provider").lower() == "coingecko"
+
+    for entry in data[1]:
+        try:
+            coin = str(entry["symbol"])
+
+            # The base could be as coin inside the list, and then skip it
+            if base == coin:
+                continue
+
+            coinpercent1h = 0.0
+            if entry.get("price_change_percentage_1h_in_currency") is not None:
+                coinpercent1h = float(entry["price_change_percentage_1h_in_currency"])
+
+            coinpercent24h = 0.0
+            if entry.get("price_change_percentage_24h_in_currency") is not None:
+                coinpercent24h = float(entry["price_change_percentage_24h_in_currency"])
+
+            coinpercent7d = 0.0
+            if entry.get("price_change_percentage_7d_in_currency") is not None:
+                coinpercent7d = float(entry["price_change_percentage_7d_in_currency"])
+
+            coinpercent14d = 0.0
+            if entry.get("price_change_percentage_14d_in_currency") is not None:
+                coinpercent14d = float(entry["price_change_percentage_14d_in_currency"])
+
+            coinpercent30d = 0.0
+            if entry.get("price_change_percentage_30d_in_currency") is not None:
+                coinpercent30d = float(entry["price_change_percentage_30d_in_currency"])
+
+            coinpercent200d = 0.0
+            if entry.get("price_change_percentage_200d_in_currency") is not None:
+                coinpercent200d = float(entry["price_change_percentage_200d_in_currency"])
+
+            coinpercent1y = 0.0
+            if entry.get("price_change_percentage_1y_in_currency") is not None:
+                coinpercent1y = float(entry["price_change_percentage_1y_in_currency"])
+
+            if not has_pair(base, coin):
+                if isindexprovider:
+                    # Pair does not yet exist and CoinGecko is the index provider
+                    add_pair(base, coin)
+                else:
+                    # Coin does not exist, skip this one
+                    logger.debug(
+                        f"Coin {coin} not in database, cannot update data for this coin."
+                    )
+                    continue
+
+            if isindexprovider:
+                # Update rankings data
+                rankdata = {}
+                rankdata["coinmarketcap"] = entry["market_cap_rank"]
+                update_values("rankings", base, coin, rankdata)
+
+            # Update pricings data
+            pricesdata = {}
+            pricesdata["change_1h"] = coinpercent1h
+            pricesdata["change_24h"] = coinpercent24h
+            pricesdata["change_7d"] = coinpercent7d
+            pricesdata["change_14d"] = coinpercent14d
+            pricesdata["change_30d"] = coinpercent30d
+            pricesdata["change_200d"] = coinpercent200d
+            pricesdata["change_1y"] = coinpercent1y
+            update_values("prices", base, coin, pricesdata)
+
+            # Make sure to update the last_updated field to avoid deletion
+            update_pair_last_updated(base, coin)
+        except KeyError as err:
+            logger.error(
+                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
+                % err
+            )
+            # Rollback any pending changes
+            shareddb.rollback()
+            return False
+
+    # Commit everyting to the database
+    shareddb.commit()
+
+    logger.info(
+        f"CoinGecko; updated {len(data[1])} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
         True
     )
@@ -566,7 +756,7 @@ def cleanup_database():
         logger.info(f"Found {len(pairdata)} pairs to cleanup...")
 
         for entry in pairdata:
-            remove_pair(entry[0], entry[1])
+            remove_pair(str(entry[0]), str(entry[1]))
 
         # Commit everyting to the database
         shareddb.commit()
@@ -671,6 +861,9 @@ cursor = db.cursor()
 shareddb = open_shared_db()
 sharedcursor = shareddb.cursor()
 
+# Upgrade the database if needed
+upgrade_mc_db(sharedcursor)
+
 # Storage of data for each section (if applicable)
 sectionstorage = {}
 
@@ -696,11 +889,14 @@ while True:
 
     for section in config.sections():
         iscmcsection = section.startswith("cmc_")
+        iscgsection = section.startswith("cg_")
         isaltranksection = section.startswith("altrank_")
         isgalaxyscoresection = section.startswith("galaxyscore")
         isvolatilitysection = section.startswith("volatility_")
 
-        if iscmcsection or isaltranksection or isgalaxyscoresection or isvolatilitysection:
+        if (iscmcsection or iscgsection or isaltranksection or
+            isgalaxyscoresection or isvolatilitysection
+        ):
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
@@ -716,6 +912,8 @@ while True:
                 sectionresult = False
                 if iscmcsection:
                     sectionresult = process_cmc_section(section)
+                elif iscgsection:
+                    sectionresult = process_cg_section(section)
                 elif isaltranksection:
                     sectionresult = process_lunarcrush_section(section, "Altrank")
                 elif isgalaxyscoresection:
@@ -742,7 +940,7 @@ while True:
                 )
         elif section != "settings":
             logger.warning(
-                f"Section '{section}' not processed (prefix 'cmc_' missing)!",
+                f"Section '{section}' not processed!",
                 False
             )
 
