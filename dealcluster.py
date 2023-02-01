@@ -457,7 +457,14 @@ def update_bot_config(bot_data):
         newpairs = bot_data["pairs"]
         botbase = newpairs[0].split("_")[0]
 
+        logger.debug(
+            f"Pairs before excluding: {newpairs}"
+        )
         remove_excluded_pairs(logger, sharedir, bot_data["id"], marketcode, botbase, newpairs)
+        logger.debug(
+            f"Pairs after excluding: {newpairs}"
+        )
+
         set_threecommas_bot_pairs(logger, api, bot_data, newpairs, False, True, False)
     else:
         logger.error(
