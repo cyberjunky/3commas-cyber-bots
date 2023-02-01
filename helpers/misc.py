@@ -86,7 +86,7 @@ def remove_excluded_pairs(logger, share_dir, bot_id, marketcode, base, newpairs)
     excludedcoins = load_bot_excluded_coins(logger, share_dir, bot_id, PAIREXCLUDE_EXT)
     if excludedcoins:
         logger.info(
-            f"Removing the following coin(s) for bot {bot_id}: {excludedcoins}"
+            f"Removing the following coin(s) for bot {bot_id}: {base}/{excludedcoins}"
         )
 
         for coin in excludedcoins:
