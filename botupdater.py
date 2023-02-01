@@ -57,6 +57,10 @@ def load_config():
         "percent-change-1h": [],
         "percent-change-24h": [],
         "percent-change-7d": [],
+        "percent-change-14d": [],
+        "percent-change-30d": [],
+        "percent-change-200d": [],
+        "percent-change-1y": [],
         "volatility-24h": [],
         "description": "some description"
     }
@@ -69,6 +73,18 @@ def load_config():
 
 def upgrade_config(cfg):
     """Upgrade config file if needed."""
+
+    for cfgsection in cfg.sections():
+        if cfgsection.startswith("bu_") and not cfg.has_option(cfgsection, "percent-change-14d"):
+            cfg.set(cfgsection, "percent-change-14d", "[]")
+            cfg.set(cfgsection, "percent-change-30d", "[]")
+            cfg.set(cfgsection, "percent-change-200d", "[]")
+            cfg.set(cfgsection, "percent-change-1y", "[]")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have extended percent-change filters" % cfgsection)
 
     return cfg
 
@@ -189,6 +205,10 @@ def process_bu_section(section_id):
     pricefilter["change_1h"] = json.loads(config.get(section_id, "percent-change-1h"))
     pricefilter["change_24h"] = json.loads(config.get(section_id, "percent-change-24h"))
     pricefilter["change_7d"] = json.loads(config.get(section_id, "percent-change-7d"))
+    pricefilter["change_14d"] = json.loads(config.get(section_id, "percent-change-14d"))
+    pricefilter["change_30d"] = json.loads(config.get(section_id, "percent-change-30d"))
+    pricefilter["change_200d"] = json.loads(config.get(section_id, "percent-change-200d"))
+    pricefilter["change_1y"] = json.loads(config.get(section_id, "percent-change-1y"))
     pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
     filteroptions["change"] = pricefilter
 
@@ -334,10 +354,9 @@ def update_bot_pairs(section_id, base, botdata, coindata):
         # No coins in the list are available on the exchange, which can be a normal use-case
         botupdated = True
 
-        logger.info(
+        logger.debug(
             f"None of the pairs have been found on the {botdata['account_name']} "
-            f"({marketcode}) exchange!",
-            True
+            f"({marketcode}) exchange!"
         )
 
     return botupdated
@@ -433,6 +452,18 @@ def get_coins_from_market_data(base, filteroptions):
 
         if filteroptions["change"]["change_7d"]:
             query += f"AND prices.change_7d BETWEEN {filteroptions['change']['change_7d'][0]} AND {filteroptions['change']['change_7d'][-1]} "
+
+        if filteroptions["change"]["change_14d"]:
+            query += f"AND prices.change_14d BETWEEN {filteroptions['change']['change_14d'][0]} AND {filteroptions['change']['change_14d'][-1]} "
+
+        if filteroptions["change"]["change_30d"]:
+            query += f"AND prices.change_30d BETWEEN {filteroptions['change']['change_30d'][0]} AND {filteroptions['change']['change_30d'][-1]} "
+
+        if filteroptions["change"]["change_200d"]:
+            query += f"AND prices.change_200d BETWEEN {filteroptions['change']['change_200d'][0]} AND {filteroptions['change']['change_200d'][-1]} "
+
+        if filteroptions["change"]["change_1y"]:
+            query += f"AND prices.change_1y BETWEEN {filteroptions['change']['change_1y'][0]} AND {filteroptions['change']['change_1y'][-1]} "
 
         if filteroptions["change"]["volatility_24h"]:
             query += f"AND prices.volatility_24h BETWEEN {filteroptions['change']['volatility_24h'][0]} AND {filteroptions['change']['volatility_24h'][-1]} "
