@@ -206,26 +206,6 @@ def process_bot_deals(cluster_id, bot_data):
     db.commit()
 
 
-def log_deals(cluster_id):
-    """Log the deals within this cluster"""
-
-    dealdata = cursor.execute(
-        f"SELECT dealid, pair, coin, botid, active FROM deals "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
-
-    if dealdata:
-        logger.info(f"Printing deals for '{cluster_id}':")
-        for entry in dealdata:
-            logger.info(
-                f"{entry[0]}: {entry[1]} ({entry[2]}), {entry[3]} => {entry[4]}"
-            )
-    else:
-        logger.info(
-            f"No deals data for '{cluster_id}'"
-        )
-
-
 def aggregrate_cluster(db_connection, cluster_id, bot_list):
     """Aggregate deals within cluster."""
 
@@ -295,26 +275,6 @@ def log_cluster_changes(cluster_id, old_data, new_data):
         logger.info(
             f"Disabling coin(s) {disabledcoins} for cluster: {cluster_id}",
             True
-        )
-
-
-def log_cluster_data(cluster_id):
-    """Log the aggregated data based on the deals for this cluster"""
-
-    clusterdata = cursor.execute(
-        f"SELECT clusterid, coin, number_active FROM cluster_coins "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
-
-    if clusterdata:
-        logger.info(f"Printing cluster_coins for '{cluster_id}':")
-        for entry in clusterdata:
-            logger.info(
-                f"{entry[1]}: {entry[2]}"
-            )
-    else:
-        logger.info(
-            f"No cluster_pair data for '{cluster_id}'"
         )
 
 
@@ -440,10 +400,6 @@ def get_bot_cluster(bot_id):
                 clusterid = sectionid
                 break
 
-    logger.debug(
-        f"Cluster '{clusterid}' found for bot {bot_id}"
-    )
-
     return clusterid
 
 
@@ -454,7 +410,7 @@ def update_bot_config(bot_data):
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if marketcode:
-        newpairs = bot_data["pairs"]
+        newpairs = bot_data["pairs"].copy()
         botbase = newpairs[0].split("_")[0]
 
         logger.debug(
@@ -581,16 +537,8 @@ while True:
             # Walk through all bots configured and check deals
             process_cluster_bots(section, botids, "deals")
 
-            # Log the deals
-            if debug:
-                log_deals(section)
-
             # Aggregrate data on cluster level. Will also take care of writing .pairexclude file
             aggregrate_cluster(db, section, botids)
-
-            # Log the cluster data
-            if debug:
-                log_cluster_data(section)
 
             # Update the bots in this cluster with the enabled/disabled pairs
             process_cluster_bots(section, botids, "update")
