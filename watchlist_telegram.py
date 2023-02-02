@@ -23,14 +23,14 @@ from helpers.smarttrade import (
 from helpers.threecommas import (
     get_threecommas_currency_rate,
     init_threecommas_api,
-    load_blacklist
+    load_blacklist,
+    prefetch_marketcodes
 )
 from helpers.threecommas_smarttrade import (
     close_threecommas_smarttrade,
     open_threecommas_smarttrade
 )
 from helpers.watchlist import (
-    prefetch_marketcodes,
     process_botlist
 )
 
@@ -174,7 +174,7 @@ async def handle_custom_event(event):
         return
 
     await client.loop.run_in_executor(
-        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodes,
+        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodecache,
                                 botids, coin, trade
     )
 
@@ -421,7 +421,7 @@ async def handle_hodloo_event(category, event):
         return
 
     await client.loop.run_in_executor(
-        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodes,
+        None, process_botlist, logger, api, blacklistfile, blacklist, marketcodecache,
                                 botids, coin, "LONG"
     )
 
@@ -579,7 +579,7 @@ for hlcategory in ("5", "10"):
     for hlbase in ("bnb", "btc", "busd", "eth", "eur", "usdt"):
         allbotids += get_hodloo_botids(hlcategory, hlbase)
 
-marketcodes = prefetch_marketcodes(logger, api, allbotids)
+marketcodecache = prefetch_marketcodes(logger, api, allbotids)
 
 # Prefetch blacklists
 blacklist = load_blacklist(logger, api, blacklistfile)

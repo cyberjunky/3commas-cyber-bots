@@ -13,9 +13,9 @@ from telethon import TelegramClient, events
 from helpers.logging import Logger, NotificationHandler
 from helpers.threecommas import (
     init_threecommas_api,
-    load_blacklist
+    load_blacklist,
+    prefetch_marketcodes
 )
-from helpers.watchlist import prefetch_marketcodes
 from watchlist import process_botlist
 
 
