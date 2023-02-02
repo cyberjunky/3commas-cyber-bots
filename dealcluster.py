@@ -23,6 +23,7 @@ from helpers.threecommas import (
     get_threecommas_account_marketcode,
     init_threecommas_api,
     init_threecommas_websocket,
+    prefetch_marketcodes,
     set_threecommas_bot_pairs
 )
 
@@ -406,7 +407,15 @@ def get_bot_cluster(bot_id):
 def update_bot_config(bot_data):
     """Update bots at 3C"""
 
-    marketcode = get_threecommas_account_marketcode(logger, api, bot_data["account_id"])
+    marketcode = marketcodecache.get(bot_data["id"])
+    if not marketcode:
+        marketcode = get_threecommas_account_marketcode(logger, api, bot_data["account_id"])
+        marketcodecache[bot_data["id"]] = marketcode
+
+        logger.info(
+            f"Marketcode for bot {bot_data['id']} was not cached. Cache updated "
+            f"with marketcode {marketcode}."
+        )
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if marketcode:
@@ -426,6 +435,20 @@ def update_bot_config(bot_data):
         logger.error(
             f"Marketcode not found for bot {bot_data['id']}. Cannot update pairs!"
         )
+
+
+def create_marketcode_cache():
+    """Create the cache met MarketCode per bot"""
+
+    allbotids = []
+
+    logger.info("Prefetching marketcodes for all configured bots...")
+
+    for initialsection in config.sections():
+        if initialsection.startswith("cluster_"):
+            allbotids += json.loads(config.get(initialsection, "botids"))
+
+    return prefetch_marketcodes(logger, api, allbotids)
 
 
 # Start application
@@ -504,10 +527,6 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-# Initialize 3Commas WebSocket connection
-websocket = init_threecommas_websocket(config, websocket_update)
-websocket.start_listener(seperate_thread = True)
-
 # Initialize or open the database
 db = init_cluster_db()
 cursor = db.cursor()
@@ -516,7 +535,13 @@ cursor = db.cursor()
 upgrade_cluster_db()
 
 # Prefetch all Marketcodes to reduce API calls and improve speed
-#marketcodes = prefetch_section_marketcodes()
+# New bot(s) will also be added later, for example when the configuration
+# has been changed after starting this script
+marketcodecache = create_marketcode_cache()
+
+# Initialize 3Commas WebSocket connection
+websocket = init_threecommas_websocket(config, websocket_update)
+websocket.start_listener(seperate_thread = True)
 
 # DCA Deal Cluster
 while True:
