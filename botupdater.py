@@ -299,13 +299,12 @@ def evaluatecondition(condition_config):
         )
 
         dbresult = sharedcursor.execute(query).fetchone()
-        if dbresult is None or len(dbresult) == 0:
+        if dbresult is None:
             logger.info(
                 f"Condition {entry} not met!"
             )
             conditionstate = False
             break
-
 
     return conditionstate
 
