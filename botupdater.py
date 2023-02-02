@@ -20,11 +20,12 @@ from helpers.misc import (
 )
 from helpers.threecommas import (
     control_threecommas_bots,
-    get_threecommas_account_marketcode,
     get_threecommas_market,
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     load_blacklist,
     set_threecommas_bot_pairs,
+    prefetch_marketcodes
 )
 
 
@@ -345,15 +346,42 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
     blackpairs = list()
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account_marketcode(logger, api, botdata["account_id"])
+    marketcode = marketcodecache.get(botdata["id"])
+    if not marketcode:
+        marketcode = get_threecommas_account_marketcode(logger, api, botdata["account_id"])
+        marketcodecache[botdata["id"]] = marketcode
+
+        logger.info(
+            f"Marketcode for bot {botdata['id']} was not cached. Cache updated "
+            f"with marketcode {marketcode}."
+        )
+    else:
+        logger.debug(
+            f"Using cached marketcode '{marketcode}' for "
+            f"bot {botdata['id']}."
+        )
+
+    # Should be there, either from cache or fresh from 3C
     if not marketcode:
         return botupdated
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info(
-        f"Bot base pair: {botbase}. Exchange: {botdata['account_name']} ({marketcode})"
-    )
+    # Load tickerlist for this exchange. First try from the cache (which is only
+    # kept during the current cycle), otherwise fetch the tickerlist and add it
+    # to the cache
+    tickerlist = tickerlistcache.get(marketcode)
+    if not tickerlist:
+        tickerlist = get_threecommas_market(logger, api, marketcode)
+        tickerlistcache[marketcode] = tickerlist
+
+        logger.info(
+            f"Updated cache with tickerlist ({len(tickerlist)} pairs) "
+            f"for market '{marketcode}'."
+        )
+    else:
+        logger.debug(
+            f"Using cached tickerlist with {len(tickerlist)} pairs "
+            f"for market '{marketcode}'."
+        )
 
     # Process list of coins
     for coin in coindata[1]:
@@ -538,6 +566,20 @@ def create_change_condition(filteroptions):
     return query
 
 
+def create_marketcode_cache():
+    """Create the cache met MarketCode per bot"""
+
+    allbotids = []
+
+    logger.info("Prefetching marketcodes for all configured bots...")
+
+    for initialsection in config.sections():
+        if initialsection.startswith("bu_"):
+            allbotids += json.loads(config.get(initialsection, "botids"))
+
+    return prefetch_marketcodes(logger, api, allbotids)
+
+
 # Start application
 program = Path(__file__).stem
 
@@ -622,6 +664,13 @@ cursor = db.cursor()
 shareddb = open_shared_db()
 sharedcursor = shareddb.cursor()
 
+# Prefetch all Marketcodes to reduce API calls and improve speed
+# New bot(s) will also be added later, for example when the configuration
+# has been changed after starting this script
+marketcodecache = create_marketcode_cache()
+
+tickerlistcache = {}
+
 # Refresh coin pairs in 3C bots based on the market data
 while True:
 
@@ -634,6 +683,10 @@ while True:
 
     # Update the blacklist
     blacklist = load_blacklist(logger, api, blacklistfile)
+
+    # Cache is used for one cycle, where we can optimize. But, we want to prevent
+    # working with old data so therefor the clear before each cycle
+    tickerlistcache.clear()
 
     # Current time to determine which sections to process
     starttime = int(time.time())
