@@ -167,11 +167,7 @@ def get_threecommas_account_marketcode(logger, api, accountid):
         additional_headers={"Forced-Mode": "real"},
     )
     if data:
-        marketcode = data["market_code"]
-        logger.info(
-            "Fetched 3Commas account market code in real mode OK (%s)" % marketcode
-        )
-        return marketcode
+        return data["market_code"]
     if error and "status_code" in error:
         if error["status_code"] == 404:
             logger.error(
@@ -543,3 +539,41 @@ def get_threecommas_bots(logger, api, accountid):
     # No else, there are just no bots for the account
 
     return None
+
+
+def prefetch_marketcodes(logger, api, botids):
+    """Gather and return marketcodes for all bots."""
+
+    marketcodearray = {}
+
+    logger.debug(
+        f"Prefetch marketcodes for the following bots: {botids}"
+    )
+
+    for botid in botids:
+        if botid and botid not in marketcodearray:
+            boterror, botdata = api.request(
+                entity="bots",
+                action="show",
+                action_id=str(botid),
+            )
+
+            if botdata:
+                accountid = botdata["account_id"]
+                # Get marketcode (exchange) from account if not already fetched
+                marketcode = get_threecommas_account_marketcode(logger, api, accountid)
+                marketcodearray[botdata["id"]] = marketcode
+
+                logger.info(
+                    f"Fetched marketcode '{marketcode}' for "
+                    f"bot {botdata['id']} with account id {accountid}."
+                )
+            else:
+                if boterror and "msg" in boterror:
+                    logger.error(
+                        "Error occurred fetching marketcode data: %s" % boterror["msg"]
+                    )
+                else:
+                    logger.error("Error occurred fetching marketcode data")
+
+    return marketcodearray

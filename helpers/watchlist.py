@@ -3,38 +3,8 @@
 from helpers.misc import format_pair
 from helpers.threecommas import(
     close_threecommas_deal,
-    get_threecommas_account_marketcode,
     trigger_threecommas_bot_deal
 )
-
-
-def prefetch_marketcodes(logger, api, botids):
-    """Gather and return marketcodes for all bots."""
-
-    marketcodearray = {}
-
-    for botid in botids:
-        if botid:
-            boterror, botdata = api.request(
-                entity="bots",
-                action="show",
-                action_id=str(botid),
-            )
-            if botdata:
-                accountid = botdata["account_id"]
-                logger.info(f"Account id: {accountid}")
-                # Get marketcode (exchange) from account if not already fetched
-                marketcode = get_threecommas_account_marketcode(logger, api, accountid)
-                marketcodearray[botdata["id"]] = marketcode
-            else:
-                if boterror and "msg" in boterror:
-                    logger.error(
-                        "Error occurred fetching marketcode data: %s" % boterror["msg"]
-                    )
-                else:
-                    logger.error("Error occurred fetching marketcode data")
-
-    return marketcodearray
 
 
 def process_botlist(logger, api, blacklistfile, blacklist, marketcodes, botidlist, coin, trade):
