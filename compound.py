@@ -538,11 +538,6 @@ def compound_bot(cfg, thebot):
             cfg.get(f"bot_{bot_id}", "usermaxsafetyorders")
         )
 
-        # Get active deal settings
-        user_defined_max_active_deals = int(
-            cfg.get(f"bot_{bot_id}", "usermaxactivedeals")
-        )
-
         # Calculate amount used per deal
         max_safety_orders = float(thebot["max_safety_orders"])
         martingale_volume_coefficient = float(
@@ -551,6 +546,7 @@ def compound_bot(cfg, thebot):
 
         # Always add start_base_order_size
         totalusedperdeal = startbo
+        profit_needed_to_add_so = startso
 
         isafetyorder = 1
         while isafetyorder <= max_safety_orders:
@@ -586,18 +582,17 @@ def compound_bot(cfg, thebot):
                 f"{profit_needed_to_add_so} profit required for additional Safety Order..."
             )
 
-        if new_max_safety_orders > user_defined_max_safety_orders:
-            logger.info(
-                f"Already reached max set number of safety orders "
-                f"({user_defined_max_safety_orders}), skipping deal compounding"
-            )
-
         if new_max_safety_orders > max_safety_orders:
             if new_max_safety_orders <= user_defined_max_safety_orders:
                 logger.info("Enough profit has been made to add a safety order")
                 # Update the bot
                 update_bot_max_safety_orders(
                     thebot, startbo, startso, new_max_safety_orders
+                )
+            else:
+                logger.info(
+                    f"Already reached max set number of safety orders "
+                    f"({user_defined_max_safety_orders})."
                 )
 
     if cfg.get(f"bot_{bot_id}", "compoundmode", fallback="boso") == "deals":
@@ -618,7 +613,9 @@ def compound_bot(cfg, thebot):
             thebot["martingale_volume_coefficient"]
         )  # Safety order volume scale
 
-        totalusedperdeal = calculate_deal_funds(startso, startbo, max_safety_orders, martingale_volume_coefficient)
+        totalusedperdeal = calculate_deal_funds(
+            startbo, startso, max_safety_orders, martingale_volume_coefficient
+        )
 
         logger.debug(
             f"Calculated deal funds {totalusedperdeal} based on "
@@ -633,7 +630,8 @@ def compound_bot(cfg, thebot):
         profitusedtocompound = totalprofitforbot * bot_profit_percentage
 
         logger.debug(
-            f"Deal calculation calculated profit for compounding of {profitusedtocompound}, based on "
+            f"Deal calculation calculated profit for compounding "
+            f"of {profitusedtocompound}, based on "
             f"totalprofitforbot = {totalprofitforbot}, "
             f"bot_profit_percentage = {bot_profit_percentage}."
         )
@@ -650,28 +648,21 @@ def compound_bot(cfg, thebot):
             f"user_defined_max_active_deals = {user_defined_max_active_deals}."
         )
 
-        if new_max_active_deals > user_defined_max_active_deals:
-            logger.info(
-                f"Already reached max set number of deals ({user_defined_max_active_deals}), "
-                f"skipping deal compounding"
-            )
-        elif (
-            new_max_active_deals
-            > current_active_deals & new_max_active_deals
-            <= user_defined_max_active_deals
-        ):
+        if current_active_deals < new_max_active_deals <= user_defined_max_active_deals:
             logger.info(
                 "Enough profit has been made to add a deal and lower BO & SO to "
                 "their orginal values"
             )
             # Update the bot
             update_bot_max_deals(thebot, startbo, startso, new_max_active_deals)
-        elif (
-            new_max_active_deals == current_active_deals
-        ):
+        elif new_max_active_deals == current_active_deals:
             requiredprofit = totalusedperdeal[0] - (profitusedtocompound % totalusedperdeal[0])
             logger.info(
                 f"{requiredprofit} profit required for additional deal..."
+            )
+        elif new_max_active_deals > user_defined_max_active_deals:
+            logger.info(
+                f"Already reached max set number of deals ({user_defined_max_active_deals})."
             )
 
     if deals:
