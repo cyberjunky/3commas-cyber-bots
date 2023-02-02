@@ -620,14 +620,35 @@ def compound_bot(cfg, thebot):
 
         totalusedperdeal = calculate_deal_funds(startso, startbo, max_safety_orders, martingale_volume_coefficient)
 
+        logger.debug(
+            f"Calculated deal funds {totalusedperdeal} based on "
+            f"startso = {startso}, "
+            f"startbo = {startbo}, "
+            f"max_safety_orders = {max_safety_orders}, "
+            f"martingal_volume_coefficient = {martingale_volume_coefficient}."
+        )
+
         # Calculate % to compound (per bot)
         totalprofitforbot = get_logged_profit_for_bot(thebot["id"])
         profitusedtocompound = totalprofitforbot * bot_profit_percentage
+
+        logger.debug(
+            f"Deal calculation calculated profit for compounding of {profitusedtocompound}, based on "
+            f"totalprofitforbot = {totalprofitforbot}, "
+            f"bot_profit_percentage = {bot_profit_percentage}."
+        )
 
         new_max_active_deals = (
             math.floor(profitusedtocompound / totalusedperdeal[0]) + startactivedeals
         )
         current_active_deals = thebot["max_active_deals"]
+
+        logger.debug(
+            f"Deal calculation calculated new_max_active_deals of {new_max_active_deals}. "
+            f"startactivedeals = {startactivedeals}, "
+            f"current_active_deals = {current_active_deals}, "
+            f"user_defined_max_active_deals = {user_defined_max_active_deals}."
+        )
 
         if new_max_active_deals > user_defined_max_active_deals:
             logger.info(
