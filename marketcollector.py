@@ -51,27 +51,32 @@ def load_config():
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "BTC",
+        "notify-succesfull-update": True,
     }
     cfg["cg_btc"] = {
         "start-number": 1,
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "BTC",
+        "notify-succesfull-update": True,
     }
     cfg["altrank_default"] = {
         "lc-apikey": 1,
         "lc-fetchlimit": 500,
+        "notify-succesfull-update": True,
     }
     cfg["galaxyscore_default"] = {
         "timeinterval": 3600,
         "lc-apikey": 1,
         "lc-fetchlimit": 500,
+        "notify-succesfull-update": True,
     }
     cfg["cmc_usd"] = {
         "start-number": 1,
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "USD",
+        "notify-succesfull-update": True,
     }
     cfg["volatility_usd"] = {
         "timeinterval": 3600,
@@ -79,6 +84,7 @@ def load_config():
                   "binance_spot_usdt_highest_volatility_day",
                   "coinbase_spot_usd_highest_volatility_day"
         ],
+        "notify-succesfull-update": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -102,6 +108,18 @@ def upgrade_config(cfg):
             cfg.write(cfgfile)
 
         logger.info("Updates settings to add cg-apikey")
+
+    for cfgsection in cfg.sections():
+        if cfgsection == "settings":
+            continue
+
+        if not cfg.has_option(cfgsection, "notify-succesfull-update"):
+            cfg.set(cfgsection, "notify-succesfull-update", "True")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have notify option" % cfgsection)
 
     return cfg
 
@@ -423,7 +441,7 @@ def process_cmc_section(section_id):
     logger.info(
         f"CoinMarketCap; updated {len(data[2])} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
-        True
+        config.getboolean(section_id, "notify-succesfull-update")
     )
 
     # No exceptions or other cases happened, everything went Ok
@@ -550,7 +568,7 @@ def process_cg_section(section_id):
     logger.info(
         f"CoinGecko; updated {len(data[1])} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
-        True
+        config.getboolean(section_id, "notify-succesfull-update")
     )
 
     # No exceptions or other cases happened, everything went Ok
@@ -600,7 +618,7 @@ def process_lunarcrush_section(section_id, listtype):
 
     logger.info(
         f"{listtype}; updated {updatedcoins} coins.",
-        True
+        config.getboolean(section_id, "notify-succesfull-update")
     )
 
     return True
@@ -658,7 +676,7 @@ def process_volatility_section(section_id):
     logger.info(
         f"BotAssistExplorer; updated for {len(aggregatedlist)} coins the "
         f"volatility data based on {lists}.",
-        True
+        config.getboolean(section_id, "notify-succesfull-update")
     )
 
     # No exceptions or other cases happened, everything went Ok
