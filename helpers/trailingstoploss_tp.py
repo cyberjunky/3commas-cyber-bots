@@ -160,7 +160,7 @@ def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, l
     currenttppercentage = float(deal_data["take_profit"])
     if tpincrementfactor <= 0.0:
         # TP will not be changed, so return immediatly
-        return currenttppercentage
+        return currenttppercentage, currenttppercentage
 
     newtppercentage = currenttppercentage
     if last_profit_percentage > 0.0:
@@ -170,17 +170,23 @@ def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, l
                 * tpincrementfactor
             ), 2
         )
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']}: "
+            f"Updated TP to {newtppercentage}% calculated based on current profit of "
+            f"{currenttppercentage}%, new profit of {deal_data['actual_profit_percentage']}%, "
+            f"last profit of {last_profit_percentage}% and factor {tpincrementfactor}."
+        )
     else:
         newtppercentage = round(
             currenttppercentage + (activation_diff * tpincrementfactor), 2
         )
 
-    logger.debug(
-        f"{deal_data['pair']}/{deal_data['id']}: "
-        f"TP of {newtppercentage}% calculated based on last profit of "
-        f"{last_profit_percentage} and current {deal_data['actual_profit_percentage']}%, "
-        f"using activation_diff {activation_diff} and factor {tpincrementfactor}."
-    )
+        logger.debug(
+            f"{deal_data['pair']}/{deal_data['id']}: "
+            f"Initial TP of {newtppercentage}% calculated based on last profit of "
+            f"{last_profit_percentage}% and current {currenttppercentage}%, "
+            f"using activation_diff {activation_diff}% and factor {tpincrementfactor}."
+        )
 
     return currenttppercentage, newtppercentage
 

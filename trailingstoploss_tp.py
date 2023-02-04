@@ -232,7 +232,7 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     if data:
         dealupdated = True
 
-        logger.info(
+        logger.debug(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
             f"changed SL from {deal_data['stop_loss_percentage']}% to {new_stoploss}%. "
             f"Changed TP from {deal_data['take_profit']}% to {new_take_profit}%. "
