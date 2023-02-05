@@ -222,6 +222,11 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     payload["trailing_enabled"] = deal_data["trailing_enabled"]
     payload["tsl_enabled"] = deal_data["tsl_enabled"]
 
+    logger.debug(
+        f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+        f"Request update_deal with payload: {payload}."
+    )
+
     error, data = api.request(
         entity="deals",
         action="update_deal",
@@ -230,17 +235,25 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     )
 
     if data:
-        dealupdated = True
-
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-            f"changed SL from {deal_data['stop_loss_percentage']}% "
-            f"to {data['stop_loss_percentage']}%. "
-            f"Changed TP from {deal_data['take_profit']}% "
-            f"to {data['take_profit']}%. "
-            f"Changed SL timeout from {deal_data['stop_loss_timeout_in_seconds']}s "
-            f"to {data['stop_loss_timeout_in_seconds']}s."
-        )
+        if (float(data["stop_loss_percentage"]) != new_stoploss or
+            float(data["take_profit"]) != new_take_profit or
+            int(data["stop_loss_timeout_in_seconds"]) != sl_timeout
+        ):
+            logger.info(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"update of deal failed. Received data: {data}."
+            )
+        else:
+            dealupdated = True
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"changed SL from {deal_data['stop_loss_percentage']}% "
+                f"to {data['stop_loss_percentage']}%. "
+                f"Changed TP from {deal_data['take_profit']}% "
+                f"to {data['take_profit']}%. "
+                f"Changed SL timeout from {deal_data['stop_loss_timeout_in_seconds']}s "
+                f"to {data['stop_loss_timeout_in_seconds']}s."
+            )
     else:
         if error and "msg" in error:
             logger.error(
@@ -638,7 +651,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             # Send the message to the user
             logger.info(message, sendnotification)
         else:
-            logger.info(
+            logger.error(
                 f"Update failed for message: {message}"
             )
 
