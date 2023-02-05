@@ -261,7 +261,7 @@ def correct_fund_usage(bot_list, funds_list):
                 quotefunds -= exceedmax
         else:
             # Short bot fund usage must be substracted from the available amount of funds, because
-            # those funds are needed when the short deal closes.
+            # those funds are required for closing the short deal.
             quotefunds -= funds
 
         logger.debug(
