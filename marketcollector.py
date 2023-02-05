@@ -367,7 +367,8 @@ def process_cmc_section(section_id):
             f"Percent change ('{base}') must be one of the following: "
             f"{baselist}"
         )
-        return False
+        # Retry in one hour again
+        return False, (60 * 60 * 1)
 
     data = get_coinmarketcap_data(
         logger, config.get("settings", "cmc-apikey"), startnumber, limit, base
@@ -379,12 +380,12 @@ def process_cmc_section(section_id):
     # 2: cmc data
     if data[0] != -1:
         logger.error(
-            f"Received error {data[0]}: '{data[1]}'. "
+            f"{section_id}: received error {data[0]}: '{data[1]}'. "
             f"Stop processing and retry in 24h again."
         )
 
         # And exit loop so we can wait 24h before trying again
-        return False
+        return False, (60 * 60 * 24)
 
     isindexprovider = config.get("settings", "index-provider").lower() == "coinmarketcap"
 
@@ -433,7 +434,9 @@ def process_cmc_section(section_id):
             )
             # Rollback any pending changes
             shareddb.rollback()
-            return False
+
+            # Parser error, retry in one hour
+            return False, (60 * 60 * 1)
 
     # Commit everyting to the database
     shareddb.commit()
@@ -445,7 +448,7 @@ def process_cmc_section(section_id):
     )
 
     # No exceptions or other cases happened, everything went Ok
-    return True
+    return True, 0
 
 
 def process_cg_section(section_id):
@@ -467,7 +470,7 @@ def process_cg_section(section_id):
             f"Percent change ('{base}') must be one of the following: "
             f"{baselist}"
         )
-        return False
+        return False, (60 * 60 * 1)
 
     data = get_coingecko_data(
         logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base
@@ -478,12 +481,12 @@ def process_cg_section(section_id):
     # 1: cg data
     if data[0] != -1:
         logger.error(
-            f"Received error {data[0]}: "
-            f"Stop processing and retry in 24h again."
+            f"{section_id}: received error {data[0]}, "
+            f"Stop processing and retry in one minute again."
         )
 
-        # And exit loop so we can wait 24h before trying again
-        return False
+        # And exit loop and retry in one minute
+        return False, 60
 
     isindexprovider = config.get("settings", "index-provider").lower() == "coingecko"
 
@@ -560,7 +563,8 @@ def process_cg_section(section_id):
             )
             # Rollback any pending changes
             shareddb.rollback()
-            return False
+
+            return False, (60 * 60 * 1)
 
     # Commit everyting to the database
     shareddb.commit()
@@ -572,7 +576,7 @@ def process_cg_section(section_id):
     )
 
     # No exceptions or other cases happened, everything went Ok
-    return True
+    return True, 0
 
 
 def process_lunarcrush_section(section_id, listtype):
@@ -591,7 +595,8 @@ def process_lunarcrush_section(section_id, listtype):
         # Commit clearing of database
         shareddb.commit()
 
-        return False
+        # Retry in 15 minutes
+        return False, (60 * 15)
 
     # Parse LunaCrush data
     updatedcoins = 0
@@ -621,7 +626,7 @@ def process_lunarcrush_section(section_id, listtype):
         config.getboolean(section_id, "notify-succesfull-update")
     )
 
-    return True
+    return True, 0
 
 
 def process_volatility_section(section_id):
@@ -680,7 +685,7 @@ def process_volatility_section(section_id):
     )
 
     # No exceptions or other cases happened, everything went Ok
-    return True
+    return True, 0
 
 
 def aggregate_volatility_list(datalist):
@@ -927,7 +932,7 @@ while True:
 
             # Only process the section if it's forced, or it's time for the next interval
             if forceupdate or currenttime >= nextprocesstime:
-                sectionresult = False
+                sectionresult = None
                 if iscmcsection:
                     sectionresult = process_cmc_section(section)
                 elif iscgsection:
@@ -940,13 +945,14 @@ while True:
                     sectionresult = process_volatility_section(section)
 
                 # Determine new time to process this section. When processing failed
-                # it will be retried in 24 hours
+                # it will be retried in the specified time of the section
                 newtime = currenttime + sectiontimeinterval
-                if not sectionresult:
-                    newtime = currenttime + (24 * 60 * 60)
+                if not sectionresult[0]:
+                    newtime = currenttime + sectionresult[1]
 
-                    logger.debug(
-                        f"Section {section} failed to process. Next update at "
+                    logger.error(
+                        f"Section {section} failed to process. Retry in "
+                        f"{sectionresult[1]}s; next update at "
                         f"{unix_timestamp_to_string(newtime, '%Y-%m-%d %H:%M:%S')}."
                     )
 
