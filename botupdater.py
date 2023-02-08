@@ -252,7 +252,7 @@ def process_bu_section(section_id):
     if len(conditionconfig) > 0:
         conditionstate = evaluatecondition(conditionconfig)
 
-    logger.debug(
+    logger.info(
         f"Evaluation of condition(s) for bot(s) in section {section_id} is: {conditionstate}"
     )
 
@@ -288,20 +288,20 @@ def evaluatecondition(condition_config):
     for entry in condition_config:
         pair = entry["pair"].split("_")
 
-        pricefilter = {}
-        pricefilter["change_1h"] = entry["percent-change-1h"]
-
         query = "SELECT prices.coin FROM prices "
         query += f"WHERE prices.base = '{pair[0]}' AND prices.coin = '{pair[1]}' "
-        query += create_change_condition(pricefilter)
 
-        logger.info(
-            f"Build condition query: {query}"
-        )
+        pricefilter = {}
+
+        for period in ("1h", "24h", "7d", "14d", "30d", "200d", "1y"):
+            if f"percent-change-{period}" in entry:
+                pricefilter[f"change_{period}"] = entry[f"percent-change-{period}"]
+
+        query += create_change_condition(pricefilter)
 
         dbresult = sharedcursor.execute(query).fetchone()
         if dbresult is None:
-            logger.info(
+            logger.debug(
                 f"Condition {entry} not met!"
             )
             conditionstate = False
