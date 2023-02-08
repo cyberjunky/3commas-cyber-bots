@@ -20,11 +20,12 @@ from helpers.misc import (
 )
 from helpers.threecommas import (
     control_threecommas_bots,
-    get_threecommas_account_marketcode,
     get_threecommas_market,
+    get_threecommas_account_marketcode,
     init_threecommas_api,
     load_blacklist,
     set_threecommas_bot_pairs,
+    prefetch_marketcodes
 )
 
 
@@ -45,6 +46,13 @@ def load_config():
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
+
+    cfgconditionconfig = list()
+    cfgconditionconfig.append({
+        "pair": "USD_BTC",
+        "percent-change-1h": [],
+    })
+
     cfg["bu_default"] = {
         "botids": [12345, 67890],
         "timeinterval": 3600,
@@ -57,7 +65,12 @@ def load_config():
         "percent-change-1h": [],
         "percent-change-24h": [],
         "percent-change-7d": [],
+        "percent-change-14d": [],
+        "percent-change-30d": [],
+        "percent-change-200d": [],
+        "percent-change-1y": [],
         "volatility-24h": [],
+        "condition": json.dumps(cfgconditionconfig),
         "description": "some description"
     }
 
@@ -69,6 +82,35 @@ def load_config():
 
 def upgrade_config(cfg):
     """Upgrade config file if needed."""
+
+    for cfgsection in cfg.sections():
+        if not cfgsection.startswith("bu_"):
+            continue
+
+        if not cfg.has_option(cfgsection, "percent-change-14d"):
+            cfg.set(cfgsection, "percent-change-14d", "[]")
+            cfg.set(cfgsection, "percent-change-30d", "[]")
+            cfg.set(cfgsection, "percent-change-200d", "[]")
+            cfg.set(cfgsection, "percent-change-1y", "[]")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have extended percent-change filters" % cfgsection)
+
+        if not cfg.has_option(cfgsection, "condition"):
+            cfgconditionconfig = list()
+            cfgconditionconfig.append({
+                "pair": "USD_BTC",
+                "percent-change-1h": [],
+            })
+
+            cfg.set(cfgsection, "condition", json.dumps(cfgconditionconfig))
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have condition option" % cfgsection)
 
     return cfg
 
@@ -189,6 +231,10 @@ def process_bu_section(section_id):
     pricefilter["change_1h"] = json.loads(config.get(section_id, "percent-change-1h"))
     pricefilter["change_24h"] = json.loads(config.get(section_id, "percent-change-24h"))
     pricefilter["change_7d"] = json.loads(config.get(section_id, "percent-change-7d"))
+    pricefilter["change_14d"] = json.loads(config.get(section_id, "percent-change-14d"))
+    pricefilter["change_30d"] = json.loads(config.get(section_id, "percent-change-30d"))
+    pricefilter["change_200d"] = json.loads(config.get(section_id, "percent-change-200d"))
+    pricefilter["change_1y"] = json.loads(config.get(section_id, "percent-change-1y"))
     pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
     filteroptions["change"] = pricefilter
 
@@ -201,6 +247,15 @@ def process_bu_section(section_id):
         f"Fetched {len(coindata[1])} coins from the marketdata database."
     )
 
+    conditionstate = True
+    conditionconfig = json.loads(config.get(section_id, "condition"))
+    if len(conditionconfig) > 0:
+        conditionstate = evaluatecondition(conditionconfig)
+
+    logger.info(
+        f"Evaluation of condition(s) for bot(s) in section {section_id} is: {conditionstate}"
+    )
+
     # Walk through all bots configured
     for bot in botids:
         error, data = api.request(
@@ -209,7 +264,7 @@ def process_bu_section(section_id):
             action_id=str(bot),
         )
         if data:
-            botsupdated |= update_bot_pairs(section_id, base, data, coindata)
+            botsupdated |= update_bot_pairs(section_id, base, data, coindata, conditionstate)
         else:
             botsupdated = False
 
@@ -221,7 +276,41 @@ def process_bu_section(section_id):
     return botsupdated
 
 
-def update_bot_pairs(section_id, base, botdata, coindata):
+def evaluatecondition(condition_config):
+    """Evaluate the state of the condition(s)"""
+
+    conditionstate = True
+
+    logger.info(
+        f"Processing conditions: {condition_config}"
+    )
+
+    for entry in condition_config:
+        pair = entry["pair"].split("_")
+
+        query = "SELECT prices.coin FROM prices "
+        query += f"WHERE prices.base = '{pair[0]}' AND prices.coin = '{pair[1]}' "
+
+        pricefilter = {}
+
+        for period in ("1h", "24h", "7d", "14d", "30d", "200d", "1y"):
+            if f"percent-change-{period}" in entry:
+                pricefilter[f"change_{period}"] = entry[f"percent-change-{period}"]
+
+        query += create_change_condition(pricefilter)
+
+        dbresult = sharedcursor.execute(query).fetchone()
+        if dbresult is None:
+            logger.debug(
+                f"Condition {entry} not met!"
+            )
+            conditionstate = False
+            break
+
+    return conditionstate
+
+
+def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
     """Find new pairs and update the bot."""
 
     botupdated = False
@@ -235,7 +324,7 @@ def update_bot_pairs(section_id, base, botdata, coindata):
 
         # No data available, stop the bot if allowed to
         if allowbotstopstart:
-            handle_bot_stopstart(botdata, 0)
+            handle_bot_stopstart(botdata, 0, condition_state)
 
         botupdated = True
         return botupdated
@@ -257,15 +346,42 @@ def update_bot_pairs(section_id, base, botdata, coindata):
     blackpairs = list()
 
     # Get marketcode (exchange) from account
-    marketcode = get_threecommas_account_marketcode(logger, api, botdata["account_id"])
+    marketcode = marketcodecache.get(botdata["id"])
+    if not marketcode:
+        marketcode = get_threecommas_account_marketcode(logger, api, botdata["account_id"])
+        marketcodecache[botdata["id"]] = marketcode
+
+        logger.info(
+            f"Marketcode for bot {botdata['id']} was not cached. Cache updated "
+            f"with marketcode {marketcode}."
+        )
+    else:
+        logger.debug(
+            f"Using cached marketcode '{marketcode}' for "
+            f"bot {botdata['id']}."
+        )
+
+    # Should be there, either from cache or fresh from 3C
     if not marketcode:
         return botupdated
 
-    # Load tickerlist for this exchange
-    tickerlist = get_threecommas_market(logger, api, marketcode)
-    logger.info(
-        f"Bot base pair: {botbase}. Exchange: {botdata['account_name']} ({marketcode})"
-    )
+    # Load tickerlist for this exchange. First try from the cache (which is only
+    # kept during the current cycle), otherwise fetch the tickerlist and add it
+    # to the cache
+    tickerlist = tickerlistcache.get(marketcode)
+    if not tickerlist:
+        tickerlist = get_threecommas_market(logger, api, marketcode)
+        tickerlistcache[marketcode] = tickerlist
+
+        logger.info(
+            f"Updated cache with tickerlist ({len(tickerlist)} pairs) "
+            f"for market '{marketcode}'."
+        )
+    else:
+        logger.debug(
+            f"Using cached tickerlist with {len(tickerlist)} pairs "
+            f"for market '{marketcode}'."
+        )
 
     # Process list of coins
     for coin in coindata[1]:
@@ -305,7 +421,7 @@ def update_bot_pairs(section_id, base, botdata, coindata):
         newmaxdeals = determine_bot_maxactivedeals(botdata, paircount)
 
     if allowbotstopstart:
-        handle_bot_stopstart(botdata, paircount)
+        handle_bot_stopstart(botdata, paircount, condition_state)
 
     # Update the bot with the new pairs
     if newpairs:
@@ -334,10 +450,9 @@ def update_bot_pairs(section_id, base, botdata, coindata):
         # No coins in the list are available on the exchange, which can be a normal use-case
         botupdated = True
 
-        logger.info(
+        logger.debug(
             f"None of the pairs have been found on the {botdata['account_name']} "
-            f"({marketcode}) exchange!",
-            True
+            f"({marketcode}) exchange!"
         )
 
     return botupdated
@@ -386,14 +501,16 @@ def determine_bot_maxactivedeals(botdata, paircount):
     return newmaxdeals
 
 
-def handle_bot_stopstart(botdata, paircount):
+def handle_bot_stopstart(botdata, paircount, condition_state):
     """Determine and handle bot stop and start"""
 
-    if paircount == 0 and botdata["is_enabled"]:
-        # No pairs and bot is running (zero pairs not allowed), so stop it...
+    if (paircount == 0 or not condition_state) and botdata["is_enabled"]:
+        # No pairs or condition evaluation is False, and bot is
+        # running (zero pairs not allowed), so stop it...
         control_threecommas_bots(logger, api, botdata, "disable")
-    elif paircount > 0 and not botdata["is_enabled"]:
-        # Valid pairs and bot is not running, so start it...
+    elif paircount > 0 and condition_state and not botdata["is_enabled"]:
+        # Valid pairs, condition evaluation is True and bot is
+        # not running, so start it...
         control_threecommas_bots(logger, api, botdata, "enable")
 
 
@@ -412,36 +529,55 @@ def get_coins_from_market_data(base, filteroptions):
     query += f"WHERE pairs.base = '{base}' "
 
     # Specify cmc-rank
-    if filteroptions["cmcrank"]:
-        query += f"AND rankings.coinmarketcap BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][-1]} "
+    if "cmcrank" in filteroptions and len(filteroptions['cmcrank']) == 2:
+        query += f"AND rankings.coinmarketcap BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][1]} "
 
     # Specify altrank
-    if filteroptions["altrank"]:
-        query += f"AND rankings.altrank BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][-1]} "
+    if "altrank" in filteroptions and len(filteroptions['altrank']) == 2:
+        query += f"AND rankings.altrank BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][1]} "
 
     # Specify galaxyscore
-    if filteroptions["galaxyscore"]:
-        query += f"AND rankings.galaxyscore BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][-1]} "
+    if "galaxyscore" in filteroptions and len(filteroptions['galaxyscore']) == 2:
+        query += f"AND rankings.galaxyscore BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][1]} "
 
     # Specify percent change
-    if filteroptions["change"]:
-        if filteroptions["change"]["change_1h"]:
-            query += f"AND prices.change_1h BETWEEN {filteroptions['change']['change_1h'][0]} AND {filteroptions['change']['change_1h'][-1]} "
-
-        if filteroptions["change"]["change_24h"]:
-            query += f"AND prices.change_24h BETWEEN {filteroptions['change']['change_24h'][0]} AND {filteroptions['change']['change_24h'][-1]} "
-
-        if filteroptions["change"]["change_7d"]:
-            query += f"AND prices.change_7d BETWEEN {filteroptions['change']['change_7d'][0]} AND {filteroptions['change']['change_7d'][-1]} "
-
-        if filteroptions["change"]["volatility_24h"]:
-            query += f"AND prices.volatility_24h BETWEEN {filteroptions['change']['volatility_24h'][0]} AND {filteroptions['change']['volatility_24h'][-1]} "
+    if "change" in filteroptions:
+        query += create_change_condition(filteroptions["change"])
 
     logger.debug(
         f"Build query for fetch of coins: {query}"
     )
 
     return sharedcursor.execute(countquery).fetchone(), sharedcursor.execute(query).fetchall()
+
+
+def create_change_condition(filteroptions):
+    """Build the WHERE query string part for price change"""
+
+    query = ""
+
+    for key, value in filteroptions.items():
+        # Only accept entries with lower and upper limit for price change
+        if len(value) != 2:
+            continue
+
+        query += f"AND prices.{key} BETWEEN {value[0]} AND {value[-1]} "
+
+    return query
+
+
+def create_marketcode_cache():
+    """Create the cache met MarketCode per bot"""
+
+    allbotids = []
+
+    logger.info("Prefetching marketcodes for all configured bots...")
+
+    for initialsection in config.sections():
+        if initialsection.startswith("bu_"):
+            allbotids += json.loads(config.get(initialsection, "botids"))
+
+    return prefetch_marketcodes(logger, api, allbotids)
 
 
 # Start application
@@ -528,6 +664,13 @@ cursor = db.cursor()
 shareddb = open_shared_db()
 sharedcursor = shareddb.cursor()
 
+# Prefetch all Marketcodes to reduce API calls and improve speed
+# New bot(s) will also be added later, for example when the configuration
+# has been changed after starting this script
+marketcodecache = create_marketcode_cache()
+
+tickerlistcache = {}
+
 # Refresh coin pairs in 3C bots based on the market data
 while True:
 
@@ -540,6 +683,10 @@ while True:
 
     # Update the blacklist
     blacklist = load_blacklist(logger, api, blacklistfile)
+
+    # Cache is used for one cycle, where we can optimize. But, we want to prevent
+    # working with old data so therefor the clear before each cycle
+    tickerlistcache.clear()
 
     # Current time to determine which sections to process
     starttime = int(time.time())

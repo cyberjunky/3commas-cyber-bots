@@ -14,8 +14,9 @@ from helpers.logging import Logger, NotificationHandler
 from helpers.threecommas import (
     init_threecommas_api,
     load_blacklist,
+    prefetch_marketcodes
 )
-from helpers.watchlist import prefetch_marketcodes, process_botlist
+from helpers.watchlist import process_botlist
 
 
 def load_config():
