@@ -2,7 +2,6 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
-from math import fabs
 import os
 import sqlite3
 import sys

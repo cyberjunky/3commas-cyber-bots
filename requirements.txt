@@ -1,8 +1,9 @@
 py3cw==0.0.39
-apprise==1.1.0
-telethon==1.25.4
-beautifulsoup4==4.11.1
+apprise==1.2.1
+telethon==1.27.0
+beautifulsoup4==4.11.2
 aiohttp==3.8.3
 schedule==1.1.0
-cloudscraper==1.2.64
-three-commas-websocket-assist==0.2.1
+cloudscraper==1.2.68
+rel==0.4.8
+websocket-client==1.5.1
