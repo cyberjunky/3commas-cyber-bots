@@ -867,7 +867,6 @@ def remove_pending_order_from_db(deal_id, order_id):
     db.commit()
 
 
-##################################################################################################
 def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current_profit_percentage, safety_mode):
     """Handle the Safety Orders for this deal."""
 
@@ -1134,7 +1133,6 @@ def set_first_safety_order(bot_data, deal_data, filled_so_count, current_profit_
         f"new deal with next SO on {sodata[4]}%"
     )
 
-###############################################################################################
 
 def open_tsl_db():
     """Create or open database to store bot and deals data."""
