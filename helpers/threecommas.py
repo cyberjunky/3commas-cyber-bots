@@ -1,7 +1,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 from math import nan
 from py3cw.request import Py3CW
-from three_commas_websocket_assist import ThreeCommasWebsocketHandler
+from .threecommas_websocket import ThreeCommasWebsocketHandler
 
 from helpers.misc import get_round_digits
 
