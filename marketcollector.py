@@ -97,12 +97,8 @@ def upgrade_config(cfg):
     """Upgrade config file if needed."""
 
     if not cfg.has_option("settings", "cg-apikey"):
-        cfg.set(
-            "settings", "cg-apikey",
-            "Your CoinGecko API key (only required for paid plans), or empty"
-        )
-
-        cfg.set("settings", "index-provider", "CoinMarketCap / CoinGecko")
+        cfg.set("settings", "cg-apikey", "")
+        cfg.set("settings", "index-provider", "CoinMarketCap")
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
