@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Cyberjunky's 3Commas bot helpers."""
 import json
+import time
 
 import cloudscraper
 import requests
@@ -69,8 +70,8 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     """Get the data from CoinMarketCap."""
 
     cmcdict = {}
-    errorcode = -1
-    errormessage = ""
+    statuscode = -1
+    statusmessage = ""
 
     # Construct query for CoinMarketCap data
     parms = {
@@ -105,13 +106,73 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
                     )
                 cmcdict = data["data"]
         else:
-            errorcode = data['status']['error_code']
-            errormessage = data['status']['error_message']
+            statuscode = data['status']['error_code']
+            statusmessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
         logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
         return 0, err, {}
 
-    return errorcode, errormessage, cmcdict
+    return statuscode, statusmessage, cmcdict
+
+
+def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert):
+    """Get the data from CoinGecko."""
+
+    cgdict = []
+    statuscode = -1
+
+    # Construct query for CoinGecko data
+    pagecount = 250
+    parms = {
+        "per_page": pagecount,
+        "page": 1,
+        "sparkline": False,
+        "vs_currency": convert,
+        "order": "market_cap_desc",
+        "price_change_percentage": "1h,24h,7d,14d,30d,200d,1y"
+    }
+
+    if cg_apikey:
+        parms["x_cg_pro_api_key"] = cg_apikey
+
+    try:
+        # Range from first page number to fetch (always 1 or higher), to page
+        # number to stop at (hence the +2)
+        for page in range(int(start_number / pagecount) + 1, int(end_number / pagecount) + 2):
+            parms["page"] = page
+
+            result = requests.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params=parms
+            )
+
+            data = result.json()
+
+            if result.ok:
+                for coin in data:
+                    if coin.get("market_cap_rank") is not None:
+                        if int(coin["market_cap_rank"]) < start_number:
+                            continue
+
+                        if int(coin["market_cap_rank"]) > end_number:
+                            break
+
+                        cgdict.append(coin)
+                    else:
+                        logger.debug(
+                            f"Unprocessable coin without readable market_cap_rank: {coin}"
+                        )
+
+                # Prevent rate limit error by waiting a bit for the next request
+                time.sleep(1)
+            else:
+                statuscode = result.status_code
+                break
+    except requests.exceptions.HTTPError as err:
+        logger.error("Fetching CoinGecko data failed with error: %s" % err)
+        return 0, {}
+
+    return statuscode, cgdict
 
 
 def get_botassist_data(logger, botassistlist, start_number, limit):

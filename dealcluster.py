@@ -23,6 +23,7 @@ from helpers.threecommas import (
     get_threecommas_account_marketcode,
     init_threecommas_api,
     init_threecommas_websocket,
+    prefetch_marketcodes,
     set_threecommas_bot_pairs
 )
 
@@ -206,26 +207,6 @@ def process_bot_deals(cluster_id, bot_data):
     db.commit()
 
 
-def log_deals(cluster_id):
-    """Log the deals within this cluster"""
-
-    dealdata = cursor.execute(
-        f"SELECT dealid, pair, coin, botid, active FROM deals "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
-
-    if dealdata:
-        logger.info(f"Printing deals for '{cluster_id}':")
-        for entry in dealdata:
-            logger.info(
-                f"{entry[0]}: {entry[1]} ({entry[2]}), {entry[3]} => {entry[4]}"
-            )
-    else:
-        logger.info(
-            f"No deals data for '{cluster_id}'"
-        )
-
-
 def aggregrate_cluster(db_connection, cluster_id, bot_list):
     """Aggregate deals within cluster."""
 
@@ -295,26 +276,6 @@ def log_cluster_changes(cluster_id, old_data, new_data):
         logger.info(
             f"Disabling coin(s) {disabledcoins} for cluster: {cluster_id}",
             True
-        )
-
-
-def log_cluster_data(cluster_id):
-    """Log the aggregated data based on the deals for this cluster"""
-
-    clusterdata = cursor.execute(
-        f"SELECT clusterid, coin, number_active FROM cluster_coins "
-        f"WHERE clusterid = '{cluster_id}'"
-    ).fetchall()
-
-    if clusterdata:
-        logger.info(f"Printing cluster_coins for '{cluster_id}':")
-        for entry in clusterdata:
-            logger.info(
-                f"{entry[1]}: {entry[2]}"
-            )
-    else:
-        logger.info(
-            f"No cluster_pair data for '{cluster_id}'"
         )
 
 
@@ -440,29 +401,54 @@ def get_bot_cluster(bot_id):
                 clusterid = sectionid
                 break
 
-    logger.debug(
-        f"Cluster '{clusterid}' found for bot {bot_id}"
-    )
-
     return clusterid
 
 
 def update_bot_config(bot_data):
     """Update bots at 3C"""
 
-    marketcode = get_threecommas_account_marketcode(logger, api, bot_data["account_id"])
+    marketcode = marketcodecache.get(bot_data["id"])
+    if not marketcode:
+        marketcode = get_threecommas_account_marketcode(logger, api, bot_data["account_id"])
+        marketcodecache[bot_data["id"]] = marketcode
+
+        logger.info(
+            f"Marketcode for bot {bot_data['id']} was not cached. Cache updated "
+            f"with marketcode {marketcode}."
+        )
 
     # If sharedir is set, other scripts could provide a file with pairs to exclude
     if marketcode:
-        newpairs = bot_data["pairs"]
+        newpairs = bot_data["pairs"].copy()
         botbase = newpairs[0].split("_")[0]
 
+        logger.debug(
+            f"Pairs before excluding: {newpairs}"
+        )
         remove_excluded_pairs(logger, sharedir, bot_data["id"], marketcode, botbase, newpairs)
+        logger.debug(
+            f"Pairs after excluding: {newpairs}"
+        )
+
         set_threecommas_bot_pairs(logger, api, bot_data, newpairs, False, True, False)
     else:
         logger.error(
             f"Marketcode not found for bot {bot_data['id']}. Cannot update pairs!"
         )
+
+
+def create_marketcode_cache():
+    """Create the cache met MarketCode per bot"""
+
+    allbotids = []
+
+    logger.info("Prefetching marketcodes for all configured bots...")
+
+    for initialsection in config.sections():
+        if initialsection.startswith("cluster_"):
+            allbotids += json.loads(config.get(initialsection, "botids"))
+
+    return prefetch_marketcodes(logger, api, allbotids)
 
 
 # Start application
@@ -541,10 +527,6 @@ else:
 # Initialize 3Commas API
 api = init_threecommas_api(config)
 
-# Initialize 3Commas WebSocket connection
-websocket = init_threecommas_websocket(config, websocket_update)
-websocket.start_listener(seperate_thread = True)
-
 # Initialize or open the database
 db = init_cluster_db()
 cursor = db.cursor()
@@ -553,7 +535,13 @@ cursor = db.cursor()
 upgrade_cluster_db()
 
 # Prefetch all Marketcodes to reduce API calls and improve speed
-#marketcodes = prefetch_section_marketcodes()
+# New bot(s) will also be added later, for example when the configuration
+# has been changed after starting this script
+marketcodecache = create_marketcode_cache()
+
+# Initialize 3Commas WebSocket connection
+websocket = init_threecommas_websocket(config, websocket_update)
+websocket.start_listener(seperate_thread = True)
 
 # DCA Deal Cluster
 while True:
@@ -574,16 +562,8 @@ while True:
             # Walk through all bots configured and check deals
             process_cluster_bots(section, botids, "deals")
 
-            # Log the deals
-            if debug:
-                log_deals(section)
-
             # Aggregrate data on cluster level. Will also take care of writing .pairexclude file
             aggregrate_cluster(db, section, botids)
-
-            # Log the cluster data
-            if debug:
-                log_cluster_data(section)
 
             # Update the bots in this cluster with the enabled/disabled pairs
             process_cluster_bots(section, botids, "update")
