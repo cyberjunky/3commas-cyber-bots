@@ -437,7 +437,6 @@ def control_threecommas_bots(logger, api, thebot, cmd):
         action_id=str(thebot["id"]),
     )
     if data:
-        logger.debug(f"Bot {cmd}: {data}")
         logger.info(
             "Bot '%s' is %sd" % (thebot["name"], cmd),
             True,
