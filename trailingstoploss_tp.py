@@ -216,7 +216,7 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     #else:
     #    payload["take_profit"] = 0.05
     #    payload["trailing_enabled"] = False
-    if len(deal_data["close_strategy_list"]) > 0:
+    if len(deal_data["close_strategy_list"]) == 0:
         payload["take_profit"] = new_take_profit
 
     payload["trailing_enabled"] = deal_data["trailing_enabled"]
