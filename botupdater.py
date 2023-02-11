@@ -504,6 +504,11 @@ def determine_bot_maxactivedeals(botdata, paircount):
 def handle_bot_stopstart(botdata, paircount, condition_state):
     """Determine and handle bot stop and start"""
 
+    logger.debug(
+        f"Bot {botdata['id']}: is_enabled = {botdata['is_enabled']}, "
+        f"paircount = {paircount} and condition_state = {condition_state}."
+    )
+
     if (paircount == 0 or not condition_state) and botdata["is_enabled"]:
         # No pairs or condition evaluation is False, and bot is
         # running (zero pairs not allowed), so stop it...
