@@ -1,6 +1,9 @@
 """Cyberjunky's 3Commas bot helpers."""
 from math import nan
 from py3cw.request import Py3CW
+
+from helpers.misc import get_round_digits
+
 from .threecommas_websocket import ThreeCommasWebsocketHandler
 
 
@@ -538,6 +541,192 @@ def get_threecommas_bots(logger, api, accountid):
     # No else, there are just no bots for the account
 
     return None
+
+
+def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_price):
+    """Add funds to existing deal."""
+
+    orderplaced = False
+
+    error, data = api.request(
+        entity="deals",
+        action="add_funds",
+        action_id=str(deal_id),
+        payload={
+            "quantity": quantity,
+            "is_market": False,
+            "rate": limit_price,
+            "deal_id": deal_id,
+        },
+    )
+    if data:
+        if data["status"] == "success":
+            rounddigits = get_round_digits(deal_pair)
+
+            logger.debug(
+                f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
+                f"at limit price {limit_price:0.{rounddigits}f}."
+            )
+
+            orderplaced = True
+        else:
+            logger.debug(
+                f"{deal_id}: add funds not succesfull: {data}."
+            )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred adding funds to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred adding funds to deal")
+
+    return orderplaced
+
+
+def get_threecommas_deal_order_status(logger, api, deal_pair, deal_id, order_id):
+    """Get the status of the specified order."""
+
+    orderstatus = ""
+
+    error, data = api.request(
+        entity="deals",
+        action="market_orders",
+        action_id=str(deal_id)
+    )
+
+    if data:
+        for order in data:
+            orderid = order["order_id"]
+            orderstatus = order["status_string"]
+
+            if str(orderid) == str(order_id):
+                break
+
+        if not orderstatus:
+            logger.debug(
+                f"{deal_pair}/{deal_id}: order {order_id} not found! "
+                f"Received data from 3C: {data}."
+            )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred while fetching active market orders for deal")
+
+    return orderstatus
+
+
+def get_threecommas_deal_order_id(logger, api, deal_pair, deal_id, order_type, order_status):
+    """Get the order id for the specified deal, type and status."""
+
+    orderid = ""
+
+    error, data = api.request(
+        entity="deals",
+        action="market_orders",
+        action_id=str(deal_id)
+    )
+
+    if data:
+        for order in data:
+            orderid = order["order_id"]
+            ordertype = order["deal_order_type"]
+            orderstatus = order["status_string"]
+
+            if (ordertype.lower() == order_type.lower() and
+              orderstatus.lower() == order_status.lower()):
+                break
+
+        if not orderid:
+            logger.debug(
+                f"{deal_pair}/{deal_id}: order with type {order_type} "
+                f"and status {order_status} not found! "
+                f"Received data from 3C: {data}."
+            )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred while fetching active market orders for deal")
+
+    return orderid
+
+
+def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
+    """Cancel an earlier placed order."""
+
+    ordercancelled = False
+
+    error, data = api.request(
+        entity="deals",
+        action="cancel_order",
+        action_id=str(deal_id),
+        payload={
+            "order_id": order_id,
+            "deal_id": deal_id,
+        },
+    )
+
+    if data:
+        for order in data:
+            orderid = order["order_id"]
+            orderstatus = order["status_string"]
+
+            if str(orderid) == str(order_id) and orderstatus.lower() == "cancelled":
+                logger.debug(
+                    f"{deal_id}: order '{orderid}' is Cancelled!"
+                )
+                ordercancelled = True
+                break
+
+        if not ordercancelled:
+            logger.debug(
+                f"{deal_id}: cancel of order {order_id} failed! "
+                f"Received data from 3C: {data}."
+            )
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred cancelling order for deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred cancelling order for deal")
+
+    return ordercancelled
+
+
+def threecommas_get_data_for_adding_funds(logger, api, deal):
+    """Get data about tick size."""
+
+    fundsdata = {}
+
+    error, data = api.request(
+        entity="deals",
+        action="data_for_adding_funds",
+        action_id=str(deal["id"])
+    )
+
+    if data:
+        logger.info(
+            f"Data for adding funds to deal {deal['pair']}/{deal['id']}: "
+            f"Received response data: {data}"
+        )
+
+        fundsdata = data
+    else:
+        if error and "msg" in error:
+            logger.error(
+                "Error occurred retrieving data for adding funds to deal: %s" % error["msg"]
+            )
+        else:
+            logger.error("Error occurred retrieving data for adding funds to deal")
+
+    return fundsdata
 
 
 def prefetch_marketcodes(logger, api, botids):

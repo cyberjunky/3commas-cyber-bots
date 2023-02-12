@@ -95,29 +95,51 @@ def process_bot_deals(bot_id, bot_name, strategy):
 
                 bovolume = float(activedeal["base_order_volume"])
                 sovolume = float(activedeal["safety_order_volume"])
-                completed_manual_safety_orders = int(activedeal["completed_manual_safety_orders_count"]) #Filled manual SO
-                completed_safety_orders = int(activedeal["completed_safety_orders_count"]) #Filled automatic SO (excluding manual)
-                max_safety_orders = int(activedeal["max_safety_orders"]) #Max automatic SO
-                current_active_safety_orders = int(activedeal["current_active_safety_orders_count"]) #Number of active SO
-                martingale_volume_coefficient = float(activedeal["martingale_volume_coefficient"])
+                completed_manual_safety_orders = int(
+                    activedeal["completed_manual_safety_orders_count"]
+                ) #Filled manual SO
+                completed_safety_orders = int(
+                    activedeal["completed_safety_orders_count"]
+                ) #Filled automatic SO (excluding manual)
+                max_safety_orders = int(
+                    activedeal["max_safety_orders"]
+                ) #Max automatic SO
+                current_active_safety_orders = int(
+                    activedeal["current_active_safety_orders_count"]
+                ) #Number of active SO
+                martingale_volume_coefficient = float(
+                    activedeal["martingale_volume_coefficient"]
+                )
 
                 activesofunds = 0.0
                 if completed_safety_orders < max_safety_orders:
-                    # Calculate required funds for remaining SO and active SO (which is less or equal to remaining)
+                    # Calculate required funds for remaining SO and active SO (which is
+                    # less or equal to remaining)
                     dealfunddata = calculate_deal_funds(
-                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient, completed_safety_orders + 1, current_active_safety_orders
+                        bovolume, sovolume, max_safety_orders, martingale_volume_coefficient,
+                        completed_safety_orders + 1, current_active_safety_orders
                     )
 
                     remainingsofunds = dealfunddata[0]
                     activesofunds = dealfunddata[1]
 
-                    # Substract BO because it's already included in the 'bought_volume' above and we are only interested in SO funds
-                    remainingsofunds -= bovolume
+                    if (max_safety_orders > 0 and current_active_safety_orders == 0):
+                        remainingsofunds -= float(activedeal["bought_volume"])
+                        logger.debug(
+                            f"Deal {activedeal['id']} SO is managed by trailingstoploss_tp script; "
+                            f"in total {remainingsofunds} required and "
+                            f"currently {activesofunds} in active SO."
+                        )
+                    else:
+                        # Substract BO because it's already included in the 'bought_volume' above
+                        # and we are only interested in SO funds
+                        remainingsofunds -= bovolume
 
-                    logger.debug(
-                        f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} SO left; in total "
-                        f"{remainingsofunds} required and currently {activesofunds} in active SO."
-                    )
+                        logger.debug(
+                            f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} "
+                            f"SO left; in total {remainingsofunds} required and "
+                            f"currently {activesofunds} in active SO."
+                        )
                     dealsofunds += remainingsofunds
                 else:
                     logger.debug(
@@ -126,17 +148,19 @@ def process_bot_deals(bot_id, bot_name, strategy):
                     )
 
                 if current_active_safety_orders > 0:
-                    # There are SO active, which could be `automatic` from the configuration or manual.
-                    # Above the current active SO funds where calculated, so substract this from the
-                    # reserved funds and add the remaining sum (which must be for manual placed orders,
-                    # like a limit order) to the total amount of SO funds for this deal.
+                    # There are SO active, which could be `automatic` from the configuration or
+                    # manual. Above the current active SO funds where calculated, so substract
+                    # this from the reserved funds and add the remaining sum (which must be for
+                    # manual placed orders, like a limit order) to the total amount of SO funds
+                    # for this deal.
                     reservedfunds = float(activedeal["reserved_quote_funds"])
                     manualfunds = abs(activesofunds - reservedfunds)
                     dealsofunds += manualfunds
 
                     logger.debug(
-                        f"Deal {activedeal['id']} has {reservedfunds} funds reserved for {current_active_safety_orders} SO. "
-                        f"Funds for active SO are {activesofunds}, so {manualfunds} is manually placed."
+                        f"Deal {activedeal['id']} has {reservedfunds} funds reserved "
+                        f"for {current_active_safety_orders} SO. Funds for active SO "
+                        f"are {activesofunds}, so {manualfunds} is manually placed."
                     )
             else:
                 currentdealfunds += float(activedeal["sold_volume"])
@@ -215,8 +239,9 @@ def process_account_bots(account_id):
             maxfunds += currentdealfunds # Add currently used funds (BO + completed SO)
             maxfunds += currentdealsofunds # Remaining SO not yet completed
             logger.debug(
-                f"'{botname}' max usage {maxfunds} based on {dealfunds} * {maxactivedeals - activedeals} "
-                f"plus active deal SO funds {currentdealsofunds}. "
+                f"'{botname}' max usage {maxfunds} based on {dealfunds} * "
+                f"{maxactivedeals - activedeals} plus active deal SO "
+                f"funds {currentdealsofunds}. "
                 f"Currently used funds: {currentdealfunds}"
             )
         else:
@@ -261,7 +286,7 @@ def correct_fund_usage(bot_list, funds_list):
                 quotefunds -= exceedmax
         else:
             # Short bot fund usage must be substracted from the available amount of funds, because
-            # those funds are needed when the short deal closes.
+            # those funds are required for closing the short deal.
             quotefunds -= funds
 
         logger.debug(
