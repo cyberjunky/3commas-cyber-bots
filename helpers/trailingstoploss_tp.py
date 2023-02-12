@@ -1,5 +1,17 @@
 """Cyberjunky's 3Commas bot helpers."""
 
+import decimal
+from helpers.misc import round_decimals_up
+
+
+def determine_profit_prefix(deal_data):
+    """Determine the prefix of the profit for logging"""
+
+    if deal_data["strategy"] == "long":
+        return "-"
+
+    return ""
+
 
 def get_profit_db_data(cursor, dealid):
     """Check if deal was already logged and get stored data."""
@@ -74,14 +86,14 @@ def calculate_average_price_sl_percentage_long(sl_price, average_price):
     )
 
 
-def calculate_sl_percentage(logger, deal_data, profit_config, activation_diff):
+def calculate_sl_percentage(logger, deal_data, config, activation_diff):
     """Calculate the SL percentage in 3C and TP range"""
 
     currentslpercentage = (
         float(deal_data["stop_loss_percentage"]) if deal_data["stop_loss_percentage"] else 0.0
     )
-    initialstoplosspercentage = float(profit_config.get("initial-stoploss-percentage"))
-    slincrementfactor = float(profit_config.get("sl-increment-factor"))
+    initialstoplosspercentage = float(config.get("initial-stoploss-percentage"))
+    slincrementfactor = float(config.get("sl-increment-factor"))
 
     # If there is no SL configured for this config, return default values
     if initialstoplosspercentage == 0.0:
@@ -144,7 +156,7 @@ def calculate_sl_percentage(logger, deal_data, profit_config, activation_diff):
     return currentslpercentage, basepriceslpercentage, understandableslpercentage
 
 
-def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, last_profit_percentage):
+def calculate_tp_percentage(logger, deal_data, config, activation_diff, last_profit_percentage):
     """Calculate the TP percentage TP range"""
 
     # Closing strategy means 3C will monitor the condition and manage the TP
@@ -155,7 +167,7 @@ def calculate_tp_percentage(logger, deal_data, profit_config, activation_diff, l
         )
         return minprofitpercentage, minprofitpercentage
 
-    tpincrementfactor = float(profit_config.get("tp-increment-factor"))
+    tpincrementfactor = float(config.get("tp-increment-factor"))
 
     currenttppercentage = float(deal_data["take_profit"])
     if tpincrementfactor <= 0.0:
@@ -215,7 +227,8 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
     socounter = 0
     while socounter < deal_data['max_safety_orders']:
         logger.debug(
-            f"{deal_data['pair']}/{deal_data['id']}: at SO {socounter}/{deal_data['max_safety_orders']}, "
+            f"{deal_data['pair']}/{deal_data['id']}: "
+            f"at SO {socounter}/{deal_data['max_safety_orders']}, "
             f"Volume: {sovolume}/{totalvolume}, "
             f"Drop: {sopercentagedropfrombaseprice}/{totaldroppercentage}, "
             f"Price: {sobuyprice}."
@@ -291,3 +304,102 @@ def calculate_safety_order(logger, bot_data, deal_data, filled_so_count, current
     )
 
     return sobuycount, sobuyvolume, sobuyprice, totaldroppercentage, sonextdroppercentage
+
+
+def determine_price_quantity(logger, bot_data, deal_data, limit_data, calc_price, calc_quantity):
+    """Determine the correct price and quantity for the Add Funds order"""
+
+    limitprice = calc_price
+    quantity = calc_quantity
+
+    if deal_data["strategy"] == "long" and calc_price > float(deal_data["current_price"]):
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"current price {deal_data['current_price']} lower than "
+            f"calculated price {calc_price}, so using the current price."
+        )
+        limitprice = float(deal_data["current_price"])
+    elif deal_data["strategy"] == "short" and calc_price < float(deal_data["current_price"]):
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"current price {deal_data['current_price']} higher than "
+            f"calculated price {calc_price}, so using the current price."
+        )
+        limitprice = float(deal_data["current_price"])
+
+    if deal_data["safety_order_volume_type"] == "quote_currency":
+        quantity = calc_quantity / limitprice
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"calculated quantity {quantity} based on "
+            f"volume {calc_quantity} and price {limitprice}."
+        )
+    else:
+        logger.info(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"using quantity {quantity} based on 'base_currency' volume "
+            f"order type."
+        )
+
+    limitvalue = limit_data["limits"]["lotStep"].split(".")
+
+    decimals = 0
+    if int(limitvalue[1]) > 0:
+        decimals = len(limitvalue[1])
+    quantity = round_decimals_up(quantity, decimals)
+
+    logger.debug(
+        f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+        f"changed quantity to {quantity} based on "
+        f"lotStep {limit_data['limits']['lotStep']} and value {limitvalue}."
+    )
+
+    return limitprice, quantity
+
+
+def validate_add_funds_data(logger, bot_data, deal_data, limit_data, quantity):
+    """Validate the Add Funds data against the limits"""
+
+    valid = True
+
+    #TODO: below is only debugging. Incorperate when it's clear how this works
+    if ("marketBuyMinTotal" in limit_data["limits"] and
+        quantity <= float(limit_data["limits"]["marketBuyMinTotal"]) > quantity
+    ):
+        valid = False
+
+        logger.error(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"buy amount of {quantity} lower than "
+            f"{limit_data['limits']['marketBuyMinTotal']}!"
+        )
+
+    if ("maxMarketBuyAmount" in limit_data["limits"] and
+        quantity >= float(limit_data["limits"]["maxMarketBuyAmount"])
+    ):
+        valid = False
+
+        logger.error(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"buy amount of {quantity} higher than "
+            f"{limit_data['limits']['maxMarketBuyAmount']}!"
+        )
+
+    # Modulo executed with Decimal and string to prevent rounding and
+    # floating point issues.
+    sizemodulo = decimal.Decimal(
+        str(quantity - float(limit_data["limits"]["minLotSize"]))
+    ) % decimal.Decimal(limit_data["limits"]["lotStep"])
+
+    if sizemodulo != 0.0:
+        valid = False
+
+        logger.error(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"quantity {quantity} not a multiply of stepsize "
+            f"{limit_data['limits']['lotStep']}, taking min size of "
+            f"{limit_data['limits']['minLotSize']} into account! Remaining "
+            f"is {sizemodulo}"
+        )
+
+    return valid
