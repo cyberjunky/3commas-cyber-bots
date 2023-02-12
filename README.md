@@ -93,8 +93,8 @@ A script which tracks active Future deals from your 3Commas bot(s) and change th
 
 [TrailingStopLoss Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss)
 
-### DCA Trailing stoploss and profit (trailingstoploss_tp.py)
-Same for DCA type deals and also including an implementation of a trailing take profit.
+### DCA Trailing stoploss, Safety Orders and profit (trailingstoploss_tp.py)
+Same for DCA type deals and also including an implementation for trailing Safety Orders and take profit.
 
 [TrailingStopLoss and TakeProfit Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/TrailingStopLoss-and-TakeProfit)
 
@@ -128,7 +128,7 @@ It will monitor a specific Hodloo Telegram chat channel (https://qft.hodloo.com/
 
 [Watchlist Hodloo Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist-Hodloo)
 
-### Watchlist Telegran (watchlist_telegram.py)
+### Watchlist Telegram (watchlist_telegram.py)
 Combination of watchlist and watchlist_hodloo script.
 
 [Watchlist Telegram Documentation](https://github.com/cyberjunky/3commas-cyber-bots/wiki/Watchlist-Telegram)
