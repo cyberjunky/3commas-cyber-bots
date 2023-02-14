@@ -429,7 +429,7 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
             logger, api, botdata, newpairs, newmaxdeals, False, False
             )
 
-        if newmaxdeals:
+        if botupdated and newmaxdeals:
             logger.info(
                 f"Bot '{botdata['name']}' with id '{botdata['id']}' changed max "
                 f"active deals to {newmaxdeals}.",
@@ -437,7 +437,7 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
             )
 
         # Send our own notification with more data
-        if newpairs != botdata["pairs"]:
+        if botupdated and newpairs != botdata["pairs"]:
             excludedcount = abs(coindata[0][0] - len(coindata[1]))
             logger.info(
                 f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {paircount} "
