@@ -365,15 +365,12 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     # Close strategy is based on conditions, which means minimal take profit
     # is used and not the regular take profit
     if len(deal_data["close_strategy_list"]) == 0:
-        if float(deal_data["actual_profit_percentage"]) > float(deal_data["take_profit"]):
-            logger.info(
-                f"Deal data: {deal_data}. "
-            )
+        if float(deal_data["actual_profit_percentage"]) >= float(deal_data["take_profit"]):
             logger.debug(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"current profit {deal_data['actual_profit_percentage']} above take profit of "
-                f"{deal_data['take_profit']}, so there is no point in updating "
-                f"TP and/or SL value. Deal should be closed by 3Commas any moment now."
+                f"current profit {deal_data['actual_profit_percentage']} equal or above "
+                f"take profit of {deal_data['take_profit']}, so there is no point in "
+                f"updating TP and/or SL value. Deal will be closed by 3Commas."
             )
             return 0 #Deal does not require monitoring
 
@@ -574,6 +571,18 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 f"TakeProfit increased from {tpdata[0]}% "
                 f"to {tpdata[1]}%. "
             )
+
+        # For debugging. Sometimes deals close with an error because the coin
+        # is already sold. Meaning the limit order filled on the exchange,
+        # and I suspect changing the TP afterwards results in an error. Can
+        # we prevent changing the TP?
+        if fabs(tpdata[0] - currentprofitpercentage) <= 0.15:
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+                f"profit close to take profit. Deal data: {deal_data}."
+            )
+            # Fake request to log all the orders of the deal
+            get_threecommas_deal_order_status(logger, api, deal_data["pair"], deal_data["id"], "*")
 
         # Update deal in 3C
         if update_deal_profit(
