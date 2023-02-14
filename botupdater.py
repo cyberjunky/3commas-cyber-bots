@@ -71,6 +71,7 @@ def load_config():
         "percent-change-1y": [],
         "volatility-24h": [],
         "condition": json.dumps(cfgconditionconfig),
+        "coinlist": [],
         "description": "some description"
     }
 
@@ -111,6 +112,16 @@ def upgrade_config(cfg):
                 cfg.write(cfgfile)
 
             logger.info("Upgraded section %s to have condition option" % cfgsection)
+
+        if not cfg.has_option(cfgsection, "coinlist"):
+            cfgcoinlist = list()
+
+            cfg.set(cfgsection, "coinlist", json.dumps(cfgcoinlist))
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have coinlist option" % cfgsection)
 
     return cfg
 
@@ -237,6 +248,14 @@ def process_bu_section(section_id):
     pricefilter["change_1y"] = json.loads(config.get(section_id, "percent-change-1y"))
     pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
     filteroptions["change"] = pricefilter
+
+    # Ugly way to read the coinlist from the configuration
+    # Because JSON is not properly saved by the ConfigParser, we need to parse
+    # the data and construct the list
+    filteroptions["coinlist"] = [coin.replace("'", "").replace("[", "").replace("]","").strip()
+                                for coin in config.get(section_id, "coinlist").split(",")]
+
+    logger.debug(filteroptions["coinlist"])
 
     # Coindata contains:
     # 0: total number of coins available
@@ -533,17 +552,26 @@ def get_coins_from_market_data(base, filteroptions):
     # Specify the base
     query += f"WHERE pairs.base = '{base}' "
 
+    # Len greater than 2, because empty list has length of 2
+    if "coinlist" in filteroptions and len(filteroptions['coinlist']) > 2:
+        query += "AND pairs.coin IN ("
+        query += ", ".join(f'"{c}"' for c in filteroptions['coinlist'])
+        query += ") "
+
     # Specify cmc-rank
     if "cmcrank" in filteroptions and len(filteroptions['cmcrank']) == 2:
-        query += f"AND rankings.coinmarketcap BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][1]} "
+        query += "AND rankings.coinmarketcap "
+        query += f"BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][1]} "
 
     # Specify altrank
     if "altrank" in filteroptions and len(filteroptions['altrank']) == 2:
-        query += f"AND rankings.altrank BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][1]} "
+        query += "AND rankings.altrank "
+        query += f"BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][1]} "
 
     # Specify galaxyscore
     if "galaxyscore" in filteroptions and len(filteroptions['galaxyscore']) == 2:
-        query += f"AND rankings.galaxyscore BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][1]} "
+        query += "AND rankings.galaxyscore "
+        query += f"BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][1]} "
 
     # Specify percent change
     if "change" in filteroptions:
