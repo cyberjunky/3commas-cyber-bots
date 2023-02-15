@@ -351,7 +351,6 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
     if data:
         botupdated = True
 
-        logger.debug("Bot pair(s) updated: %s" % data)
         if len(sortednewpairs) == 1:
             logger.info(
                 "Bot '%s' with id '%s' updated with pair '%s'"
