@@ -71,7 +71,8 @@ def load_config():
         "percent-change-1y": [],
         "volatility-24h": [],
         "condition": json.dumps(cfgconditionconfig),
-        "coinlist": [],
+        "coin-whitelist": [],
+        "coin-blacklist": [],
         "description": "some description"
     }
 
@@ -113,10 +114,11 @@ def upgrade_config(cfg):
 
             logger.info("Upgraded section %s to have condition option" % cfgsection)
 
-        if not cfg.has_option(cfgsection, "coinlist"):
+        if not cfg.has_option(cfgsection, "coin-whitelist"):
             cfgcoinlist = list()
 
-            cfg.set(cfgsection, "coinlist", json.dumps(cfgcoinlist))
+            cfg.set(cfgsection, "coin-whitelist", json.dumps(cfgcoinlist))
+            cfg.set(cfgsection, "coin-blacklist", json.dumps(cfgcoinlist))
 
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                 cfg.write(cfgfile)
@@ -249,13 +251,17 @@ def process_bu_section(section_id):
     pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
     filteroptions["change"] = pricefilter
 
-    # Ugly way to read the coinlist from the configuration
+    # Ugly way to read the coinlists from the configuration
     # Because JSON is not properly saved by the ConfigParser, we need to parse
     # the data and construct the list
-    filteroptions["coinlist"] = [coin.replace("'", "").replace("[", "").replace("]","").strip()
-                                for coin in config.get(section_id, "coinlist").split(",")]
-
-    logger.debug(filteroptions["coinlist"])
+    filteroptions["coin-whitelist"] = [
+        coin.replace("'", "").replace("[", "").replace("]","").strip()
+        for coin in config.get(section_id, "coin-whitelist").split(",")
+    ]
+    filteroptions["coin-blacklist"] = [
+        coin.replace("'", "").replace("[", "").replace("]","").strip()
+        for coin in config.get(section_id, "coin-blacklist").split(",")
+    ]
 
     # Coindata contains:
     # 0: total number of coins available
@@ -553,9 +559,15 @@ def get_coins_from_market_data(base, filteroptions):
     query += f"WHERE pairs.base = '{base}' "
 
     # Len greater than 2, because empty list has length of 2
-    if "coinlist" in filteroptions and len(filteroptions['coinlist']) > 2:
+    if "coin-whitelist" in filteroptions and len(filteroptions['coin-whitelist']) > 2:
         query += "AND pairs.coin IN ("
-        query += ", ".join(f'"{c}"' for c in filteroptions['coinlist'])
+        query += ", ".join(f'"{c}"' for c in filteroptions['coin-whitelist'])
+        query += ") "
+
+    # Len greater than 2, because empty list has length of 2
+    if "coin-blacklist" in filteroptions and len(filteroptions['coin-blacklist']) > 2:
+        query += "AND pairs.coin NOT IN ("
+        query += ", ".join(f'"{c}"' for c in filteroptions['coin-blacklist'])
         query += ") "
 
     # Specify cmc-rank
