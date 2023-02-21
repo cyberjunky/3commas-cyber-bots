@@ -73,7 +73,8 @@ def load_config():
         "condition": json.dumps(cfgconditionconfig),
         "coin-whitelist": [],
         "coin-blacklist": [],
-        "description": "some description"
+        "description": "some description",
+        "notify-succesfull-update": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -124,6 +125,14 @@ def upgrade_config(cfg):
                 cfg.write(cfgfile)
 
             logger.info("Upgraded section %s to have coinlist option" % cfgsection)
+
+        if not cfg.has_option(cfgsection, "notify-succesful-update"):
+            cfg.set(cfgsection, "notify-succesful-update", "True")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have notify option" % cfgsection)
 
     return cfg
 
@@ -258,6 +267,8 @@ def process_bu_section(section_id):
         coin.replace("'", "").replace("[", "").replace("]","").strip()
         for coin in config.get(section_id, "coin-whitelist").split(",")
     ]
+    # TODO: move this to the update section so the total number of blacklisted pairs 
+    # can be reported correctly
     filteroptions["coin-blacklist"] = [
         coin.replace("'", "").replace("[", "").replace("]","").strip()
         for coin in config.get(section_id, "coin-blacklist").split(",")
@@ -469,7 +480,7 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
                 f"pairs ({newpairs[0]} ... {newpairs[-1]}). "
                 f"Excluded coins: {excludedcount} (filter), {len(blackpairs)} (blacklist), "
                 f"{len(badpairs)} (not on exchange)",
-                True
+                config.getboolean(section_id, "notify-succesful-update")
             )
     else:
         # No coins in the list are available on the exchange, which can be a normal use-case
@@ -560,15 +571,23 @@ def get_coins_from_market_data(base, filteroptions):
 
     # Len greater than 2, because empty list has length of 2
     if "coin-whitelist" in filteroptions and len(filteroptions['coin-whitelist']) > 2:
-        query += "AND pairs.coin IN ("
-        query += ", ".join(f'"{c}"' for c in filteroptions['coin-whitelist'])
-        query += ") "
+        whitelistquery = "AND pairs.coin IN ("
+        whitelistquery += ", ".join(f'"{c}"' for c in filteroptions['coin-whitelist'])
+        whitelistquery += ") "
+
+        # Include only the coins of the whitelist in the count
+        countquery += whitelistquery
+        query += whitelistquery
 
     # Len greater than 2, because empty list has length of 2
     if "coin-blacklist" in filteroptions and len(filteroptions['coin-blacklist']) > 2:
-        query += "AND pairs.coin NOT IN ("
-        query += ", ".join(f'"{c}"' for c in filteroptions['coin-blacklist'])
-        query += ") "
+        blacklistquery = "AND pairs.coin NOT IN ("
+        blacklistquery += ", ".join(f'"{c}"' for c in filteroptions['coin-blacklist'])
+        blacklistquery += ") "
+
+        # Exclude the coins on the blacklist from the count
+        countquery += blacklistquery
+        query += blacklistquery
 
     # Specify cmc-rank
     if "cmcrank" in filteroptions and len(filteroptions['cmcrank']) == 2:
