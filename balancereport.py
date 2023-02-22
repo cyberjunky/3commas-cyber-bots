@@ -2,6 +2,7 @@
 """Cyberjunky's 3Commas bot helpers."""
 import argparse
 import configparser
+import json
 import os
 import sys
 import time
@@ -41,12 +42,27 @@ def load_config():
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "conditional-botids": [],
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(cfg):
+    """Upgrade config file if needed."""
+
+    if not cfg.has_option("settings", "conditional-botids"):
+        cfg.set("settings", "conditional-botids", "[]")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have conditional-botids")
+
+    return cfg
 
 
 def create_account_balance(account_id):
@@ -71,6 +87,7 @@ def create_account_balance(account_id):
         list_of_funds[code] = position
 
     return list_of_funds
+
 
 def process_bot_deals(bot_id, bot_name, strategy):
     """Process the deals of the bot"""
@@ -136,8 +153,9 @@ def process_bot_deals(bot_id, bot_name, strategy):
                         remainingsofunds -= bovolume
 
                         logger.debug(
-                            f"Deal {activedeal['id']} has {max_safety_orders - completed_safety_orders} "
-                            f"SO left; in total {remainingsofunds} required and "
+                            f"Deal {activedeal['id']} has "
+                            f"{max_safety_orders - completed_safety_orders} SO left; "
+                            f"in total {remainingsofunds} required and "
                             f"currently {activesofunds} in active SO."
                         )
                     dealsofunds += remainingsofunds
@@ -198,11 +216,21 @@ def process_account_bots(account_id):
         )
         return list_of_bots
 
+    conditionalbotids = json.loads(config.get("settings", "conditional-botids"))
+
     for botdata in bots:
         botname = botdata["name"]
 
         activedeals = int(botdata["active_deals_count"])
         enabled = bool(botdata["is_enabled"])
+
+        if botdata["id"] in conditionalbotids:
+            logger.debug(
+                f"'{botname}' is in list of conditional bots, so process it "
+                f"as if it's enabled."
+            )
+            enabled = True
+
         if not enabled and activedeals == 0:
             logger.debug(
                 f"'{botname}' not enabled and no active deals. Skipping."
@@ -382,6 +410,10 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
+
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
