@@ -39,6 +39,7 @@ def load_config():
         "timeinterval": 900,
         "cleanup-treshold": 86400,
         "debug": False,
+        "debug-log-query": False,
         "logrotate": 7,
         "cmc-apikey": "Your CoinMarketCap API Key",
         "cg-apikey": "Your CoinGecko API key (only required for paid plans), or empty",
@@ -51,32 +52,32 @@ def load_config():
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "BTC",
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
     cfg["cg_btc"] = {
         "start-number": 1,
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "BTC",
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
     cfg["altrank_default"] = {
         "lc-apikey": 1,
         "lc-fetchlimit": 500,
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
     cfg["galaxyscore_default"] = {
         "timeinterval": 3600,
         "lc-apikey": 1,
         "lc-fetchlimit": 500,
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
     cfg["cmc_usd"] = {
         "start-number": 1,
         "end-number": 200,
         "timeinterval": 3600,
         "percent-change-compared-to": "USD",
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
     cfg["volatility_usd"] = {
         "timeinterval": 3600,
@@ -84,7 +85,7 @@ def load_config():
                   "binance_spot_usdt_highest_volatility_day",
                   "coinbase_spot_usd_highest_volatility_day"
         ],
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -105,12 +106,26 @@ def upgrade_config(cfg):
 
         logger.info("Updates settings to add cg-apikey")
 
+    if not cfg.has_option("settings", "debug-log-query"):
+        cfg.set("settings", "debug-log-query", "False")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have debug-log-query option")
+
     for cfgsection in cfg.sections():
         if cfgsection == "settings":
             continue
 
-        if not cfg.has_option(cfgsection, "notify-succesfull-update"):
-            cfg.set(cfgsection, "notify-succesfull-update", "True")
+        if cfg.has_option(cfgsection, "notify-succesfull-update"):
+            cfg.set(cfgsection, "notify-succesful-update", cfg.get(cfgsection, "notify-succesfull-update"))
+            cfg.remove_option(cfgsection, "notify-succesfull-update")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+        elif not cfg.has_option(cfgsection, "notify-succesful-update"):
+            cfg.set(cfgsection, "notify-succesful-update", "True")
 
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                 cfg.write(cfgfile)
@@ -335,9 +350,10 @@ def update_values(table, base, coin, data):
 
     query += f"coin = '{ucoin}'"
 
-    logger.debug(
-        f"Execute query '{query}' for pair {ubase}_{ucoin}."
-    )
+    if config.getboolean("settings", "debug-log-query"):
+        logger.debug(
+            f"Execute query '{query}' for pair {ubase}_{ucoin}."
+        )
 
     shareddb.execute(query)
     # shareddb.commit() left out on purpose
@@ -440,7 +456,7 @@ def process_cmc_section(section_id):
     logger.info(
         f"CoinMarketCap; updated {len(data[2])} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
-        config.getboolean(section_id, "notify-succesfull-update")
+        config.getboolean(section_id, "notify-succesful-update")
     )
 
     # No exceptions or other cases happened, everything went Ok
@@ -568,7 +584,7 @@ def process_cg_section(section_id):
     logger.info(
         f"CoinGecko; updated {len(data[1])} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
-        config.getboolean(section_id, "notify-succesfull-update")
+        config.getboolean(section_id, "notify-succesful-update")
     )
 
     # No exceptions or other cases happened, everything went Ok
@@ -619,7 +635,7 @@ def process_lunarcrush_section(section_id, listtype):
 
     logger.info(
         f"{listtype}; updated {updatedcoins} coins.",
-        config.getboolean(section_id, "notify-succesfull-update")
+        config.getboolean(section_id, "notify-succesful-update")
     )
 
     return True, 0
@@ -677,7 +693,7 @@ def process_volatility_section(section_id):
     logger.info(
         f"BotAssistExplorer; updated for {len(aggregatedlist)} coins the "
         f"volatility data based on {lists}.",
-        config.getboolean(section_id, "notify-succesfull-update")
+        config.getboolean(section_id, "notify-succesful-update")
     )
 
     # No exceptions or other cases happened, everything went Ok

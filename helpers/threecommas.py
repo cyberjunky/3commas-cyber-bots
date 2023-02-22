@@ -174,7 +174,8 @@ def get_threecommas_account_marketcode(logger, api, accountid):
     if error and "status_code" in error:
         if error["status_code"] == 404:
             logger.error(
-                "Error occurred fetching 3Commas account market code: accountid '%s' was not found" % accountid
+                "Error occurred fetching 3Commas account market code: accountid '%s' was not found"
+                % accountid
             )
     elif error and "msg" in error:
         logger.error(
@@ -350,7 +351,6 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
     if data:
         botupdated = True
 
-        logger.debug("Bot pair(s) updated: %s" % data)
         if len(sortednewpairs) == 1:
             logger.info(
                 "Bot '%s' with id '%s' updated with pair '%s'"
@@ -564,14 +564,14 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
             rounddigits = get_round_digits(deal_pair)
 
             logger.debug(
-                f"{deal_pair}/{deal_id}: add {quantity} {deal_pair.split('_')[1]} "
+                f"{deal_pair}/{deal_id}: added {quantity} {deal_pair.split('_')[1]} "
                 f"at limit price {limit_price:0.{rounddigits}f}."
             )
 
             orderplaced = True
         else:
-            logger.debug(
-                f"{deal_id}: add funds not succesfull: {data}."
+            logger.error(
+                f"{deal_pair}/{deal_id}: add funds not succesfull: {data}."
             )
     else:
         if error and "msg" in error:
@@ -597,10 +597,8 @@ def get_threecommas_deal_order_status(logger, api, deal_pair, deal_id, order_id)
 
     if data:
         for order in data:
-            orderid = order["order_id"]
-            orderstatus = order["status_string"]
-
-            if str(orderid) == str(order_id):
+            if str(order["order_id"]) == str(order_id):
+                orderstatus = order["status_string"]
                 break
 
         if not orderstatus:
@@ -632,19 +630,15 @@ def get_threecommas_deal_order_id(logger, api, deal_pair, deal_id, order_type, o
 
     if data:
         for order in data:
-            orderid = order["order_id"]
-            ordertype = order["deal_order_type"]
-            orderstatus = order["status_string"]
-
-            if (ordertype.lower() == order_type.lower() and
-              orderstatus.lower() == order_status.lower()):
+            if (order["deal_order_type"].lower() == order_type.lower() and
+              order["status_string"].lower() == order_status.lower()):
+                orderid = order["order_id"]
                 break
 
         if not orderid:
-            logger.debug(
+            logger.error(
                 f"{deal_pair}/{deal_id}: order with type {order_type} "
-                f"and status {order_status} not found! "
-                f"Received data from 3C: {data}."
+                f"and status {order_status} not found!"
             )
     else:
         if error and "msg" in error:
@@ -674,17 +668,15 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
 
     if data:
         for order in data:
-            orderid = order["order_id"]
-            orderstatus = order["status_string"]
-
-            if str(orderid) == str(order_id) and orderstatus.lower() == "cancelled":
-                logger.debug(
-                    f"{deal_id}: order '{orderid}' is Cancelled!"
-                )
+            if (str(order["order_id"]) == str(order_id) and
+            order["status_string"].lower() == "cancelled"):
                 ordercancelled = True
                 break
 
         if not ordercancelled:
+            logger.error(
+                f"{deal_id}: cancel of order {order_id} failed!"
+            )
             logger.debug(
                 f"{deal_id}: cancel of order {order_id} failed! "
                 f"Received data from 3C: {data}."
@@ -712,11 +704,6 @@ def threecommas_get_data_for_adding_funds(logger, api, deal):
     )
 
     if data:
-        logger.info(
-            f"Data for adding funds to deal {deal['pair']}/{deal['id']}: "
-            f"Received response data: {data}"
-        )
-
         fundsdata = data
     else:
         if error and "msg" in error:
