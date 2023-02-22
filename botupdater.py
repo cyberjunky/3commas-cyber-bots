@@ -40,6 +40,7 @@ def load_config():
         "timezone": "Europe/Amsterdam",
         "timeinterval": 3600,
         "debug": False,
+        "debug-log-query": False,
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
@@ -74,7 +75,7 @@ def load_config():
         "coin-whitelist": [],
         "coin-blacklist": [],
         "description": "some description",
-        "notify-succesfull-update": True,
+        "notify-succesful-update": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -85,6 +86,14 @@ def load_config():
 
 def upgrade_config(cfg):
     """Upgrade config file if needed."""
+
+    if not cfg.has_option("settings", "debug-log-query"):
+        cfg.set("settings", "debug-log-query", "False")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have debug-log-query option")
 
     for cfgsection in cfg.sections():
         if not cfgsection.startswith("bu_"):
@@ -317,7 +326,7 @@ def evaluatecondition(condition_config):
 
     conditionstate = True
 
-    logger.info(
+    logger.debug(
         f"Processing conditions: {condition_config}"
     )
 
@@ -335,9 +344,14 @@ def evaluatecondition(condition_config):
 
         query += create_change_condition(pricefilter)
 
+        if config.getboolean("settings", "debug-log-query"):
+            logger.debug(
+                f"Execute condition query: {query}"
+            )
+
         dbresult = sharedcursor.execute(query).fetchone()
         if dbresult is None:
-            logger.debug(
+            logger.info(
                 f"Condition {entry} not met!"
             )
             conditionstate = False
@@ -608,9 +622,10 @@ def get_coins_from_market_data(base, filteroptions):
     if "change" in filteroptions:
         query += create_change_condition(filteroptions["change"])
 
-    logger.debug(
-        f"Build query for fetch of coins: {query}"
-    )
+    if config.getboolean("settings", "debug-log-query"):
+        logger.debug(
+            f"Build query for fetch of coins: {query}"
+        )
 
     return sharedcursor.execute(countquery).fetchone(), sharedcursor.execute(query).fetchall()
 
@@ -625,7 +640,16 @@ def create_change_condition(filteroptions):
         if len(value) != 2:
             continue
 
-        query += f"AND prices.{key} BETWEEN {value[0]} AND {value[-1]} "
+        firstvalue = float(value[0])
+        secondvalue = float(value[-1])
+
+        query += f"AND prices.{key} BETWEEN "
+
+        # Between needs the proper range, so keep that into account
+        if secondvalue < firstvalue:
+            query += f"{secondvalue} AND {firstvalue} "
+        else:
+            query += f"{firstvalue} AND {secondvalue} "
 
     return query
 
