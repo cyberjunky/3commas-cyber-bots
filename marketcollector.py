@@ -39,6 +39,7 @@ def load_config():
         "timeinterval": 900,
         "cleanup-treshold": 86400,
         "debug": False,
+        "debug-log-query": False,
         "logrotate": 7,
         "cmc-apikey": "Your CoinMarketCap API Key",
         "cg-apikey": "Your CoinGecko API key (only required for paid plans), or empty",
@@ -104,6 +105,14 @@ def upgrade_config(cfg):
             cfg.write(cfgfile)
 
         logger.info("Updates settings to add cg-apikey")
+
+    if not cfg.has_option("settings", "debug-log-query"):
+        cfg.set("settings", "debug-log-query", "False")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have debug-log-query option")
 
     for cfgsection in cfg.sections():
         if cfgsection == "settings":
@@ -341,9 +350,10 @@ def update_values(table, base, coin, data):
 
     query += f"coin = '{ucoin}'"
 
-    logger.debug(
-        f"Execute query '{query}' for pair {ubase}_{ucoin}."
-    )
+    if config.getboolean("settings", "debug-log-query"):
+        logger.debug(
+            f"Execute query '{query}' for pair {ubase}_{ucoin}."
+        )
 
     shareddb.execute(query)
     # shareddb.commit() left out on purpose
