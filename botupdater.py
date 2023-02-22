@@ -40,6 +40,7 @@ def load_config():
         "timezone": "Europe/Amsterdam",
         "timeinterval": 3600,
         "debug": False,
+        "debug-log-query": False,
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
@@ -71,7 +72,10 @@ def load_config():
         "percent-change-1y": [],
         "volatility-24h": [],
         "condition": json.dumps(cfgconditionconfig),
-        "description": "some description"
+        "coin-whitelist": [],
+        "coin-blacklist": [],
+        "description": "some description",
+        "notify-succesful-update": True,
     }
 
     with open(f"{datadir}/{program}.ini", "w") as cfgfile:
@@ -82,6 +86,14 @@ def load_config():
 
 def upgrade_config(cfg):
     """Upgrade config file if needed."""
+
+    if not cfg.has_option("settings", "debug-log-query"):
+        cfg.set("settings", "debug-log-query", "False")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have debug-log-query option")
 
     for cfgsection in cfg.sections():
         if not cfgsection.startswith("bu_"):
@@ -111,6 +123,25 @@ def upgrade_config(cfg):
                 cfg.write(cfgfile)
 
             logger.info("Upgraded section %s to have condition option" % cfgsection)
+
+        if not cfg.has_option(cfgsection, "coin-whitelist"):
+            cfgcoinlist = list()
+
+            cfg.set(cfgsection, "coin-whitelist", json.dumps(cfgcoinlist))
+            cfg.set(cfgsection, "coin-blacklist", json.dumps(cfgcoinlist))
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have coinlist option" % cfgsection)
+
+        if not cfg.has_option(cfgsection, "notify-succesful-update"):
+            cfg.set(cfgsection, "notify-succesful-update", "True")
+
+            with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                cfg.write(cfgfile)
+
+            logger.info("Upgraded section %s to have notify option" % cfgsection)
 
     return cfg
 
@@ -238,6 +269,20 @@ def process_bu_section(section_id):
     pricefilter["volatility_24h"] = json.loads(config.get(section_id, "volatility-24h"))
     filteroptions["change"] = pricefilter
 
+    # Ugly way to read the coinlists from the configuration
+    # Because JSON is not properly saved by the ConfigParser, we need to parse
+    # the data and construct the list
+    filteroptions["coin-whitelist"] = [
+        coin.replace("'", "").replace("[", "").replace("]","").strip()
+        for coin in config.get(section_id, "coin-whitelist").split(",")
+    ]
+    # TODO: move this to the update section so the total number of blacklisted pairs 
+    # can be reported correctly
+    filteroptions["coin-blacklist"] = [
+        coin.replace("'", "").replace("[", "").replace("]","").strip()
+        for coin in config.get(section_id, "coin-blacklist").split(",")
+    ]
+
     # Coindata contains:
     # 0: total number of coins available
     # 1: list of coins after filtering
@@ -281,7 +326,7 @@ def evaluatecondition(condition_config):
 
     conditionstate = True
 
-    logger.info(
+    logger.debug(
         f"Processing conditions: {condition_config}"
     )
 
@@ -299,9 +344,14 @@ def evaluatecondition(condition_config):
 
         query += create_change_condition(pricefilter)
 
+        if config.getboolean("settings", "debug-log-query"):
+            logger.debug(
+                f"Execute condition query: {query}"
+            )
+
         dbresult = sharedcursor.execute(query).fetchone()
         if dbresult is None:
-            logger.debug(
+            logger.info(
                 f"Condition {entry} not met!"
             )
             conditionstate = False
@@ -429,7 +479,7 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
             logger, api, botdata, newpairs, newmaxdeals, False, False
             )
 
-        if newmaxdeals:
+        if botupdated and newmaxdeals:
             logger.info(
                 f"Bot '{botdata['name']}' with id '{botdata['id']}' changed max "
                 f"active deals to {newmaxdeals}.",
@@ -437,14 +487,14 @@ def update_bot_pairs(section_id, base, botdata, coindata, condition_state):
             )
 
         # Send our own notification with more data
-        if newpairs != botdata["pairs"]:
+        if botupdated and newpairs != botdata["pairs"]:
             excludedcount = abs(coindata[0][0] - len(coindata[1]))
             logger.info(
                 f"Bot '{botdata['name']}' with id '{botdata['id']}' updated with {paircount} "
                 f"pairs ({newpairs[0]} ... {newpairs[-1]}). "
                 f"Excluded coins: {excludedcount} (filter), {len(blackpairs)} (blacklist), "
                 f"{len(badpairs)} (not on exchange)",
-                True
+                config.getboolean(section_id, "notify-succesful-update")
             )
     else:
         # No coins in the list are available on the exchange, which can be a normal use-case
@@ -533,25 +583,49 @@ def get_coins_from_market_data(base, filteroptions):
     # Specify the base
     query += f"WHERE pairs.base = '{base}' "
 
+    # Len greater than 2, because empty list has length of 2
+    if "coin-whitelist" in filteroptions and len(filteroptions['coin-whitelist']) > 2:
+        whitelistquery = "AND pairs.coin IN ("
+        whitelistquery += ", ".join(f'"{c}"' for c in filteroptions['coin-whitelist'])
+        whitelistquery += ") "
+
+        # Include only the coins of the whitelist in the count
+        countquery += whitelistquery
+        query += whitelistquery
+
+    # Len greater than 2, because empty list has length of 2
+    if "coin-blacklist" in filteroptions and len(filteroptions['coin-blacklist']) > 2:
+        blacklistquery = "AND pairs.coin NOT IN ("
+        blacklistquery += ", ".join(f'"{c}"' for c in filteroptions['coin-blacklist'])
+        blacklistquery += ") "
+
+        # Exclude the coins on the blacklist from the count
+        countquery += blacklistquery
+        query += blacklistquery
+
     # Specify cmc-rank
     if "cmcrank" in filteroptions and len(filteroptions['cmcrank']) == 2:
-        query += f"AND rankings.coinmarketcap BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][1]} "
+        query += "AND rankings.coinmarketcap "
+        query += f"BETWEEN {filteroptions['cmcrank'][0]} AND {filteroptions['cmcrank'][1]} "
 
     # Specify altrank
     if "altrank" in filteroptions and len(filteroptions['altrank']) == 2:
-        query += f"AND rankings.altrank BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][1]} "
+        query += "AND rankings.altrank "
+        query += f"BETWEEN {filteroptions['altrank'][0]} AND {filteroptions['altrank'][1]} "
 
     # Specify galaxyscore
     if "galaxyscore" in filteroptions and len(filteroptions['galaxyscore']) == 2:
-        query += f"AND rankings.galaxyscore BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][1]} "
+        query += "AND rankings.galaxyscore "
+        query += f"BETWEEN {filteroptions['galaxyscore'][0]} AND {filteroptions['galaxyscore'][1]} "
 
     # Specify percent change
     if "change" in filteroptions:
         query += create_change_condition(filteroptions["change"])
 
-    logger.debug(
-        f"Build query for fetch of coins: {query}"
-    )
+    if config.getboolean("settings", "debug-log-query"):
+        logger.debug(
+            f"Build query for fetch of coins: {query}"
+        )
 
     return sharedcursor.execute(countquery).fetchone(), sharedcursor.execute(query).fetchall()
 
@@ -566,7 +640,16 @@ def create_change_condition(filteroptions):
         if len(value) != 2:
             continue
 
-        query += f"AND prices.{key} BETWEEN {value[0]} AND {value[-1]} "
+        firstvalue = float(value[0])
+        secondvalue = float(value[-1])
+
+        query += f"AND prices.{key} BETWEEN "
+
+        # Between needs the proper range, so keep that into account
+        if secondvalue < firstvalue:
+            query += f"{secondvalue} AND {firstvalue} "
+        else:
+            query += f"{firstvalue} AND {secondvalue} "
 
     return query
 

@@ -219,7 +219,7 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                                 )
                         elif value == "volatility":
                             pairdata[value] = float(
-                                    rowcolums[key].text.replace("%", "")
+                                    rowcolums[key].text.replace("%", "").replace(",", "")
                                 )
                         else:
                             pairdata[value] = rowcolums[key].text.replace("\n", "")
