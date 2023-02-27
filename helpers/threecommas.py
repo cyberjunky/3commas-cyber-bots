@@ -14,7 +14,7 @@ def load_blacklist(logger, api, blacklistfile):
     if blacklistfile:
         newblacklist = []
         try:
-            with open(blacklistfile, "r") as file:
+            with open(blacklistfile, "r", encoding = "utf-8") as file:
                 newblacklist = file.read().splitlines()
             if newblacklist:
                 logger.info(
