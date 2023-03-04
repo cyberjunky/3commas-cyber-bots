@@ -22,6 +22,7 @@ from helpers.misc import (
     wait_time_interval
 )
 from helpers.threecommas import (
+    close_threecommas_deal,
     get_threecommas_deal_order_id,
     get_threecommas_deal_order_status,
     init_threecommas_api,
@@ -40,6 +41,7 @@ from helpers.trailingstoploss_tp import (
     get_profit_db_data,
     get_safety_db_data,
     is_new_deal,
+    is_valid_deal,
     validate_add_funds_data
 )
 
@@ -97,7 +99,7 @@ def load_config():
         "safety-mode": "merge / shift"
     }
 
-    with open(f"{datadir}/{program}.ini", "w") as cfgfile:
+    with open(f"{datadir}/{program}.ini", "w", encoding = "utf-8") as cfgfile:
         cfg.write(cfgfile)
 
     return None
@@ -127,7 +129,7 @@ def upgrade_config(thelogger, cfg):
         cfg.remove_option("settings", "sl-increment-factor")
         cfg.remove_option("settings", "tp-increment-factor")
 
-        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+        with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
             cfg.write(cfgfile)
 
         thelogger.info("Upgraded the configuration file")
@@ -148,12 +150,12 @@ def upgrade_config(thelogger, cfg):
 
                 cfg.set(cfgsection, "safety-config", json.dumps(cfgsectionsafetyconfig))
 
-                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
                     cfg.write(cfgfile)
 
                 thelogger.info(
-                    "Upgraded section %s to have profit- and safety- config list" % cfgsection
-                    )
+                    f"Upgraded section {cfgsection} to have profit- and safety- config list"
+                )
             else:
                 jsonconfiglist = list()
                 for configsectionconfig in json.loads(cfg.get(cfgsection, "profit-config")):
@@ -171,24 +173,24 @@ def upgrade_config(thelogger, cfg):
                 if len(jsonconfiglist) > 0:
                     cfg.set(cfgsection, "config", json.dumps(jsonconfiglist))
 
-                    with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                    with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
                         cfg.write(cfgfile)
 
-                    thelogger.info("Updates section %s to add activation-so-count" % cfgsection)
+                    thelogger.info(f"Updates section {cfgsection} to add activation-so-count")
 
             if not cfg.has_option(cfgsection, "safety-mode"):
                 cfg.set(cfgsection, "safety-mode", "merge")
 
-                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+                with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Updates section %s to add safety-mode" % cfgsection)
+                thelogger.info(f"Updates section {cfgsection} to add safety-mode")
 
     if not cfg.has_option("settings", "notify-trailing-update"):
         cfg.set("settings", "notify-trailing-update", "True")
         cfg.set("settings", "notify-trailing-reset", "True")
 
-        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+        with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
             cfg.write(cfgfile)
 
         thelogger.info("Updates settings to add notify options")
@@ -253,7 +255,7 @@ def update_deal_profit(bot_data, deal_data, new_stoploss, new_take_profit, sl_ti
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred updating deal with new SL/TP values: %s" % error["msg"]
+                f"Error occurred updating deal with new SL/TP values: {error['msg']}"
             )
         else:
             logger.error("Error occurred updating deal with new SL/TP valuess")
@@ -291,67 +293,77 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
     botid = bot_data["id"]
     deals = bot_data["active_deals"]
 
-    if deals:
-        currentdeals = []
-
-        for deal in deals:
-            if deal["strategy"] in ("short", "long"):
-                # Check whether the actual_profit_percentage can be obtained from the deal,
-                # If it can't, skip this deal.
-                if not check_float(deal["actual_profit_percentage"]):
-                    logger.warning(
-                        f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} does no longer "
-                        f"exist on the exchange! Cancel or handle deal manually on 3Commas!"
-                    )
-                    continue
-
-                # Only process deals with bought status. Created or base order placed
-                # means not all data is available for further calculations. Failed,
-                # cancelled, completed and panic_sell_pending are states in which we
-                # don't need to do anything or should not interfere with.
-                #if deal["status"].lower() not in("bought", "close_strategy_activated"):
-                if deal["status"].lower() not in("bought", "close_strategy_activated"):
-                    logger.info(
-                        f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
-                        f"'{deal['status']}' which is not valid for further processing!"
-                    )
-                    continue
-
-                currentdeals.append(deal["id"])
-
-                if is_new_deal(cursor, deal["id"]):
-                    add_deal_in_db(deal["id"], botid)
-
-                    # Only deals without 3C Safety Orders active can be processed by this script
-                    if deal['active_safety_orders_count'] == 0 and len(section_safety_config) > 0:
-                        set_first_safety_order(bot_data, deal, 0, 0.0)
-
-                if float(deal["actual_profit_percentage"]) > 0.0:
-                    monitoreddeals += process_deal_for_profit(
-                        section_profit_config, bot_data, deal
-                    )
-                elif float(deal["actual_profit_percentage"]) < 0.0:
-                    monitoreddeals += process_deal_for_safety_order(
-                        section_safety_config, section_safety_mode, bot_data, deal
-                    )
-            else:
-                logger.warning(
-                    f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']}: "
-                    f"Unknown strategy {deal['strategy']}!"
-                )
-
-        # Housekeeping, clean things up and prevent endless growing database
-        remove_closed_deals(botid, currentdeals)
-
-        logger.debug(
-            f"Bot \"{bot_data['name']}\" ({botid}) has {len(deals)} deal(s) "
-            f"of which {monitoreddeals} require monitoring."
-        )
-    else:
+    if not deals:
         logger.debug(
             f"Bot \"{bot_data['name']}\" ({botid}) has no active deals."
         )
         remove_all_deals(botid)
+
+        return 0
+
+    currentdeals = []
+
+    for deal in deals:
+        # Check whether we can handle the deal based on the strategy
+        if deal["strategy"] not in ("short", "long"):
+            logger.warning(
+                f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']}: "
+                f"Unknown strategy {deal['strategy']}!"
+            )
+            continue
+
+        # Check whether the actual_profit_percentage can be obtained from the deal.
+        # Pairs which are removed from the exchange, leave a deal without percentage.
+        if not check_float(deal["actual_profit_percentage"]):
+            logger.warning(
+                f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} does no longer "
+                f"exist on the exchange! Cancel or handle deal manually on 3Commas!"
+            )
+            continue
+
+        # Only process deals with bought status. Created or base order placed
+        # means not all data is available for further calculations. Failed,
+        # cancelled, completed and panic_sell_pending are states in which we
+        # don't need to do anything or should not interfere with.
+        #if deal["status"].lower() not in("bought", "close_strategy_activated"):
+        if deal["status"].lower() not in("bought", "close_strategy_activated"):
+            logger.info(
+                f"\"{bot_data['name']}\": {deal['pair']}/{deal['id']} has status "
+                f"'{deal['status']}' which is not valid for further processing!"
+            )
+            continue
+
+        processdeal = True
+        if is_new_deal(cursor, deal["id"]):
+            if is_valid_deal(logger, bot_data, deal):
+                add_deal_in_db(deal["id"], botid)
+
+                # Calculate the percentage for the first Safety Order
+                if len(section_safety_config) > 0:
+                    set_first_safety_order(bot_data, deal, 0, 0.0)
+            else:
+                # No valid deal (yet), so don't process it for now
+                processdeal = False
+
+        if processdeal:
+            currentdeals.append(deal["id"])
+
+            if float(deal["actual_profit_percentage"]) > 0.0 and len(section_profit_config) > 0:
+                monitoreddeals += process_deal_for_profit(
+                    section_profit_config, bot_data, deal
+                )
+            elif float(deal["actual_profit_percentage"]) < 0.0 and len(section_safety_config) > 0:
+                monitoreddeals += process_deal_for_safety_order(
+                    section_safety_config, section_safety_mode, bot_data, deal
+                )
+
+    # Housekeeping, clean things up and prevent endless growing database
+    remove_closed_deals(botid, currentdeals)
+
+    logger.debug(
+        f"Bot \"{bot_data['name']}\" ({botid}) has {len(deals)} deal(s) "
+        f"of which {monitoreddeals} require monitoring."
+    )
 
     return monitoreddeals
 
@@ -359,20 +371,17 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
 def process_deal_for_profit(section_profit_config, bot_data, deal_data):
     """Process a deal which has positive profit"""
 
-    if len(section_profit_config) == 0:
+    # Don't process the deal further when the current profit exceeds the configured TP
+    if (len(deal_data["close_strategy_list"]) == 0 and
+        float(deal_data["actual_profit_percentage"]) >= float(deal_data["take_profit"])
+    ):
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"current profit {deal_data['actual_profit_percentage']} equal or above "
+            f"take profit of {deal_data['take_profit']}, so there is no point in "
+            f"updating TP and/or SL value. Deal will be closed by 3Commas."
+        )
         return 0 #Deal does not require monitoring
-
-    # Close strategy is based on conditions, which means minimal take profit
-    # is used and not the regular take profit
-    if len(deal_data["close_strategy_list"]) == 0:
-        if float(deal_data["actual_profit_percentage"]) >= float(deal_data["take_profit"]):
-            logger.debug(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"current profit {deal_data['actual_profit_percentage']} equal or above "
-                f"take profit of {deal_data['take_profit']}, so there is no point in "
-                f"updating TP and/or SL value. Deal will be closed by 3Commas."
-            )
-            return 0 #Deal does not require monitoring
 
     requiremonitoring = 0
 
@@ -385,57 +394,15 @@ def process_deal_for_profit(section_profit_config, bot_data, deal_data):
         int(deal_data["completed_safety_orders_count"])
     )
 
-    # Available profit_config means trailing must be applied. So for deals
-    # which have not reached the desired profit yet,
-    # no profit_config can be found.
-    if profitconfig:
-        requiremonitoring = handle_deal_profit(
-                bot_data, deal_data, dealdbdata, profitconfig
-            )
-    else:
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-            f"no profit config available for profit {deal_data['actual_profit_percentage']}% "
-            f"and {deal_data['completed_safety_orders_count']} filled SO."
+    requiremonitoring = handle_deal_profit(
+            bot_data, deal_data, dealdbdata, profitconfig
         )
-
-        # Reset trailing data if trailing was activated before (profit has dropped)
-        if float(dealdbdata["last_profit_percentage"]) > float(bot_data["take_profit"]):
-            if update_deal_profit(bot_data, deal_data, 0.0, float(bot_data["take_profit"]), 0):
-                update_profit_in_db(
-                    deal_data['id'], 0.0, 0.0, 0.0
-                )
-                logger.info(
-                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                    f"profit has decreased below configured profit-config. Trailing "
-                    f"has been reset and TP restored to {bot_data['take_profit']}%.",
-                    notifytrailingreset
-                )
 
     return requiremonitoring
 
 
 def process_deal_for_safety_order(section_safety_config, section_safety_mode, bot_data, deal_data):
     """Process a deal which has negative profit"""
-
-    if len(section_safety_config) == 0:
-        return 0 # Invalid config
-
-    if section_safety_mode.lower() != "merge":
-        logger.warning(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-            f"safety mode {section_safety_mode} is not supported, "
-            f"only 'merge'."
-        )
-        return 0 # Invalid safety mode
-
-    if deal_data['active_safety_orders_count'] != 0:
-        logger.warning(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
-            f"has active Safety Orders by bot configuration which will break the "
-            f"functionality of this script. Not processing this deal!"
-        )
-        return 0 # Configuration of deal invalid
 
     # SO mode requires the total % drop without filled safety oders
     totalprofit = round(fabs(
@@ -524,7 +491,9 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
     currentprofitpercentage = float(deal_data["actual_profit_percentage"])
     lastprofitpercentage = float(deal_db_data["last_profit_percentage"])
-    if currentprofitpercentage > lastprofitpercentage:
+    lastreadableslpercentage = float(deal_db_data["last_readable_sl_percentage"])
+
+    if profit_config and currentprofitpercentage > lastprofitpercentage:
         message = (
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
             f"profit increased from {lastprofitpercentage}% to {currentprofitpercentage}%. "
@@ -551,9 +520,9 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
         newsltimeout = int(profit_config.get("sl-timeout"))
         if (fabs(sldata[1]) > 0.0 and sldata[1] != sldata[0]):
-            if deal_db_data['last_readable_sl_percentage'] != sldata[2]:
+            if lastreadableslpercentage != sldata[2]:
                 message += (
-                    f"StopLoss increased from {deal_db_data['last_readable_sl_percentage']}% "
+                    f"StopLoss increased from {lastreadableslpercentage}% "
                     f"to {sldata[2]}%. "
                 )
 
@@ -572,6 +541,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 f"to {tpdata[1]}%. "
             )
 
+        # TODO: remove later, after debugging
         # For debugging. Sometimes deals close with an error because the coin
         # is already sold. Meaning the limit order filled on the exchange,
         # and I suspect changing the TP afterwards results in an error. Can
@@ -584,11 +554,24 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
             # Fake request to log all the orders of the deal
             get_threecommas_deal_order_status(logger, api, deal_data["pair"], deal_data["id"], "*")
 
-        # Update deal in 3C
-        if update_deal_profit(
+        dealupdated = False
+        if len(deal_data["close_strategy_list"]) > 0:
+            # Deal is using a close strategy and the 3C API is broken (feb 2023). The base
+            # cannot be changed somehow, support is notified and no solution yet. So, to
+            # work around this we keep track of the stoploss within this script
+            dealupdated = True
+        elif update_deal_profit(
             bot_data, deal_data, sldata[1], tpdata[1], newsltimeout
         ):
-            # Update deal in our database
+            # Regular deal with fixed TP, and SL/TP values have been updated
+            dealupdated = True
+        else:
+            logger.error(
+                f"Update failed for message: {message}"
+            )
+
+        if dealupdated:
+            # Update local administration
             update_profit_in_db(
                 deal_data['id'], currentprofitpercentage,
                 sldata[2], tpdata[1]
@@ -596,24 +579,79 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
 
             # Send the message to the user
             logger.info(message, sendnotification)
-        else:
-            logger.error(
-                f"Update failed for message: {message}"
-            )
 
         # SL and/or TP calculated, so deal must be monitored for any changes
         requiremonitoring = 1
     else:
-        # Profit has not increased, but SL and/or TP active so check frequently
-        requiremonitoring = 1
+        # Profit has not increased. Check if the stoploss has been triggered
+        # for deals with a close condition
+        if len(deal_data["close_strategy_list"]) > 0:
+            evaluate_mp_stoploss(
+                bot_data, deal_data, currentprofitpercentage, lastreadableslpercentage
+            )
+        elif (not profit_config and
+            float(deal_db_data["last_profit_percentage"]) > float(bot_data["take_profit"])
+        ):
+            # No valid profit_config, so the profit has dropped. Trailing was activated before,
+            # so restore TP and SL to their original values
+            if update_deal_profit(bot_data, deal_data, 0.0, float(bot_data["take_profit"]), 0):
+                update_profit_in_db(
+                    deal_data['id'], 0.0, 0.0, 0.0
+                )
+                logger.info(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"profit has decreased below configured profit-config. Trailing "
+                    f"has been reset and TP restored to {bot_data['take_profit']}%.",
+                    notifytrailingreset
+                )
+        else:
+            logger.debug(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"no profit increase (current: {currentprofitpercentage}%, "
+                f"previous: {lastprofitpercentage}%). Keep on monitoring."
+            )
 
-        logger.debug(
-            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-            f"no profit increase (current: {currentprofitpercentage}%, "
-            f"previous: {lastprofitpercentage}%). Keep on monitoring."
-        )
+        # TP and/or SL are active when there is an active profit config, so then keep on checking
+        # this deal frequently. Even if the deal is closed, make sure to check shortly
+        if profit_config:
+            requiremonitoring = 1
 
     return requiremonitoring
+
+
+def evaluate_mp_stoploss(bot_data, deal_data, current_profit_percentage, last_readable_sl_percentage):
+    """Evaluate the stoploss for deals with conditional close"""
+
+    if current_profit_percentage <= last_readable_sl_percentage:
+        if current_profit_percentage >= float(deal_data["min_profit_percentage"]):
+            if close_threecommas_deal(logger, api, deal_data["id"], deal_data["pair"]):
+                logger.info(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"current profit {current_profit_percentage}% passed "
+                    f"stoploss of {last_readable_sl_percentage}% and above minimum "
+                    f"profit of {deal_data['min_profit_percentage']}%. Closed the deal.",
+                    True
+                )
+            else:
+                logger.error(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"failed to close this deal. Retry next interval!"
+                )
+        else:
+            logger.info(
+                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                f"current profit {current_profit_percentage}% below minimum "
+                f"profit of {deal_data['min_profit_percentage']}%. Reset stoploss!",
+                notifytrailingreset
+            )
+
+            update_profit_in_db(deal_data['id'], 0.0, 0.0, 0.0)
+    else:
+        logger.debug(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+            f"current profit {current_profit_percentage}% still higher than "
+            f"stoploss of {last_readable_sl_percentage}%. Keep on monitoring."
+        )
 
 
 def evaluate_deal_orders(bot_data, deal_data, deal_db_data, order_db_data, total_profit):
@@ -1008,12 +1046,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                     logger, api, deal_data["pair"], deal_data["id"], quantity, limitprice
                 ):
                     orderid = get_threecommas_deal_order_id(
-                        logger, api, deal_data["pair"], deal_data["id"], "Manual Safety", "Active"
+                        logger, api, deal_data["id"], "Manual Safety", "Active"
                     )
 
                     rounddigits = get_round_digits(deal_data["pair"])
-
-                    nextsopercentage = sodata[4]
                     shiftpercentage = deal_db_data["shift_percentage"]
 
                     if orderid:
@@ -1028,7 +1064,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         )
 
                         add_pending_order_in_db(
-                            deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], nextsopercentage, shiftpercentage
+                            deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], sodata[4], shiftpercentage
                         )
                     else:
                         totalfilledso = deal_db_data["filled_so_count"] + sodata[0]
@@ -1046,11 +1082,11 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
 
                         # Save total filled and next SO to database
                         update_safetyorder_in_db(
-                            deal_data["id"], totalfilledso, nextsopercentage, shiftpercentage
+                            deal_data["id"], totalfilledso, sodata[4], shiftpercentage
                         )
 
                         # Set up trailing for next SO
-                        update_safetyorder_monitor_in_db(deal_data["id"], 0.0, nextsopercentage)
+                        update_safetyorder_monitor_in_db(deal_data["id"], 0.0, sodata[4])
                 else:
                     logger.error(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
@@ -1294,8 +1330,8 @@ while True:
     logger.info(f"Reloaded configuration from '{datadir}/{program}.ini'")
 
     # Configuration settings
-    check_interval = int(config.get("settings", "check-interval"))
-    monitor_interval = int(config.get("settings", "monitor-interval"))
+    checkinterval = int(config.get("settings", "check-interval"))
+    monitorinterval = int(config.get("settings", "monitor-interval"))
 
     notifytrailingupdate = config.getboolean("settings", "notify-trailing-update")
     notifytrailingreset = config.getboolean("settings", "notify-trailing-reset")
@@ -1316,7 +1352,8 @@ while True:
             sectionsafetyconfig = json.loads(config.get(section, "safety-config"))
             sectionsafetymode = config.get(section, "safety-mode")
 
-            if sectionsafetymode.lower() not in ("merge", "shift"):
+            #TODO: add the 'shift' option in the future
+            if sectionsafetymode.lower() not in ("merge"):
                 logger.warning(
                     f"Section {section} has an invalid \'safety-mode\'. Skipping this section!"
                 )
@@ -1329,7 +1366,7 @@ while True:
                 # Only process the bot if it's time for the next interval, or
                 # time exceeds the check interval (clock has changed somehow)
                 if starttime >= nextprocesstime or (
-                        abs(nextprocesstime - starttime) > check_interval
+                        abs(nextprocesstime - starttime) > checkinterval
                 ):
                     boterror, botdata = api.request(
                         entity="bots",
@@ -1344,7 +1381,7 @@ while True:
 
                             # Determine new time to process this bot, based on the monitored deals
                             newtime = starttime + (
-                                check_interval if bot_deals_to_monitor == 0 else monitor_interval
+                                checkinterval if bot_deals_to_monitor == 0 else monitorinterval
                             )
                             set_next_process_time(db, "bots", "botid", bot, newtime)
 
@@ -1356,7 +1393,7 @@ while True:
                             sys.exit(0)
                     else:
                         if boterror and "msg" in boterror:
-                            logger.error("Error occurred updating bots: %s" % boterror["msg"])
+                            logger.error(f"Error occurred updating bots: {boterror['msg']}")
                         else:
                             logger.error("Error occurred updating bots")
                 else:
@@ -1370,6 +1407,6 @@ while True:
                 False
             )
 
-    timeint = check_interval if deals_to_monitor == 0 else monitor_interval
+    timeint = checkinterval if deals_to_monitor == 0 else monitorinterval
     if not wait_time_interval(logger, notification, timeint, False):
         break

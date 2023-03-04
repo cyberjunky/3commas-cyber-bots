@@ -389,7 +389,7 @@ def validate_add_funds_data(logger, bot_data, deal_data, limit_data, quantity):
     # floating point issues.
     sizemodulo = decimal.Decimal(
         str(quantity - float(limit_data["limits"]["minLotSize"]))
-    ) % decimal.Decimal(limit_data["limits"]["lotStep"])
+    ) % decimal.Decimal(str(limit_data["limits"]["lotStep"]))
 
     if sizemodulo != 0.0:
         valid = False
@@ -401,5 +401,21 @@ def validate_add_funds_data(logger, bot_data, deal_data, limit_data, quantity):
             f"{limit_data['limits']['minLotSize']} into account! Remaining "
             f"is {sizemodulo}"
         )
+
+    return valid
+
+
+def is_valid_deal(logger, bot_data, deal_data):
+    """Validate the deal and determine if we can process it"""
+
+    valid = True
+
+    if deal_data['active_safety_orders_count'] != 0:
+        logger.warning(
+            f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
+            f"has active Safety Orders by bot configuration which will break the "
+            f"functionality of this script. Not processing this deal!"
+        )
+        valid = False
 
     return valid

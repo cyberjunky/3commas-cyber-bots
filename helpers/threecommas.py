@@ -14,7 +14,7 @@ def load_blacklist(logger, api, blacklistfile):
     if blacklistfile:
         newblacklist = []
         try:
-            with open(blacklistfile, "r") as file:
+            with open(blacklistfile, "r", encoding = "utf-8") as file:
                 newblacklist = file.read().splitlines()
             if newblacklist:
                 logger.info(
@@ -128,7 +128,7 @@ def get_threecommas_accounts(logger, api):
         return data
 
     if error and "msg" in error:
-        logger.error("Fetching 3Commas accounts data failed error: %s" % error["msg"])
+        logger.error(f"Fetching 3Commas accounts data failed: {error['msg']}")
     else:
         logger.error("Fetching 3Commas accounts data failed")
 
@@ -149,12 +149,9 @@ def get_threecommas_account(logger, api, accountid):
         return data
 
     if error and "msg" in error:
-        logger.error(
-            "Fetching 3Commas account data failed for id %s error: %s"
-            % (accountid, error["msg"])
-        )
+        logger.error(f"Fetching 3Commas accounts data failed for id {accountid}: {error['msg']}")
     else:
-        logger.error("Fetching 3Commas account data failed for id %s", accountid)
+        logger.error(f"Fetching 3Commas account data failed for id {accountid}")
 
     return None
 
@@ -174,16 +171,15 @@ def get_threecommas_account_marketcode(logger, api, accountid):
     if error and "status_code" in error:
         if error["status_code"] == 404:
             logger.error(
-                "Error occurred fetching 3Commas account market code: accountid '%s' was not found"
-                % accountid
+                f"Error occurred fetching 3Commas account market code: "
+                f"accountid '{accountid}' was not found!"
             )
     elif error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account market code failed for id '%s' error: %s"
-            % (accountid, error["msg"])
+            f"Fetching 3Commas account market code failed for id '{accountid}': {error['msg']}"
         )
     else:
-        logger.error("Fetching 3Commas account market code failed for id %s", accountid)
+        logger.error(f"Fetching 3Commas account market code failed for id {accountid}")
 
     return None
 
@@ -203,12 +199,11 @@ def get_threecommas_account_balance(logger, api, accountid):
 
     if error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account balances data failed for id %s error: %s"
-            % (accountid, error["msg"])
+            f"Fetching 3Commas account balances data failed for id {accountid}: {error['msg']}"
         )
     else:
         logger.error(
-            "Fetching 3Commas account balances data failed for id %s", accountid
+            f"Fetching 3Commas account balances data failed for id {accountid}"
         )
 
     return None
@@ -230,12 +225,13 @@ def get_threecommas_account_table_balance(logger, api, accountid):
 
     if error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account table balances data failed for id %s error: %s"
-            % (accountid, error["msg"])
+            f"Fetching 3Commas account table balances data failed "
+            f"for id {accountid}: {error['msg']}"
         )
     else:
         logger.error(
-            "Fetching 3Commas account table balances data failed for id %s", accountid
+            f"Fetching 3Commas account table balances data failed "
+            f"for id {accountid}"
         )
 
     return None
@@ -259,11 +255,14 @@ def get_threecommas_account_balance_chart_data(
 
     if error and "msg" in error:
         logger.error(
-            "Fetching 3Commas account balance chart data failed for id %s error: %s"
-            % (accountid, error["msg"])
+            f"Fetching 3Commas account balance chart data failed "
+            f"for id {accountid}: {error['msg']}"
         )
     else:
-        logger.error("Fetching 3Commas account balance chart data for id %s", accountid)
+        logger.error(
+            f"Fetching 3Commas account balance chart data failed "
+            f"for id {accountid}"
+        )
 
     return None
 
@@ -280,18 +279,19 @@ def get_threecommas_market(logger, api, market_code):
     if data:
         tickerlist = data
         logger.info(
-            "Fetched 3Commas market data for '%s' OK (%s pairs)"
-            % (market_code, len(tickerlist))
+            f"Fetched 3Commas market data "
+            f"for '{market_code}' OK ({len(tickerlist)} pairs)"
         )
     else:
         if error and "msg" in error:
             logger.error(
-                "Fetching 3Commas market data failed for market code %s with error: %s"
-                % (market_code, error["msg"])
+                f"Fetching 3Commas market data failed "
+                f"for market code {market_code}: {error['msg']}"
             )
         else:
             logger.error(
-                "Fetching 3Commas market data failed for market code %s", market_code
+                f"Fetching 3Commas market data failed "
+                f"for market code {market_code}"
             )
 
     return tickerlist
@@ -305,9 +305,9 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
     # Do we already use these pairs?
     if newpairs == thebot["pairs"]:
         logger.info(
-            "Bot '%s' with id '%s' is already using the new pair(s)"
-            % (thebot["name"], thebot["id"]),
-            notify_uptodate,
+            f"Bot '{thebot['name']}' with id '{thebot['id']}' is "
+            f"already using the new pair(s)",
+            notify_uptodate
         )
         botupdated = True
         return botupdated
@@ -319,7 +319,9 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
 
     # Sort the list for logging and notification purpose
     sortednewpairs = sorted(newpairs)
-    logger.debug("Current pair(s): %s\nNew pair(s): %s" % (thebot["pairs"], sortednewpairs))
+    logger.debug(
+        f"Current pair(s): {thebot['pairs']}\nNew pair(s): {sortednewpairs}"
+    )
 
     error, data = api.request(
         entity="bots",
@@ -353,50 +355,38 @@ def set_threecommas_bot_pairs(logger, api, thebot, newpairs, newmaxdeals, notify
 
         if len(sortednewpairs) == 1:
             logger.info(
-                "Bot '%s' with id '%s' updated with pair '%s'"
-                % (thebot["name"], thebot["id"], sortednewpairs[0]),
-                notify,
+                f"Bot '{thebot['name']}' with id '{thebot['id']}' updated "
+                f"with pair '{sortednewpairs[0]}'",
+                notify
             )
         else:
             if len(sortednewpairs) < 10:
                 logger.info(
-                "Bot '%s' with id '%s' updated with %d pairs (%s)"
-                % (
-                    thebot["name"],
-                    thebot["id"],
-                    len(sortednewpairs),
-                    sortednewpairs,
-                ),
-                notify,
-            )
+                    f"Bot '{thebot['name']}' with id '{thebot['id']}' updated "
+                    f"with {len(sortednewpairs)} pairs ({sortednewpairs})",
+                    notify
+                )
             else:
                 logger.info(
-                    "Bot '%s' with id '%s' updated with %d pairs (%s ... %s)"
-                    % (
-                        thebot["name"],
-                        thebot["id"],
-                        len(sortednewpairs),
-                        sortednewpairs[0],
-                        sortednewpairs[-1],
-                    ),
-                    notify,
+                    f"Bot '{thebot['name']}' with id '{thebot['id']}' updated "
+                    f"with {len(sortednewpairs)} pairs "
+                    f"({sortednewpairs[0]} ... {sortednewpairs[-1]})",
+                    notify
                 )
+
         if newmaxdeals:
             logger.info(
-                "Max active deals changed to %s" % newmaxdeals,
-                notify,
+                f"Max active deals changed to {newmaxdeals}",
+                notify
             )
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while updating bot '%s' error: %s"
-                % (thebot["name"], error["msg"]),
-                True,
+                f"Error occurred while updating bot '{thebot['name']}': {error['msg']}"
             )
         else:
             logger.error(
-                "Error occurred while updating bot '%s'" % thebot["name"],
-                True,
+                f"Error occurred while updating bot '{thebot['name']}'"
             )
 
     return botupdated
@@ -412,22 +402,21 @@ def trigger_threecommas_bot_deal(logger, api, thebot, pair, skip_checks=False):
         payload={"pair": pair, "skip_signal_checks": skip_checks, "bot_id": thebot["id"]},
     )
     if data:
-        logger.debug("Bot deal triggered: %s" % data)
         logger.info(
-            "Bot '%s' with id '%s' triggered start_new_deal for: %s"
-            % (thebot["name"], thebot["id"], pair),
-            True,
+            f"Bot '{thebot['name']}' with id '{thebot['id']}' "
+            f"triggered start_new_deal for: {pair}",
+            True
         )
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while triggering start_new_deal bot '%s' error: %s"
-                % (thebot["name"], error["msg"]),
+                f"Error occurred while triggering start_new_deal on "
+                f"bot 'thebot['name']': {error['msg']}"
             )
         else:
             logger.error(
-                "Error occurred while triggering start_new_deal bot '%s'"
-                % thebot["name"],
+                f"Error occurred while triggering start_new_deal on "
+                f"bot '{thebot['name']}'"
             )
 
 
@@ -441,18 +430,17 @@ def control_threecommas_bots(logger, api, thebot, cmd):
     )
     if data:
         logger.info(
-            "Bot '%s' is %sd" % (thebot["name"], cmd),
-            True,
+            f"Bot '{thebot['name']}' is {cmd}",
+            True
         )
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while '%s' bot was %sd error: %s"
-                % (thebot["name"], cmd, error["msg"]),
+                f"Error occurred while '{thebot['name']}' bot was {cmd}: {error['msg']}"
             )
         else:
             logger.error(
-                "Error occurred while '%s' bot was %sd" % (thebot["name"], cmd),
+                f"Error occurred while '{thebot['name']}' bot was {cmd}"
             )
 
 
@@ -482,12 +470,14 @@ def get_threecommas_deals(logger, api, botid, actiontype="finished"):
     if error:
         if "msg" in error:
             logger.error(
-                "Error occurred while fetching deals error: %s" % error["msg"],
+                f"Error occurred while fetching deals error: {error['msg']}"
             )
         else:
             logger.error("Error occurred while fetching deals")
     else:
-        logger.debug("Fetched the deals for bot %s OK (%s deals)" % (botid, len(data)))
+        logger.debug(
+            f"Fetched the deals for bot {botid} OK ({len(data)} deals)"
+        )
 
     return data
 
@@ -504,16 +494,10 @@ def close_threecommas_deal(logger, api, dealid, pair):
     if error:
         if "msg" in error:
             logger.error(
-                "Error occurred while closing deal error: %s" % error["msg"],
+                f"Error occurred while closing deal {dealid}/{pair}: {error['msg']}"
             )
         else:
             logger.error("Error occurred while closing deal")
-    else:
-        logger.info(
-            "Closed deal (panic_sell) for deal with id '%s' and pair '%s'"
-            % (dealid, pair),
-            True,
-        )
 
     return data
 
@@ -535,8 +519,7 @@ def get_threecommas_bots(logger, api, accountid):
 
     if error and "msg" in error:
         logger.error(
-            "Fetching 3Commas bots data failed for id %s error: %s"
-            % (accountid, error["msg"])
+            f"Fetching 3Commas bots data failed for id {accountid}: {error['msg']}"
         )
     # No else, there are just no bots for the account
 
@@ -576,7 +559,7 @@ def threecommas_deal_add_funds(logger, api, deal_pair, deal_id, quantity, limit_
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred adding funds to deal: %s" % error["msg"]
+                f"Error occurred adding funds to deal: {error['msg']}"
             )
         else:
             logger.error("Error occurred adding funds to deal")
@@ -609,7 +592,7 @@ def get_threecommas_deal_order_status(logger, api, deal_pair, deal_id, order_id)
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+                f"Error occurred while fetching active market orders for deal: {error['msg']}"
             )
         else:
             logger.error("Error occurred while fetching active market orders for deal")
@@ -617,7 +600,7 @@ def get_threecommas_deal_order_status(logger, api, deal_pair, deal_id, order_id)
     return orderstatus
 
 
-def get_threecommas_deal_order_id(logger, api, deal_pair, deal_id, order_type, order_status):
+def get_threecommas_deal_order_id(logger, api, deal_id, order_type, order_status):
     """Get the order id for the specified deal, type and status."""
 
     orderid = ""
@@ -634,16 +617,12 @@ def get_threecommas_deal_order_id(logger, api, deal_pair, deal_id, order_type, o
               order["status_string"].lower() == order_status.lower()):
                 orderid = order["order_id"]
                 break
+        # Note; it could be there is no order for the given type and status
 
-        if not orderid:
-            logger.error(
-                f"{deal_pair}/{deal_id}: order with type {order_type} "
-                f"and status {order_status} not found!"
-            )
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred while fetching active market orders for deal: %s" % error["msg"]
+                f"Error occurred while fetching active market orders for deal: {error['msg']}"
             )
         else:
             logger.error("Error occurred while fetching active market orders for deal")
@@ -684,7 +663,7 @@ def threecommas_deal_cancel_order(logger, api, deal_id, order_id):
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred cancelling order for deal: %s" % error["msg"]
+                f"Error occurred cancelling order for deal: {error['msg']}"
             )
         else:
             logger.error("Error occurred cancelling order for deal")
@@ -708,7 +687,7 @@ def threecommas_get_data_for_adding_funds(logger, api, deal):
     else:
         if error and "msg" in error:
             logger.error(
-                "Error occurred retrieving data for adding funds to deal: %s" % error["msg"]
+                f"Error occurred retrieving data for adding funds to deal: {error['msg']}"
             )
         else:
             logger.error("Error occurred retrieving data for adding funds to deal")
@@ -735,7 +714,6 @@ def prefetch_marketcodes(logger, api, botids):
 
             if botdata:
                 accountid = botdata["account_id"]
-                # Get marketcode (exchange) from account if not already fetched
                 marketcode = get_threecommas_account_marketcode(logger, api, accountid)
                 marketcodearray[botdata["id"]] = marketcode
 
@@ -746,7 +724,7 @@ def prefetch_marketcodes(logger, api, botids):
             else:
                 if boterror and "msg" in boterror:
                     logger.error(
-                        "Error occurred fetching marketcode data: %s" % boterror["msg"]
+                        f"Error occurred fetching marketcode data: {boterror['msg']}"
                     )
                 else:
                     logger.error("Error occurred fetching marketcode data")

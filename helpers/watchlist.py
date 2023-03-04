@@ -102,7 +102,11 @@ def process_bot_deal(logger, api, blacklistfile, blacklist, marketcodes, thebot,
             for deal in deals:
                 if deal["pair"] == pair:
                     logger.info("Triggering your 3Commas bot for a (panic) sell of '%s'" % pair)
-                    close_threecommas_deal(logger, api, deal["id"], pair)
+                    if close_threecommas_deal(logger, api, deal["id"], pair):
+                        logger.info(
+                            f"Closed deal (panic_sell) for deal '{deal['id']}' and pair '{pair}'",
+                            True
+                        )
                     return
 
             logger.info(
