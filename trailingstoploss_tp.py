@@ -624,14 +624,19 @@ def evaluate_mp_stoploss(bot_data, deal_data, current_profit_percentage, last_re
 
     if current_profit_percentage <= last_readable_sl_percentage:
         if current_profit_percentage >= float(deal_data["min_profit_percentage"]):
-            logger.debug(
-                f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
-                f"current profit {current_profit_percentage}% passed "
-                f"stoploss of {last_readable_sl_percentage}% and above minimum "
-                f"profit of {deal_data['min_profit_percentage']}%. Closing the deal."
-            )
-
-            close_threecommas_deal(logger, api, deal_data["id"], deal_data["pair"])
+            if close_threecommas_deal(logger, api, deal_data["id"], deal_data["pair"]):
+                logger.info(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"current profit {current_profit_percentage}% passed "
+                    f"stoploss of {last_readable_sl_percentage}% and above minimum "
+                    f"profit of {deal_data['min_profit_percentage']}%. Closed the deal.",
+                    True
+                )
+            else:
+                logger.error(
+                    f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
+                    f"failed to close this deal. Retry next interval!"
+                )
         else:
             logger.info(
                 f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
@@ -1041,12 +1046,10 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                     logger, api, deal_data["pair"], deal_data["id"], quantity, limitprice
                 ):
                     orderid = get_threecommas_deal_order_id(
-                        logger, api, deal_data["pair"], deal_data["id"], "Manual Safety", "Active"
+                        logger, api, deal_data["id"], "Manual Safety", "Active"
                     )
 
                     rounddigits = get_round_digits(deal_data["pair"])
-
-                    nextsopercentage = sodata[4]
                     shiftpercentage = deal_db_data["shift_percentage"]
 
                     if orderid:
@@ -1061,7 +1064,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
                         )
 
                         add_pending_order_in_db(
-                            deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], nextsopercentage, shiftpercentage
+                            deal_data["id"], bot_data["id"], orderid, sodata[3], sodata[0], sodata[4], shiftpercentage
                         )
                     else:
                         totalfilledso = deal_db_data["filled_so_count"] + sodata[0]
@@ -1079,11 +1082,11 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
 
                         # Save total filled and next SO to database
                         update_safetyorder_in_db(
-                            deal_data["id"], totalfilledso, nextsopercentage, shiftpercentage
+                            deal_data["id"], totalfilledso, sodata[4], shiftpercentage
                         )
 
                         # Set up trailing for next SO
-                        update_safetyorder_monitor_in_db(deal_data["id"], 0.0, nextsopercentage)
+                        update_safetyorder_monitor_in_db(deal_data["id"], 0.0, sodata[4])
                 else:
                     logger.error(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "

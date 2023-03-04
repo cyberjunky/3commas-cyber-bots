@@ -174,7 +174,11 @@ def webhook_deal(thebot, coin, trade):
         if deals:
             for deal in deals:
                 if deal["pair"] == pair:
-                    close_threecommas_deal(logger, api, deal["id"], pair)
+                    if close_threecommas_deal(logger, api, deal["id"], pair):
+                        logger.info(
+                            f"Closed deal (panic_sell) for deal '{deal['id']}' and pair '{pair}'",
+                            True
+                        )
                     return
 
             logger.info(
