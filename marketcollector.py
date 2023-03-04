@@ -62,6 +62,7 @@ def load_config():
         "notify-succesful-update": True,
     }
     cfg["altrank_default"] = {
+        "timeinterval": 3600,
         "lc-apikey": 1,
         "lc-fetchlimit": 500,
         "notify-succesful-update": True,
