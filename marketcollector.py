@@ -442,8 +442,7 @@ def process_cmc_section(section_id):
             update_pair_last_updated(base, coin)
         except KeyError as err:
             logger.error(
-                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
-                % err
+                f"Something went wrong while parsing CoinMarketCap data. KeyError for field: {err}"
             )
             # Rollback any pending changes
             shareddb.rollback()
@@ -485,21 +484,29 @@ def process_cg_section(section_id):
         )
         return False, (60 * 60 * 1)
 
+    requestdelaysec = int(config.get(section_id, "request-delay-sec"), fallback=1)
     data = get_coingecko_data(
-        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base
+        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base, requestdelaysec
     )
 
     # Check if CG replied with an error
     # 0: statuscode
     # 1: cg data
     if data[0] != -1:
-        logger.error(
-            f"{section_id}: received error {data[0]}, "
-            f"Stop processing and retry in one minute again."
-        )
+        if data[0] != 429:
+            logger.error(
+                f"{section_id}: received error {data[0]}, "
+                f"stop processing and retry in one minute again."
+            )
 
-        # And exit loop and retry in one minute
-        return False, 60
+            # And exit loop and retry in one minute
+            return False, 60
+
+        logger.warning(
+            f"{section_id}: received error {data[0]}, "
+            f"processing received data ({len(data[1])} coins) and "
+            f"retry next interval to get all data again."
+        )
 
     isindexprovider = config.get("settings", "index-provider").lower() == "coingecko"
 
@@ -571,8 +578,7 @@ def process_cg_section(section_id):
             update_pair_last_updated(base, coin)
         except KeyError as err:
             logger.error(
-                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
-                % err
+                f"Something went wrong while parsing CoinMarketCap data. KeyError for field: {err}"
             )
             # Rollback any pending changes
             shareddb.rollback()
