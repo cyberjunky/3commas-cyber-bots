@@ -484,7 +484,7 @@ def process_cg_section(section_id):
         )
         return False, (60 * 60 * 1)
 
-    requestdelaysec = int(config.get(section_id, "request-delay-sec"), fallback=1)
+    requestdelaysec = int(config.get(section_id, "request-delay-sec", fallback = 1))
     data = get_coingecko_data(
         logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base, requestdelaysec
     )
@@ -504,7 +504,8 @@ def process_cg_section(section_id):
 
         logger.warning(
             f"{section_id}: received error {data[0]}, "
-            f"processing received data ({len(data[1])} coins) and "
+            f"processing received data ({len(data[1])} out "
+            f"of {endnumber - startnumber} coins) and "
             f"retry next interval to get all data again."
         )
 
