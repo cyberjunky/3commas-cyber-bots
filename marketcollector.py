@@ -485,9 +485,12 @@ def process_cg_section(section_id):
         return False, (60 * 60 * 1)
 
     requestdelaysec = int(config.get(section_id, "request-delay-sec", fallback = 1))
+    ratelimitretrysec = int(config.get(section_id, "ratelimit-retry-sec", fallback = 60))
     data = get_coingecko_data(
         logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base, requestdelaysec
     )
+
+    numberofcoins = len(data[1])
 
     # Check if CG replied with an error
     # 0: statuscode
@@ -496,16 +499,24 @@ def process_cg_section(section_id):
         if data[0] != 429:
             logger.error(
                 f"{section_id}: received error {data[0]}, "
-                f"stop processing and retry in one minute again."
+                f"retry in {ratelimitretrysec} seconds."
             )
 
             # And exit loop and retry in one minute
-            return False, 60
+            return False, ratelimitretrysec
+        elif numberofcoins == 0:           
+            logger.error(
+                f"{section_id}: received error {data[0]} without "
+                f"data, retry in {ratelimitretrysec} seconds."
+            )
+
+            # And exit loop and retry in one minute
+            return False, ratelimitretrysec
 
         logger.warning(
             f"{section_id}: received error {data[0]}, "
-            f"processing received data ({len(data[1])} out "
-            f"of {endnumber - startnumber} coins) and "
+            f"processing received data ({numberofcoins} out "
+            f"of {endnumber - startnumber + 1} coins) and "
             f"retry next interval to get all data again."
         )
 
@@ -579,7 +590,7 @@ def process_cg_section(section_id):
             update_pair_last_updated(base, coin)
         except KeyError as err:
             logger.error(
-                f"Something went wrong while parsing CoinMarketCap data. KeyError for field: {err}"
+                f"Something went wrong while parsing CoinGecko data. KeyError for field: {err}"
             )
             # Rollback any pending changes
             shareddb.rollback()
@@ -590,7 +601,7 @@ def process_cg_section(section_id):
     shareddb.commit()
 
     logger.info(
-        f"CoinGecko; updated {len(data[1])} coins ({startnumber}-{endnumber}) "
+        f"CoinGecko; updated {numberofcoins} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
         config.getboolean(section_id, "notify-succesful-update")
     )
