@@ -62,6 +62,7 @@ def load_config():
         "3c-apisecret": "Your 3Commas API Secret",
         "notifications": False,
         "notify-urls": ["notify-url1"],
+        "notify-trailing-start": True,
         "notify-trailing-update": True,
         "notify-trailing-reset": True,
     }
@@ -189,6 +190,14 @@ def upgrade_config(thelogger, cfg):
     if not cfg.has_option("settings", "notify-trailing-update"):
         cfg.set("settings", "notify-trailing-update", "True")
         cfg.set("settings", "notify-trailing-reset", "True")
+
+        with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
+            cfg.write(cfgfile)
+
+        thelogger.info("Updates settings to add notify options")
+
+    if not cfg.has_option("settings", "notify-trailing-start"):
+        cfg.set("settings", "notify-trailing-start", "True")
 
         with open(f"{datadir}/{program}.ini", "w+", encoding = "utf-8") as cfgfile:
             cfg.write(cfgfile)
@@ -535,7 +544,7 @@ def handle_deal_profit(bot_data, deal_data, deal_db_data, profit_config):
                 )
 
         if tpdata[1] > tpdata[0]:
-            sendnotification = (lastprofitpercentage == 0.0) or notifytrailingupdate
+            sendnotification = (lastprofitpercentage == 0.0 and notifytrailingstart) or notifytrailingupdate
             message += (
                 f"TakeProfit increased from {tpdata[0]}% "
                 f"to {tpdata[1]}%. "
@@ -972,7 +981,7 @@ def handle_deal_safety(bot_data, deal_data, deal_db_data, safety_config, current
         )
 
         if fabs(newaddfundspercentage) > fabs(currentaddfundspercentage):
-            sendnotification = (lastprofitpercentage == 0.0) or notifytrailingupdate
+            sendnotification = (lastprofitpercentage == 0.0 and notifytrailingstart) or notifytrailingupdate
 
             # Update data in database
             update_safetyorder_monitor_in_db(
@@ -1333,6 +1342,7 @@ while True:
     checkinterval = int(config.get("settings", "check-interval"))
     monitorinterval = int(config.get("settings", "monitor-interval"))
 
+    notifytrailingstart = config.getboolean("settings", "notify-trailing-start")
     notifytrailingupdate = config.getboolean("settings", "notify-trailing-update")
     notifytrailingreset = config.getboolean("settings", "notify-trailing-reset")
 
