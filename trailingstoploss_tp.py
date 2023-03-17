@@ -720,7 +720,7 @@ def evaluate_deal_orders(bot_data, deal_data, deal_db_data, order_db_data, total
                     logger.warning(
                         f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']}: "
                         f"cancellation of order {order_db_data['order_id']} failed. "
-                        f"Current state is {orderstatus}. Will be retried next interval..."
+                        f"Current state is {orderstatus}. Evaluate next interval again."
                     )
 
                     # Deal requires monitoring to check if the deal has been filled
