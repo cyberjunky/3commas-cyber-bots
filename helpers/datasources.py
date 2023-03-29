@@ -160,9 +160,8 @@ def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert, del
                 timeout=(3.05, 30.0)
             )
 
-            data = result.json()
-
             if result.ok:
+                data = result.json()
                 for coin in data:
                     if coin.get("market_cap_rank") is not None:
                         if int(coin["market_cap_rank"]) < start_number:
