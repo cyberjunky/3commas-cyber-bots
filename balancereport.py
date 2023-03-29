@@ -319,7 +319,8 @@ def correct_bot_fund_usage(bot_list, funds_list):
             quotefunds -= funds
 
         logger.debug(
-            f"{quote}: changed to {quotefunds} based on strategy {strategy} and required "
+            f"{quote}: changed from {funds_list[quote]} to {quotefunds} "
+            f"based on strategy {strategy} and required "
             f"funds {funds} of bot {bot['name']}"
         )
 
@@ -342,17 +343,18 @@ def process_account_trades(account_id):
         return list_of_trades
 
     for trade in trades:
-
-        strategy = trade["strategy"]
+        positiontype = trade["position"]["type"]
         tradepair = trade["pair"]
         quote = tradepair.split("_")[0]
 
         tradedict = {
             "id": trade["id"],
-            "strategy": strategy,
+            "pair": trade["pair"],
+            "strategy": "long" if positiontype == "buy" else "short",
             "quote": quote,
-            "current": currenttradefunds,
-            "reserved": reservedfunds
+            "current": float(trade["position"]["total"]["value"]),
+            #TODO fetch orders of trade to fill reserved
+            "reserved": float(0.0)
         }
         list_of_trades.append(tradedict)
 
@@ -385,8 +387,9 @@ def correct_trade_fund_usage(trade_list, funds_list):
             quotefunds -= funds
 
         logger.debug(
-            f"{quote}: changed to {quotefunds} based on strategy {strategy} and required "
-            f"funds {funds} of trade {trade['id']}"
+            f"{quote}: changed from {funds_list[quote]} to {quotefunds} "
+            f"based on strategy {strategy} and required "
+            f"funds {funds} of trade {trade['pair']} ({trade['id']})"
         )
 
         funds_list[quote] = quotefunds
@@ -424,9 +427,10 @@ def create_summary(funds_list, bot_list, trade_list):
                 if trade["strategy"] == "long":
                     currenttradeusage += trade["current"]
                     reservedtradeusage += trade["reserved"]
-                    yesterdaytradeprofit += trade["yesterday_profit"]
+                    #TODO implement profit of finished trades
+                    yesterdaytradeprofit += float(0.0)
 
-        free = funds_list[currency] - maxbotusage - reservedtradeusage
+        free = funds_list[currency] - maxbotusage - currenttradeusage - reservedtradeusage
         freepercentage = 0.0
         if free > 0.0:
             freepercentage = round((free / funds_list[currency]) * 100.0, 2)

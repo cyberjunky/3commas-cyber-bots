@@ -75,16 +75,18 @@ def get_threecommas_smarttrades(logger, api, accountid, actiontype="finished"):
     data = None
     if actiontype == "finished":
         payload = {
-            "scope": "finished",
+            "status": "finished",
             "account_id": str(accountid),
             "limit": 100,
+            "per_page": 100,
             "order": "closed_at",
         }
     else:
         payload = {
-            "scope": "active",
+            "status": "active",
             "account_id": str(accountid),
             "limit": 100,
+            "per_page": 100
         }
 
     error, data = api.request(
