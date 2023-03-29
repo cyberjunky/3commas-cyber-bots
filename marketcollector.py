@@ -120,7 +120,10 @@ def upgrade_config(cfg):
             continue
 
         if cfg.has_option(cfgsection, "notify-succesfull-update"):
-            cfg.set(cfgsection, "notify-succesful-update", cfg.get(cfgsection, "notify-succesfull-update"))
+            cfg.set(
+                cfgsection, "notify-succesful-update",
+                cfg.get(cfgsection, "notify-succesfull-update")
+            )
             cfg.remove_option(cfgsection, "notify-succesfull-update")
 
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
@@ -504,7 +507,8 @@ def process_cg_section(section_id):
 
             # And exit loop and retry in one minute
             return False, ratelimitretrysec
-        elif numberofcoins == 0:           
+
+        if numberofcoins == 0:
             logger.error(
                 f"{section_id}: received error {data[0]} without "
                 f"data, retry in {ratelimitretrysec} seconds."
