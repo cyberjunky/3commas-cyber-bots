@@ -67,4 +67,41 @@ def close_threecommas_smarttrade(logger, api, smarttradeid):
         )
 
     return data
-    
+
+
+def get_threecommas_smarttrades(logger, api, accountid, actiontype="finished"):
+    """Get all trades from 3Commas linked to an account."""
+
+    data = None
+    if actiontype == "finished":
+        payload = {
+            "scope": "finished",
+            "account_id": str(accountid),
+            "limit": 100,
+            "order": "closed_at",
+        }
+    else:
+        payload = {
+            "scope": "active",
+            "account_id": str(accountid),
+            "limit": 100,
+        }
+
+    error, data = api.request(
+        entity="smart_trades_v2",
+        action="",
+        payload=payload,
+    )
+    if error:
+        if "msg" in error:
+            logger.error(
+                f"Error occurred while fetching smarttrades: {error['msg']}"
+            )
+        else:
+            logger.error("Error occurred while fetching smarttrades")
+    else:
+        logger.debug(
+            f"Fetched the smarttrades for account {accountid} OK ({len(data)} trades)"
+        )
+
+    return data
