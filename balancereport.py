@@ -24,6 +24,7 @@ from helpers.threecommas import (
     get_threecommas_deals,
     init_threecommas_api,
 )
+from helpers.threecommas_smarttrade import get_threecommas_smarttrades
 
 
 def load_config():
@@ -292,7 +293,7 @@ def process_account_bots(account_id):
     return list_of_bots
 
 
-def correct_fund_usage(bot_list, funds_list):
+def correct_bot_fund_usage(bot_list, funds_list):
     """Calculate the fund usage"""
 
     for bot in bot_list:
@@ -327,22 +328,105 @@ def correct_fund_usage(bot_list, funds_list):
     return funds_list
 
 
-def create_summary(bot_list, funds_list):
+def process_account_trades(account_id):
+    """Process the trades of the account"""
+
+    list_of_trades = []
+
+    trades = get_threecommas_smarttrades(logger, api, account_id, "active")
+
+    if trades is None:
+        logger.debug(
+            f"No smarttrades found for account {account_id}"
+        )
+        return list_of_trades
+
+    for trade in trades:
+
+        strategy = trade["strategy"]
+        tradepair = trade["pair"]
+        quote = tradepair.split("_")[0]
+
+        tradedict = {
+            "id": trade["id"],
+            "strategy": strategy,
+            "quote": quote,
+            "current": currenttradefunds,
+            "reserved": reservedfunds
+        }
+        list_of_trades.append(tradedict)
+
+    return list_of_trades
+
+
+def correct_trade_fund_usage(trade_list, funds_list):
+    """Calculate the fund usage"""
+
+    for trade in trade_list:
+        quote = trade["quote"]
+        strategy = trade["strategy"]
+        funds = trade["current"]
+
+        quotefunds = 0.0
+        if quote in funds_list:
+            quotefunds = funds_list[quote]
+
+        if strategy == "long":
+            quotefunds += funds
+
+            # User could have added manual SO's on top of the configured SO,
+            # substract that amount from the total funds
+            #exceedmax = funds - trade["max"]
+            #if exceedmax > 0.0:
+            #    quotefunds -= exceedmax
+        else:
+            # Short bot fund usage must be substracted from the available amount of funds, because
+            # those funds are required for closing the short deal.
+            quotefunds -= funds
+
+        logger.debug(
+            f"{quote}: changed to {quotefunds} based on strategy {strategy} and required "
+            f"funds {funds} of trade {trade['id']}"
+        )
+
+        funds_list[quote] = quotefunds
+
+    return funds_list
+
+
+def create_summary(funds_list, bot_list, trade_list):
     """Create summary"""
 
     summary_list = []
 
     for currency in funds_list.keys():
+        # Summary for bots
+        botcount = 0
         currentbotusage = 0.0
         maxbotusage = 0.0
-        yesterdayprofit = 0.0
+        yesterdaybotprofit = 0.0
         for bot in bot_list:
-            if bot["quote"] == currency and bot["strategy"] == "long":
-                currentbotusage += bot["current"]
-                maxbotusage += bot["max"]
-                yesterdayprofit += bot["yesterday_profit"]
+            if bot["quote"] == currency:
+                botcount += 1
+                if bot["strategy"] == "long":
+                    currentbotusage += bot["current"]
+                    maxbotusage += bot["max"]
+                    yesterdaybotprofit += bot["yesterday_profit"]
 
-        free = funds_list[currency] - maxbotusage
+        # Summary for trades
+        tradecount = 0
+        currenttradeusage = 0.0
+        reservedtradeusage = 0.0
+        yesterdaytradeprofit = 0.0
+        for trade in trade_list:
+            if trade["quote"] == currency:
+                tradecount += 1
+                if trade["strategy"] == "long":
+                    currenttradeusage += trade["current"]
+                    reservedtradeusage += trade["reserved"]
+                    yesterdaytradeprofit += trade["yesterday_profit"]
+
+        free = funds_list[currency] - maxbotusage - reservedtradeusage
         freepercentage = 0.0
         if free > 0.0:
             freepercentage = round((free / funds_list[currency]) * 100.0, 2)
@@ -350,9 +434,15 @@ def create_summary(bot_list, funds_list):
         currencydict = {
             "currency": currency,
             "balance": funds_list[currency],
+            "bot-count": botcount,
             "current-bot-usage": currentbotusage,
             "max-bot-usage": maxbotusage,
-            "yesterday-profit": yesterdayprofit,
+            "yesterday-bot-profit": yesterdaybotprofit,
+            "trade-count": tradecount,
+            "current-trade-usage": currenttradeusage,
+            "reserved-trade-usage": reservedtradeusage,
+            "max-trade-usage": currenttradeusage + reservedtradeusage,
+            "yesterday-trade-profit": yesterdaytradeprofit,
             "free": free,
             "free %": freepercentage
         }
@@ -482,34 +572,48 @@ while True:
                 continue
 
             logger.info(
-                f"List of funds: {accountfundslist}"
+                f"Initial list of account funds: {accountfundslist}"
             )
 
             # Collect bot and deal data
             botlist = process_account_bots(account["id"])
             if len(botlist) > 0:
                 # Correct funds based on deal data
-                accountfundslist = correct_fund_usage(botlist, accountfundslist)
+                accountfundslist = correct_bot_fund_usage(botlist, accountfundslist)
                 logger.info(
-                    f"List of corrected funds: {accountfundslist}"
+                    f"Account funds after correction for bots: {accountfundslist}"
                 )
 
-                # Create summary based on the funds and log it
-                summary = create_summary(botlist, accountfundslist)
+            # Collect Trades data
+            tradelist = process_account_trades(account["id"])
+            if len(tradelist) > 0:
+                # Correct funds based on deal data           
+                accountfundslist = correct_trade_fund_usage(tradelist, accountfundslist)
+                logger.info(
+                    f"Account funds after correction for trades: {accountfundslist}"
+                )
 
-                currencyoverview = ""
-                for entry in summary:
-                    rounddigits = get_round_digits(entry['currency'])
+            # Create summary based on the funds and log it
+            summary = create_summary(accountfundslist, botlist, tradelist)
 
-                    if currencyoverview:
-                        currencyoverview += "\n"
-                    currencyoverview += f"{entry['currency']}\n"
-                    currencyoverview += f"- Balance: {entry['free']:0.{rounddigits}f} / {entry['balance']:0.{rounddigits}f} ({entry['free %']}% free)\n"
-                    currencyoverview += f"- Profit yesterday: {entry['yesterday-profit']:0.{rounddigits}f}"
+            currencyoverview = ""
+            for entry in summary:
+                rounddigits = get_round_digits(entry['currency'])
 
                 if currencyoverview:
-                    logger.info(currencyoverview, True)
+                    currencyoverview += "\n"
+                currencyoverview += f"{entry['currency']}\n"
+                currencyoverview += f"- Balance: {entry['free']:0.{rounddigits}f} / {entry['balance']:0.{rounddigits}f} ({entry['free %']}% free)\n"
+                currencyoverview += f"  - Bots: {entry['current-bot-usage']:0.{rounddigits}f} / {entry['max-bot-usage']:0.{rounddigits}f}\n"
+                currencyoverview += f"  - Trades: {entry['current-trade-usage']:0.{rounddigits}f} / {entry['max-trade-usage']:0.{rounddigits}f}\n"
+                currencyoverview += f"- Profit yesterday:\n"
+                currencyoverview += f"  - Bots: {entry['yesterday-bot-profit']:0.{rounddigits}f}\n"
+                currencyoverview += f"  - Trades: {entry['yesterday-trade-profit']:0.{rounddigits}f}"
 
+            if currencyoverview:
+                logger.info(currencyoverview, True)
+
+            # Send notification for each account, so the user can see it as seperate messages
             notification.send_notification()
         except IndexError:
             pass
