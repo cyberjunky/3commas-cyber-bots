@@ -142,7 +142,13 @@ def process_bot_deals(bot_id, bot_name, strategy):
                     activesofunds = dealfunddata[1]
 
                     if (max_safety_orders > 0 and current_active_safety_orders == 0):
-                        remainingsofunds -= float(activedeal["bought_volume"])
+                        # Substract bought volume from required funds for all SO's
+                        # only when the SO's are not filled yet
+                        if remainingsofunds > float(activedeal["bought_volume"]):
+                            remainingsofunds -= float(activedeal["bought_volume"])
+                        else:
+                            remainingsofunds = 0.0
+
                         logger.debug(
                             f"Deal {activedeal['id']} SO is managed by trailingstoploss_tp script; "
                             f"in total {remainingsofunds} required and "
@@ -375,12 +381,6 @@ def correct_trade_fund_usage(trade_list, funds_list):
 
         if strategy == "long":
             quotefunds += funds
-
-            # User could have added manual SO's on top of the configured SO,
-            # substract that amount from the total funds
-            #exceedmax = funds - trade["max"]
-            #if exceedmax > 0.0:
-            #    quotefunds -= exceedmax
         else:
             # Short bot fund usage must be substracted from the available amount of funds, because
             # those funds are required for closing the short deal.
@@ -591,7 +591,7 @@ while True:
             # Collect Trades data
             tradelist = process_account_trades(account["id"])
             if len(tradelist) > 0:
-                # Correct funds based on deal data           
+                # Correct funds based on deal data
                 accountfundslist = correct_trade_fund_usage(tradelist, accountfundslist)
                 logger.info(
                     f"Account funds after correction for trades: {accountfundslist}"
@@ -610,9 +610,9 @@ while True:
                 currencyoverview += f"- Balance: {entry['free']:0.{rounddigits}f} / {entry['balance']:0.{rounddigits}f} ({entry['free %']}% free)\n"
                 currencyoverview += f"  - Bots: {entry['current-bot-usage']:0.{rounddigits}f} / {entry['max-bot-usage']:0.{rounddigits}f}\n"
                 currencyoverview += f"  - Trades: {entry['current-trade-usage']:0.{rounddigits}f} / {entry['max-trade-usage']:0.{rounddigits}f}\n"
-                currencyoverview += f"- Profit yesterday:\n"
+                currencyoverview += "- Profit yesterday:\n"
                 currencyoverview += f"  - Bots: {entry['yesterday-bot-profit']:0.{rounddigits}f}\n"
-                currencyoverview += f"  - Trades: {entry['yesterday-trade-profit']:0.{rounddigits}f}"
+                #currencyoverview += f"  - Trades: {entry['yesterday-trade-profit']:0.{rounddigits}f}"
 
             if currencyoverview:
                 logger.info(currencyoverview, True)
