@@ -120,7 +120,10 @@ def upgrade_config(cfg):
             continue
 
         if cfg.has_option(cfgsection, "notify-succesfull-update"):
-            cfg.set(cfgsection, "notify-succesful-update", cfg.get(cfgsection, "notify-succesfull-update"))
+            cfg.set(
+                cfgsection, "notify-succesful-update",
+                cfg.get(cfgsection, "notify-succesfull-update")
+            )
             cfg.remove_option(cfgsection, "notify-succesfull-update")
 
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
@@ -442,8 +445,7 @@ def process_cmc_section(section_id):
             update_pair_last_updated(base, coin)
         except KeyError as err:
             logger.error(
-                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
-                % err
+                f"Something went wrong while parsing CoinMarketCap data. KeyError for field: {err}"
             )
             # Rollback any pending changes
             shareddb.rollback()
@@ -485,21 +487,42 @@ def process_cg_section(section_id):
         )
         return False, (60 * 60 * 1)
 
+    requestdelaysec = int(config.get(section_id, "request-delay-sec", fallback = 1))
+    ratelimitretrysec = int(config.get(section_id, "ratelimit-retry-sec", fallback = 60))
     data = get_coingecko_data(
-        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base
+        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base, requestdelaysec
     )
+
+    numberofcoins = len(data[1])
 
     # Check if CG replied with an error
     # 0: statuscode
     # 1: cg data
     if data[0] != -1:
-        logger.error(
-            f"{section_id}: received error {data[0]}, "
-            f"Stop processing and retry in one minute again."
-        )
+        if data[0] != 429:
+            logger.error(
+                f"{section_id}: received error {data[0]}, "
+                f"retry in {ratelimitretrysec} seconds."
+            )
 
-        # And exit loop and retry in one minute
-        return False, 60
+            # And exit loop and retry in one minute
+            return False, ratelimitretrysec
+
+        if numberofcoins == 0:
+            logger.error(
+                f"{section_id}: received error {data[0]} without "
+                f"data, retry in {ratelimitretrysec} seconds."
+            )
+
+            # And exit loop and retry in one minute
+            return False, ratelimitretrysec
+
+        logger.warning(
+            f"{section_id}: received error {data[0]}, "
+            f"processing received data ({numberofcoins} out "
+            f"of {endnumber - startnumber + 1} coins) and "
+            f"retry next interval to get all data again."
+        )
 
     isindexprovider = config.get("settings", "index-provider").lower() == "coingecko"
 
@@ -571,8 +594,7 @@ def process_cg_section(section_id):
             update_pair_last_updated(base, coin)
         except KeyError as err:
             logger.error(
-                "Something went wrong while parsing CoinMarketCap data. KeyError for field: %s"
-                % err
+                f"Something went wrong while parsing CoinGecko data. KeyError for field: {err}"
             )
             # Rollback any pending changes
             shareddb.rollback()
@@ -583,7 +605,7 @@ def process_cg_section(section_id):
     shareddb.commit()
 
     logger.info(
-        f"CoinGecko; updated {len(data[1])} coins ({startnumber}-{endnumber}) "
+        f"CoinGecko; updated {numberofcoins} coins ({startnumber}-{endnumber}) "
         f"for base '{base}'.",
         config.getboolean(section_id, "notify-succesful-update")
     )
