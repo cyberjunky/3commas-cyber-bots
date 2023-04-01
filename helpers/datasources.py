@@ -35,7 +35,10 @@ def get_lunarcrush_data(logger, program, config, section, usdtbtcprice):
 
     try:
         result = requests.request(
-            "GET", "https://lunarcrush.com/api3/coins", headers=headers, params=parms
+            "GET", "https://lunarcrush.com/api3/coins",
+            headers=headers,
+            params=parms,
+            timeout=(3.05, 30.0)
         )
         result.raise_for_status()
         data = result.json()
@@ -90,6 +93,7 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
             "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
             params=parms,
             headers=headrs,
+            timeout=(3.05, 30.0)
         )
 
         data = result.json()
@@ -109,13 +113,13 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
             statuscode = data['status']['error_code']
             statusmessage = data['status']['error_message']
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching CoinMarketCap data failed with error: %s" % err)
+        logger.error(f"Fetching CoinMarketCap data failed with error: {err}")
         return 0, err, {}
 
     return statuscode, statusmessage, cmcdict
 
 
-def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert):
+def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert, delay_sec):
     """Get the data from CoinGecko."""
 
     cgdict = []
@@ -139,16 +143,25 @@ def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert):
         # Range from first page number to fetch (always 1 or higher), to page
         # number to stop at (hence the +2)
         for page in range(int(start_number / pagecount) + 1, int(end_number / pagecount) + 2):
+            # Optimize a bit, request only the remaining coins on the last page
+            if page * pagecount > end_number:
+                if end_number < pagecount:
+                    # Single page with less than 250 coins requested
+                    parms["per_page"] = end_number
+                else:
+                    # Multiple pages, substract the fetched number of coins from the previous pages
+                    parms["per_page"] = end_number - ((page - 1) * pagecount)
+
             parms["page"] = page
 
             result = requests.get(
                 "https://api.coingecko.com/api/v3/coins/markets",
-                params=parms
+                params=parms,
+                timeout=(3.05, 30.0)
             )
 
-            data = result.json()
-
             if result.ok:
+                data = result.json()
                 for coin in data:
                     if coin.get("market_cap_rank") is not None:
                         if int(coin["market_cap_rank"]) < start_number:
@@ -164,12 +177,12 @@ def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert):
                         )
 
                 # Prevent rate limit error by waiting a bit for the next request
-                time.sleep(1)
+                time.sleep(delay_sec)
             else:
                 statuscode = result.status_code
                 break
     except requests.exceptions.HTTPError as err:
-        logger.error("Fetching CoinGecko data failed with error: %s" % err)
+        logger.error(f"Fetching CoinGecko data failed with error: {err}")
         return 0, {}
 
     return statuscode, cgdict
