@@ -100,14 +100,6 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
 
         if result.ok:
             if "data" in data.keys():
-                for i, cmc in enumerate(data["data"], start=1):
-                    cmc["rank"] = i
-                    logger.debug(
-                        f"rank:{cmc['rank']:3d}  cmc_rank:{cmc['cmc_rank']:3d}  s:{cmc['symbol']:8}"
-                        f"'{cmc['name']:25}' volume_24h:{cmc['quote'][convert]['volume_24h']:12.2f}"
-                        f"volume_change_24h:{cmc['quote'][convert]['volume_change_24h']:5.2f} "
-                        f"market_cap:{cmc['quote'][convert]['market_cap']:12.2f}"
-                    )
                 cmcdict = data["data"]
         else:
             statuscode = data['status']['error_code']
@@ -119,38 +111,47 @@ def get_coinmarketcap_data(logger, cmc_apikey, start_number, limit, convert):
     return statuscode, statusmessage, cmcdict
 
 
-def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert, delay_sec):
+def get_coingecko_data(logger, cg_apikey, start_number, end_number, convert, change_percentage, page_size, delay_sec):
     """Get the data from CoinGecko."""
 
     cgdict = []
     statuscode = -1
 
     # Construct query for CoinGecko data
-    pagecount = 250
     parms = {
-        "per_page": pagecount,
+        "per_page": page_size,
         "page": 1,
         "sparkline": False,
         "vs_currency": convert,
         "order": "market_cap_desc",
-        "price_change_percentage": "1h,24h,7d,14d,30d,200d,1y"
+        "price_change_percentage": change_percentage
     }
 
     if cg_apikey:
         parms["x_cg_pro_api_key"] = cg_apikey
 
     try:
-        # Range from first page number to fetch (always 1 or higher), to page
-        # number to stop at (hence the +2)
-        for page in range(int(start_number / pagecount) + 1, int(end_number / pagecount) + 2):
+        # Range from first page number to fetch, to page number to stop at
+        # The +1 and +1/+2 are required because the page stop should be one
+        # higher than the last page to fetch
+        rangestart = int(start_number / page_size) + 1
+        rangestop = int(end_number / page_size) + (1 if end_number >= page_size else 2)
+
+        logger.debug(
+            f"Calculated page range between {rangestart} and {rangestop} "
+            f"for page_size = {page_size}, start_number = {start_number}, "
+            f"end_number = {end_number}"
+        )
+
+        for page in range(rangestart, rangestop, 1):
             # Optimize a bit, request only the remaining coins on the last page
-            if page * pagecount > end_number:
-                if end_number < pagecount:
+            if page * page_size > end_number:
+                if end_number < page_size:
                     # Single page with less than 250 coins requested
                     parms["per_page"] = end_number
                 else:
                     # Multiple pages, substract the fetched number of coins from the previous pages
-                    parms["per_page"] = end_number - ((page - 1) * pagecount)
+                    parms["per_page"] = end_number - ((page - 1) * page_size)
 
             parms["page"] = page
 
@@ -241,7 +242,6 @@ def get_botassist_data(logger, botassistlist, start_number, limit):
                     if pairdata["symbol"].replace(" ", "") == "-":
                         pairdata["symbol"] = pairdata["pair"].split("_")[1]
 
-                    logger.debug(f"Rank {rank}: {pairdata}")
                     pairs.append(pairdata)
 
                     if limit and rank == limit:
