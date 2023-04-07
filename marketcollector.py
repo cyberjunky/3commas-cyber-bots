@@ -40,6 +40,7 @@ def load_config():
         "cleanup-treshold": 86400,
         "debug": False,
         "debug-log-query": False,
+        "debug-coin-data": False,
         "logrotate": 7,
         "cmc-apikey": "Your CoinMarketCap API Key",
         "cg-apikey": "Your CoinGecko API key (only required for paid plans), or empty",
@@ -114,6 +115,14 @@ def upgrade_config(cfg):
             cfg.write(cfgfile)
 
         logger.info("Upgraded section settings to have debug-log-query option")
+
+    if not cfg.has_option("settings", "debug-coin-data"):
+        cfg.set("settings", "debug-coin-data", "False")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded section settings to have debug-coin-data option")
 
     for cfgsection in cfg.sections():
         if cfgsection == "settings":
@@ -261,9 +270,10 @@ def add_pair(base, coin):
     ubase = base.upper()
     ucoin = coin.upper()
 
-    logger.debug(
-        f"Add pair {ubase}_{ucoin} to database."
-    )
+    if config.getboolean("settings", "debug-coin-data"):
+        logger.debug(
+            f"Add pair {ubase}_{ucoin} to database."
+        )
 
     shareddb.execute(
         f"INSERT INTO pairs ("
@@ -299,9 +309,10 @@ def remove_pair(base, coin):
     ubase = base.upper()
     ucoin = coin.upper()
 
-    logger.debug(
-        f"Remove pair {ubase}_{ucoin} from database."
-    )
+    if config.getboolean("settings", "debug-coin-data"):
+        logger.debug(
+            f"Remove pair {ubase}_{ucoin} from database."
+        )
 
     shareddb.execute(
         f"DELETE FROM pairs "
@@ -423,9 +434,11 @@ def process_cmc_section(section_id):
                     add_pair(base, coin)
                 else:
                     # Coin does not exist, skip this one
-                    logger.debug(
-                        f"Coin {coin} not in database, cannot update data for this coin."
-                    )
+                    if config.getboolean("settings", "debug-coin-data"):
+                        logger.debug(
+                            f"Coin {coin} not in database, cannot update data for this coin."
+                        )
+
                     continue
 
             if isindexprovider:
@@ -487,10 +500,15 @@ def process_cg_section(section_id):
         )
         return False, (60 * 60 * 1)
 
+    pricechanges = config.get(
+        section_id, "price-change-timeframes", fallback = "1h,24h,7d,14d,30d,200d,1y"
+    )
+    pagesize = int(config.get(section_id, "request-page_size", fallback = 250))
     requestdelaysec = int(config.get(section_id, "request-delay-sec", fallback = 1))
     ratelimitretrysec = int(config.get(section_id, "ratelimit-retry-sec", fallback = 60))
     data = get_coingecko_data(
-        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base, requestdelaysec
+        logger, config.get("settings", "cg-apikey"), startnumber, endnumber, base,
+        pricechanges, pagesize, requestdelaysec
     )
 
     numberofcoins = len(data[1])
@@ -502,7 +520,8 @@ def process_cg_section(section_id):
         if data[0] != 429:
             logger.error(
                 f"{section_id}: received error {data[0]}, "
-                f"retry in {ratelimitretrysec} seconds."
+                f"retry in {ratelimitretrysec} seconds.",
+                False
             )
 
             # And exit loop and retry in one minute
@@ -511,10 +530,14 @@ def process_cg_section(section_id):
         if numberofcoins == 0:
             logger.error(
                 f"{section_id}: received error {data[0]} without "
-                f"data, retry in {ratelimitretrysec} seconds."
+                f"data, retry in {ratelimitretrysec} seconds.",
+                False
             )
 
-            # And exit loop and retry in one minute
+            # Delay a bit to help the API recover
+            time.sleep(requestdelaysec)
+
+            # And exit loop and retry in specified time
             return False, ratelimitretrysec
 
         logger.warning(
@@ -568,9 +591,11 @@ def process_cg_section(section_id):
                     add_pair(base, coin)
                 else:
                     # Coin does not exist, skip this one
-                    logger.debug(
-                        f"Coin {coin} not in database, cannot update data for this coin."
-                    )
+                    if config.getboolean("settings", "debug-coin-data"):
+                        logger.debug(
+                            f"Coin {coin} not in database, cannot update data for this coin."
+                        )
+
                     continue
 
             if isindexprovider:
@@ -640,9 +665,11 @@ def process_lunarcrush_section(section_id, listtype):
 
         if not has_pair("*", coin):
             # Coin does not exist, skip this one
-            logger.debug(
-                f"Coin {coin} not in database, cannot update {listtype} data for this coin."
-            )
+            if config.getboolean("settings", "debug-coin-data"):
+                logger.debug(
+                    f"Coin {coin} not in database, cannot update {listtype} data for this coin."
+                )
+
             continue
 
         # Update rankings data (both Altrank and GalaxyScore are available in the data)
@@ -768,21 +795,26 @@ def cleanup_volatility_data(current_data, previous_data):
     for coin in previous_data.keys():
         if coin in current_data:
             # Coin is updated and actual
-            logger.debug(
-                f"Coin {coin} from previous interval also in current interval."
-            )
+            if config.getboolean("settings", "debug-coin-data"):
+                logger.debug(
+                    f"Coin {coin} from previous interval also in current interval."
+                )
+
             continue
 
         if not has_pair("USD", coin):
             # Coin does not exist anymore
-            logger.debug(
-                f"Coin {coin} from previous interval not in db anymore."
-            )
+            if config.getboolean("settings", "debug-coin-data"):
+                logger.debug(
+                    f"Coin {coin} from previous interval not in db anymore."
+                )
+
             continue
 
-        logger.debug(
-            f"Coin {coin} from previous interval not in current interval. Reset data!"
-        )
+        if config.getboolean("settings", "debug-coin-data"):
+            logger.debug(
+                f"Coin {coin} from previous interval not in current interval. Reset data!"
+            )
 
         # Coin not updated and does still exist. Reset old data
         pricesdata = {}
@@ -791,7 +823,7 @@ def cleanup_volatility_data(current_data, previous_data):
 
         coincount += 1
 
-    logger.debug(
+    logger.info(
         f"Removed {coincount} coins for which the volatility data was outdated."
     )
 
@@ -927,7 +959,6 @@ sectionstorage = {}
 
 # Reset some specific data (we don't know how old it is)
 reset_database_data()
-forceupdate = False
 
 # Refresh market data based on several data sources
 while True:
@@ -958,15 +989,8 @@ while True:
             sectiontimeinterval = int(config.get(section, "timeinterval"))
             nextprocesstime = get_next_process_time(db, "sections", "sectionid", section)
 
-            logger.debug(
-                f"Section {section}: next update at "
-                f"{unix_timestamp_to_string(nextprocesstime, '%Y-%m-%d %H:%M:%S')}, "
-                f"current time = "
-                f"{unix_timestamp_to_string(currenttime, '%Y-%m-%d %H:%M:%S')}, "
-            )
-
             # Only process the section if it's forced, or it's time for the next interval
-            if forceupdate or currenttime >= nextprocesstime:
+            if currenttime >= nextprocesstime:
                 sectionresult = None
                 if iscmcsection:
                     sectionresult = process_cmc_section(section)
@@ -1002,9 +1026,6 @@ while True:
                 f"Section '{section}' not processed!",
                 False
             )
-
-    # Inital update executed, from here on rely on the section timeinterval
-    forceupdate = False
 
     if not wait_time_interval(logger, notification, timeint, False):
         break
