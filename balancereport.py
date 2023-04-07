@@ -24,7 +24,10 @@ from helpers.threecommas import (
     get_threecommas_deals,
     init_threecommas_api,
 )
-from helpers.threecommas_smarttrade import get_threecommas_smarttrades
+from helpers.threecommas_smarttrade import (
+    get_threecommas_smarttrade_orders,
+    get_threecommas_smarttrades
+)
 
 
 def load_config():
@@ -326,7 +329,7 @@ def correct_bot_fund_usage(bot_list, funds_list):
 
         logger.debug(
             f"{quote}: changed from {funds_list[quote]} to {quotefunds} "
-            f"based on strategy {strategy} and required "
+            f"based on strategy {strategy} and current used "
             f"funds {funds} of bot {bot['name']}"
         )
 
@@ -341,7 +344,6 @@ def process_account_trades(account_id):
     list_of_trades = []
 
     trades = get_threecommas_smarttrades(logger, api, account_id, "active")
-
     if trades is None:
         logger.debug(
             f"No smarttrades found for account {account_id}"
@@ -353,16 +355,39 @@ def process_account_trades(account_id):
         tradepair = trade["pair"]
         quote = tradepair.split("_")[0]
 
+        orderdata = get_threecommas_smarttrade_orders(logger, api, trade["id"])
+
+        reserved = 0.0
+        for order in orderdata:
+            if order["order_side"] == "buy" and order["status"] == "order_placed":
+                reserved += float(order["initial_total"])
+
+                logger.debug(
+                    f"Open order {order['id']} for {order['initial_total']} found; "
+                    f"increased reserved amount to {reserved}"
+                )
+
+        # Gather current profit of open trade. Only consider when trade is actually
+        # started and orders are filled
+        currentprofit = 0.0
+        if trade["status"]["type"] == "waiting_targets":
+            currentprofit = float(trade["profit"]["volume"])
+
         tradedict = {
             "id": trade["id"],
             "pair": trade["pair"],
             "strategy": "long" if positiontype == "buy" else "short",
             "quote": quote,
-            "current": float(trade["position"]["total"]["value"]),
-            #TODO fetch orders of trade to fill reserved
-            "reserved": float(0.0)
+            "current": float(trade["data"]["entered_total"]),
+            "current_profit": currentprofit,
+            "reserved": reserved
         }
         list_of_trades.append(tradedict)
+
+        logger.debug(
+            f"'{trade['id']}/{trade['pair']}' currently using {tradedict['current']} "
+            f"and reserved {tradedict['reserved']} funds."
+        )
 
     return list_of_trades
 
@@ -420,15 +445,14 @@ def create_summary(funds_list, bot_list, trade_list):
         tradecount = 0
         currenttradeusage = 0.0
         reservedtradeusage = 0.0
-        yesterdaytradeprofit = 0.0
+        currenttradeprofit = 0.0
         for trade in trade_list:
             if trade["quote"] == currency:
                 tradecount += 1
                 if trade["strategy"] == "long":
                     currenttradeusage += trade["current"]
                     reservedtradeusage += trade["reserved"]
-                    #TODO implement profit of finished trades
-                    yesterdaytradeprofit += float(0.0)
+                    currenttradeprofit += trade["current_profit"]
 
         free = funds_list[currency] - maxbotusage - currenttradeusage - reservedtradeusage
         freepercentage = 0.0
@@ -446,7 +470,7 @@ def create_summary(funds_list, bot_list, trade_list):
             "current-trade-usage": currenttradeusage,
             "reserved-trade-usage": reservedtradeusage,
             "max-trade-usage": currenttradeusage + reservedtradeusage,
-            "yesterday-trade-profit": yesterdaytradeprofit,
+            "current-trade-profit": currenttradeprofit,
             "free": free,
             "free %": freepercentage
         }
@@ -610,9 +634,9 @@ while True:
                 currencyoverview += f"- Balance: {entry['free']:0.{rounddigits}f} / {entry['balance']:0.{rounddigits}f} ({entry['free %']}% free)\n"
                 currencyoverview += f"  - Bots: {entry['current-bot-usage']:0.{rounddigits}f} / {entry['max-bot-usage']:0.{rounddigits}f}\n"
                 currencyoverview += f"  - Trades: {entry['current-trade-usage']:0.{rounddigits}f} / {entry['max-trade-usage']:0.{rounddigits}f}\n"
-                currencyoverview += "- Profit yesterday:\n"
-                currencyoverview += f"  - Bots: {entry['yesterday-bot-profit']:0.{rounddigits}f}\n"
-                #currencyoverview += f"  - Trades: {entry['yesterday-trade-profit']:0.{rounddigits}f}"
+                currencyoverview += "- Profit:\n"
+                currencyoverview += f"  - Bots yesterday: {entry['yesterday-bot-profit']:0.{rounddigits}f}\n"
+                currencyoverview += f"  - Trades current: {entry['current-trade-profit']:0.{rounddigits}f}"
 
             if currencyoverview:
                 logger.info(currencyoverview, True)
