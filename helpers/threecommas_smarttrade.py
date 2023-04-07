@@ -1,6 +1,8 @@
 """Cyberjunky's 3Commas bot helpers."""
 
-def open_threecommas_smarttrade(logger, api, accountid, pair, note, position, take_profit, stop_loss):
+def open_threecommas_smarttrade(
+        logger, api, accountid, pair, note, position, take_profit, stop_loss
+    ):
     """Open smarttrade with the given position, profit and stoploss."""
 
     payload = {
@@ -104,6 +106,31 @@ def get_threecommas_smarttrades(logger, api, accountid, actiontype="finished"):
     else:
         logger.debug(
             f"Fetched the smarttrades for account {accountid} OK ({len(data)} trades)"
+        )
+
+    return data
+
+
+def get_threecommas_smarttrade_orders(logger, api, trade_id):
+    """Get all orders from 3Commas SmartTrade."""
+
+    data = None
+
+    error, data = api.request(
+        entity="smart_trades_v2",
+        action="get_trades",
+        action_id=str(trade_id)
+    )
+    if error:
+        if "msg" in error:
+            logger.error(
+                f"Error occurred while fetching orders for smarttrade {trade_id}: {error['msg']}"
+            )
+        else:
+            logger.error("Error occurred while fetching orders for smarttrade")
+    else:
+        logger.debug(
+            f"Fetched the orders for smarttrade {trade_id} OK ({len(data)} orders)"
         )
 
     return data
