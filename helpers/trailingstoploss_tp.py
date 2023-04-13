@@ -405,12 +405,12 @@ def validate_add_funds_data(logger, bot_data, deal_data, limit_data, quantity):
     return valid
 
 
-def is_valid_deal(logger, bot_data, deal_data):
+def is_valid_deal(logger, bot_data, deal_data, section_safety_config):
     """Validate the deal and determine if we can process it"""
 
     valid = True
 
-    if deal_data['active_safety_orders_count'] != 0:
+    if deal_data['active_safety_orders_count'] != 0 and len(section_safety_config) > 0:
         logger.warning(
             f"\"{bot_data['name']}\": {deal_data['pair']}/{deal_data['id']} "
             f"has active Safety Orders by bot configuration which will break the "

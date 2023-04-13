@@ -344,12 +344,11 @@ def process_deals(bot_data, section_profit_config, section_safety_config, sectio
 
         processdeal = True
         if is_new_deal(cursor, deal["id"]):
-            if is_valid_deal(logger, bot_data, deal):
+            if is_valid_deal(logger, bot_data, deal, section_safety_config):
                 add_deal_in_db(deal["id"], botid)
 
                 # Calculate the percentage for the first Safety Order
-                if len(section_safety_config) > 0:
-                    set_first_safety_order(bot_data, deal, 0, 0.0)
+                set_first_safety_order(bot_data, deal, 0, 0.0)
             else:
                 # No valid deal (yet), so don't process it for now
                 processdeal = False
