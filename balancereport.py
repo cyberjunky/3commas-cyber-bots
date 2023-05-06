@@ -81,7 +81,7 @@ def create_account_balance(account_id):
     for currency in balancetable:
         code = currency["currency_code"]
 
-        if code not in ("BUSD", "EUR", "USD", "USDT", "BTC", "BNB", "ETH"):
+        if code not in ("BUSD", "EUR", "USD", "USDT", "USDC", "TUSD", "BTC", "BNB", "ETH"):
             continue
 
         # Position is the total, including reserved but excluding active deals (for
@@ -314,6 +314,7 @@ def correct_bot_fund_usage(bot_list, funds_list):
         if quote in funds_list:
             quotefunds = funds_list[quote]
 
+        oldquotefunds = quotefunds
         if strategy == "long":
             quotefunds += funds
 
@@ -328,7 +329,7 @@ def correct_bot_fund_usage(bot_list, funds_list):
             quotefunds -= funds
 
         logger.debug(
-            f"{quote}: changed from {funds_list[quote]} to {quotefunds} "
+            f"{quote}: changed from {oldquotefunds} to {quotefunds} "
             f"based on strategy {strategy} and current used "
             f"funds {funds} of bot {bot['name']}"
         )
