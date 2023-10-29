@@ -60,6 +60,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "notifications": False,
         "notify-urls": ["notify-url1"],
         "notify-trailing-start": True,
@@ -203,6 +204,14 @@ def upgrade_config(thelogger, cfg):
             cfg.write(cfgfile)
 
         thelogger.info("Updates settings to add notify options")
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
 
     return cfg
 

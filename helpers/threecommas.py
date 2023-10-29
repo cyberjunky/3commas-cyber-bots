@@ -39,6 +39,7 @@ def init_threecommas_api(cfg):
     return Py3CW(
         key = cfg.get("settings", "3c-apikey"),
         secret = cfg.get("settings", "3c-apisecret"),
+        selfsigned = cfg.get("settings", "3c-apiselfsigned", fallback = ""),
         request_options={
             "request_timeout": 10,
             "nr_of_retries": 3,

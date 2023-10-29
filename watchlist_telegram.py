@@ -48,6 +48,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "tgram-phone-number": "Your Telegram Phone number",
         "tgram-api-id": "Your Telegram API ID",
         "tgram-api-hash": "Your Telegram API Hash",
@@ -93,7 +94,7 @@ def load_config():
     return None
 
 
-def upgrade_config(thelogger, cfg):
+def upgrade_config(cfg):
     """Upgrade config file if needed."""
 
     if not cfg.has_section("smarttrade"):
@@ -106,7 +107,15 @@ def upgrade_config(thelogger, cfg):
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
-        thelogger.info("Upgraded the configuration file (added smarttrade section)")
+        logger.info("Upgraded the configuration file (added smarttrade section)")
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
 
     return cfg
 
@@ -546,7 +555,7 @@ else:
     )
 
 # Upgrade config file if needed
-config = upgrade_config(logger, config)
+config = upgrade_config(config)
 
 # Validation of data before starting
 hl5exchange = config.get("hodloo_5", "exchange")

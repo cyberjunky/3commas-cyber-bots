@@ -31,6 +31,7 @@ def load_config():
         "initial-stoploss-percentage": "[]",
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -41,7 +42,7 @@ def load_config():
     return None
 
 
-def upgrade_config(thelogger, cfg):
+def upgrade_config(cfg):
     """Upgrade config file if needed."""
 
     try:
@@ -51,7 +52,15 @@ def upgrade_config(thelogger, cfg):
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
-        thelogger.info("Upgraded the configuration file")
+        logger.info("Upgraded the configuration file")
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
 
     return cfg
 
@@ -241,7 +250,7 @@ else:
     )
 
     # Upgrade config file if needed
-    config = upgrade_config(logger, config)
+    config = upgrade_config(config)
 
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
