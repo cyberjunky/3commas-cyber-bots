@@ -42,6 +42,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "notifications": False,
         "notify-urls": ["notify-url1"],
     }
@@ -65,40 +66,8 @@ def load_config():
     return None
 
 
-def upgrade_config(thelogger, theapi, cfg):
+def upgrade_config(cfg):
     """Upgrade config file if needed."""
-
-    for cfg_section in config.sections():
-        if cfg_section.startswith("botassist_"):
-            if not cfg.has_option(cfg_section, "originalmaxdeals"):
-                thebotids = json.loads(cfg.get(cfg_section, "botids"))
-
-                newmaxdeals = 0
-                # Walk through all bots configured
-                for thebot in thebotids:
-                    error, data = theapi.request(
-                        entity="bots",
-                        action="show",
-                        action_id=str(thebot),
-                    )
-                    if data:
-                        if int(data["max_active_deals"]) > newmaxdeals:
-                            newmaxdeals = int(data["max_active_deals"])
-                    else:
-                        if error and "msg" in error:
-                            logger.error(
-                                "Error occurred upgrading config: %s" % error["msg"]
-                            )
-                        else:
-                            logger.error("Error occurred upgrading config")
-
-                cfg.set(cfg_section, "originalmaxdeals", str(newmaxdeals))
-                cfg.set(cfg_section, "allowmaxdealchange", "False")
-
-                with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-                    cfg.write(cfgfile)
-
-                thelogger.info("Upgraded the configuration file (added deal changing)")
 
     for cfgsection in cfg.sections():
         if cfgsection.startswith("botassist_"):
@@ -109,7 +78,7 @@ def upgrade_config(thelogger, theapi, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info(
+                logger.info(
                     "Upgraded the configuration file (mingalaxyscore and bot stop-start)"
                 )
 
@@ -119,7 +88,7 @@ def upgrade_config(thelogger, theapi, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Upgraded the configuration file (maxaltrankscore)")
+                logger.info("Upgraded the configuration file (maxaltrankscore)")
 
             if not cfg.has_option(cfgsection, "maxvolatility"):
                 cfg.set(cfgsection, "maxvolatility", "0.0")
@@ -127,7 +96,7 @@ def upgrade_config(thelogger, theapi, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Upgraded the configuration file (maxvolatility)")
+                logger.info("Upgraded the configuration file (maxvolatility)")
 
             if not cfg.has_option(cfgsection, "allowpairconversion"):
                 cfg.set(cfgsection, "allowpairconversion", "False")
@@ -135,7 +104,15 @@ def upgrade_config(thelogger, theapi, cfg):
                 with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                     cfg.write(cfgfile)
 
-                thelogger.info("Upgraded the configuration file (allowpairconversion)")
+                logger.info("Upgraded the configuration file (allowpairconversion)")
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
 
     return cfg
 
@@ -368,13 +345,13 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
-
-# Upgrade config file if needed
-config = upgrade_config(logger, api, config)
 
 # Refresh coin pairs based on CoinMarketCap data
 while True:

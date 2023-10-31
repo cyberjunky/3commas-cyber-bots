@@ -44,6 +44,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "lc-apikey": "Your LunarCrush API Key",
         "lc-fetchlimit": 150,
         "notifications": False,
@@ -66,7 +67,7 @@ def load_config():
     return None
 
 
-def upgrade_config(thelogger, theapi, cfg):
+def upgrade_config(cfg):
     """Upgrade config file if needed."""
 
     try:
@@ -74,47 +75,6 @@ def upgrade_config(thelogger, theapi, cfg):
     except configparser.NoOptionError:
         logger.error(f"Upgrading config file '{datadir}/{program}.ini'")
         cfg.set("settings", "lc-fetchlimit", "150")
-
-    if cfg.has_option("settings", "botids"):
-        thebotids = json.loads(cfg.get("settings", "botids"))
-
-        default_numberofpairs = int(config.get("settings", "numberofpairs"))
-        default_maxaltrankscore = int(
-            config.get("settings", "maxaltrankscore", fallback=1500)
-        )
-
-        # Walk through all bots configured
-        for thebot in thebotids:
-            if not cfg.has_section(f"bot_{thebot}"):
-
-                error, data = theapi.request(
-                    entity="bots",
-                    action="show",
-                    action_id=str(thebot),
-                )
-                if data:
-                    # Add new config section
-                    cfg[f"bot_{thebot}"] = {
-                        "maxaltrankscore": default_maxaltrankscore,
-                        "numberofpairs": default_numberofpairs,
-                        "originalmaxdeals": int(data["max_active_deals"]),
-                        "allowmaxdealchange": False,
-                        "comment": data["name"].replace('%','%%'),
-                    }
-                else:
-                    if error and "msg" in error:
-                        logger.error(
-                            "Error occurred upgrading config: %s" % error["msg"]
-                        )
-                    else:
-                        logger.error("Error occurred upgrading config")
-
-        cfg.remove_option("settings", "botids")
-
-        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
-            cfg.write(cfgfile)
-
-        thelogger.info("Upgraded the configuration file (create sections)")
 
     for cfgsection in cfg.sections():
         if cfgsection.startswith("bot_") and not cfg.has_option(cfgsection, "mingalaxyscore"):
@@ -124,7 +84,15 @@ def upgrade_config(thelogger, theapi, cfg):
             with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
                 cfg.write(cfgfile)
 
-            thelogger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
+            logger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
 
     return cfg
 
@@ -346,11 +314,13 @@ else:
         config.getboolean("settings", "notifications"),
     )
 
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
+    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
+
 # Initialize 3Commas API
 api = init_threecommas_api(config)
-
-# Upgrade config file if needed
-config = upgrade_config(logger, api, config)
 
 logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 

@@ -1,4 +1,4 @@
-py3cw==0.0.39
+py3cw==0.1.1
 apprise==1.2.1
 telethon==1.27.0
 beautifulsoup4==4.11.2

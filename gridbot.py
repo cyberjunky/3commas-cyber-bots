@@ -31,6 +31,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
+        "3c-apiselfsigned": "Your own generated API key, or empty",
         "notifications": False,
         "notify-urls": ["notify-url1", "notify-url2"],
     }
@@ -49,6 +50,20 @@ def load_config():
         cfg.write(cfgfile)
 
     return None
+
+
+def upgrade_config(cfg):
+    """Upgrade config file if needed."""
+
+    if not cfg.has_option("settings", "3c-apiselfsigned"):
+        cfg.set("settings", "3c-apiselfsigned", "")
+
+        with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
+            cfg.write(cfgfile)
+
+        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
+
+    return cfg
 
 
 def strtofloat(txtstr):
@@ -283,6 +298,11 @@ else:
         config.getboolean("settings", "debug"),
         config.getboolean("settings", "notifications"),
     )
+
+    # Upgrade config file if needed
+    config = upgrade_config(config)
+
+    logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
 api = init_threecommas_api(config)
