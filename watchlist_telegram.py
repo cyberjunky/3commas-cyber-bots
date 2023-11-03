@@ -48,7 +48,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
-        "3c-apiselfsigned": "Your own generated API key, or empty",
+        "3c-apikey-path": "Path to your own generated RSA private key, or empty",
         "tgram-phone-number": "Your Telegram Phone number",
         "tgram-api-id": "Your Telegram API ID",
         "tgram-api-hash": "Your Telegram API Hash",
@@ -109,13 +109,13 @@ def upgrade_config(cfg):
 
         logger.info("Upgraded the configuration file (added smarttrade section)")
 
-    if not cfg.has_option("settings", "3c-apiselfsigned"):
-        cfg.set("settings", "3c-apiselfsigned", "")
+    if not cfg.has_option("settings", "3c-apikey-path"):
+        cfg.set("settings", "3c-apikey-path", "")
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
-        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
+        logger.info("Upgraded the configuration file (3c-apikey-path)")
 
     return cfg
 
@@ -573,7 +573,9 @@ if hl10exchange not in ("Bittrex", "Binance", "Kucoin"):
     sys.exit(0)
 
 # Initialize 3Commas API
-api = init_threecommas_api(config)
+api = init_threecommas_api(logger, config)
+if not api:
+    sys.exit(0)
 
 # Code to enable testing instead of waiting for events.
 #run_tests()

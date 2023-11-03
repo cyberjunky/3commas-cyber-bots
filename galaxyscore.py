@@ -44,7 +44,7 @@ def load_config():
         "logrotate": 7,
         "3c-apikey": "Your 3Commas API Key",
         "3c-apisecret": "Your 3Commas API Secret",
-        "3c-apiselfsigned": "Your own generated API key, or empty",
+        "3c-apikey-path": "Path to your own generated RSA private key, or empty",
         "lc-apikey": "Your LunarCrush API Key",
         "lc-fetchlimit": 150,
         "notifications": False,
@@ -86,13 +86,13 @@ def upgrade_config(cfg):
 
             logger.info("Upgraded the configuration file (mingalaxyscore and bot stop-start)")
 
-    if not cfg.has_option("settings", "3c-apiselfsigned"):
-        cfg.set("settings", "3c-apiselfsigned", "")
+    if not cfg.has_option("settings", "3c-apikey-path"):
+        cfg.set("settings", "3c-apikey-path", "")
 
         with open(f"{datadir}/{program}.ini", "w+") as cfgfile:
             cfg.write(cfgfile)
 
-        logger.info("Upgraded the configuration file (3c-apiselfsigned)")
+        logger.info("Upgraded the configuration file (3c-apikey-path)")
 
     return cfg
 
@@ -320,7 +320,9 @@ else:
     logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
 # Initialize 3Commas API
-api = init_threecommas_api(config)
+api = init_threecommas_api(logger, config)
+if not api:
+    sys.exit(0)
 
 logger.info(f"Loaded configuration from '{datadir}/{program}.ini'")
 
