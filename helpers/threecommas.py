@@ -1,6 +1,8 @@
 """Cyberjunky's 3Commas bot helpers."""
 from math import nan
+import os
 from py3cw.request import Py3CW
+from Crypto.PublicKey import RSA
 
 from helpers.misc import get_round_digits
 
@@ -33,13 +35,28 @@ def load_blacklist(logger, api, blacklistfile):
     return get_threecommas_blacklist(logger, api)
 
 
-def init_threecommas_api(cfg):
+def init_threecommas_api(logger, cfg):
     """Init the 3commas API."""
+
+    selfsigned = ""
+    apikeypath = cfg.get("settings", "3c-apikey-path", fallback = "")
+
+    if apikeypath:
+        if os.path.isfile(apikeypath):
+            with open(apikeypath, mode='rb') as key_file:
+                key = RSA.import_key(key_file.read())
+                selfsigned = key.exportKey(format='PEM')
+        else:
+            logger.error(
+                f"Specified 3c-apikey-path '{apikeypath}' does not exist "
+                f"or is not an accessible file!"
+            )
+            return None
 
     return Py3CW(
         key = cfg.get("settings", "3c-apikey"),
-        secret = cfg.get("settings", "3c-apisecret"),
-        selfsigned = cfg.get("settings", "3c-apiselfsigned", fallback = ""),
+        secret = cfg.get("settings", "3c-apisecret") if not selfsigned else "",
+        selfsigned = selfsigned,
         request_options={
             "request_timeout": 10,
             "nr_of_retries": 3,
