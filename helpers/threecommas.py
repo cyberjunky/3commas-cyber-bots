@@ -35,6 +35,23 @@ def load_blacklist(logger, api, blacklistfile):
     return get_threecommas_blacklist(logger, api)
 
 
+def load_rsa_key(logger, path):
+    "Load the RSA key when specified"
+
+    key = ""
+
+    if os.path.isfile(path):
+        with open(path, mode='rb') as key_file:
+            key = RSA.import_key(key_file.read()).exportKey(format='PEM')
+    else:
+        logger.error(
+            f"Specified path '{path}' for RSA key does not exist "
+            f"or is not an accessible file!"
+        )
+
+    return key
+
+
 def init_threecommas_api(logger, cfg):
     """Init the 3commas API."""
 
@@ -42,15 +59,8 @@ def init_threecommas_api(logger, cfg):
     apikeypath = cfg.get("settings", "3c-apikey-path", fallback = "")
 
     if apikeypath:
-        if os.path.isfile(apikeypath):
-            with open(apikeypath, mode='rb') as key_file:
-                key = RSA.import_key(key_file.read())
-                selfsigned = key.exportKey(format='PEM')
-        else:
-            logger.error(
-                f"Specified 3c-apikey-path '{apikeypath}' does not exist "
-                f"or is not an accessible file!"
-            )
+        selfsigned = load_rsa_key(logger, apikeypath)
+        if not selfsigned:
             return None
 
     return Py3CW(
@@ -66,12 +76,21 @@ def init_threecommas_api(logger, cfg):
     )
 
 
-def init_threecommas_websocket(cfg, event_handler):
+def init_threecommas_websocket(logger, cfg, event_handler):
     """Init the 3commas WebSocket connection."""
+
+    selfsigned = ""
+    apikeypath = cfg.get("settings", "3c-apikey-path", fallback = "")
+
+    if apikeypath:
+        selfsigned = load_rsa_key(logger, apikeypath)
+        if not selfsigned:
+            return None
 
     return ThreeCommasWebsocketHandler(
         api_key = cfg.get("settings", "3c-apikey"),
-        api_secret = cfg.get("settings", "3c-apisecret"),
+        api_secret = cfg.get("settings", "3c-apisecret") if not selfsigned else "",
+        api_selfsigned = selfsigned,
         channel = "DealsChannel",
         external_event_handler = event_handler
     )

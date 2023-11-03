@@ -1,12 +1,17 @@
-"""Cyberjunky's 3Commas websocket helper.
-Updated by SanCoca."""
+"""
+Cyberjunky's 3Commas websocket helper.
+Updated by SanCoca
+"""
 import json
 import logging
 import hashlib
 import hmac
 import threading
-
+from base64 import b64encode
 from typing import Callable, Dict, Literal
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import RSA
 
 import rel
 import websocket
@@ -23,17 +28,28 @@ channel_paths: Dict[SocketChannels, SocketPaths] = {
 }
 
 def construct_socket_data(
-        api_key:str,
-        api_secret:str,
+        api_key: str,
+        api_secret: str,
+        api_selfsigned: str,
         channel:SocketChannels = "DealsChannel",
     ):
     """
     Construct websocket identifier
     """
     _channel_path = channel_paths[channel]
-    _encoded_key = str.encode(api_secret)
-    _message = str.encode(_channel_path)
-    _signature = hmac.new(_encoded_key, _message, hashlib.sha256).hexdigest()
+    _signature = None
+
+    if not api_selfsigned:
+        _encoded_key = str.encode(api_secret)
+        _message = str.encode(_channel_path)
+        _signature = hmac.new(_encoded_key, _message, hashlib.sha256).hexdigest()
+    else:
+        _encoded_key = RSA.import_key(api_selfsigned)
+        _message = str.encode(_channel_path)
+        h = SHA256.new(_message)
+        signer = pkcs1_15.new(_encoded_key)
+        _signature = b64encode(signer.sign(h)).decode('utf-8')
+
     _id_data={
         'api_key': api_key,
         'signature': _signature
@@ -93,6 +109,7 @@ class ThreeCommasWebsocket:
         else:
             self.__run_forever_rel_dispatcher()
 
+
     def start(self):
         """
         Start websocket client
@@ -101,6 +118,7 @@ class ThreeCommasWebsocket:
 
         self.is_running = True
         self.__refresh()
+
 
     def stop(self):
         """
@@ -124,6 +142,7 @@ class ThreeCommasWebsocket:
             _LOGGER.debug("Websocket restart after close")
 
             self.__refresh()
+
 
     def __on_message(self, ws, message):
         """
@@ -166,12 +185,14 @@ class ThreeCommasWebsocket:
         except Exception as error:
             _LOGGER.exception(error)
 
+
     def __on_error(self, ws, error):
         """
         On Error listener
         :param error:
         """
         _LOGGER.debug("Websocket error: %s", error)
+
 
 class ThreeCommasWebsocketHandler():
     """
@@ -185,20 +206,25 @@ class ThreeCommasWebsocketHandler():
         self,
         api_key: str,
         api_secret: str,
+        api_selfsigned: str,
         external_event_handler: Callable[[Dict], None] = None,
         channel: SocketChannels = "DealsChannel"
     ):
-        if not api_key or not api_secret:
-            raise SystemError("Api key or secret missing")
+        if not api_key:
+            raise SystemError("Api key missing")
+        if (api_secret is None or api_secret == '') and (api_selfsigned is None or api_selfsigned == ''):
+            raise SystemError("Api secret or private key missing")
         if channel not in SocketChannelsTuple:
             raise SystemError(f"Incorrect/unsupported stream channel {channel}")
 
         self.identifier = construct_socket_data(
             api_key=api_key,
             api_secret=api_secret,
+            api_selfsigned=api_selfsigned,
             channel=channel
         )
         self.external_event_handler = external_event_handler
+
 
     def on_event(self, data):
         """
@@ -206,6 +232,7 @@ class ThreeCommasWebsocketHandler():
         """
         _LOGGER.debug("3Commas websocket update received: %s", data)
         self._data = data
+
 
     def start_listener(self, seperate_thread = False):
         """
