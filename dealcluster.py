@@ -550,6 +550,8 @@ marketcodecache = create_marketcode_cache()
 
 # Initialize 3Commas WebSocket connection
 websocket = init_threecommas_websocket(logger, config, websocket_update)
+if not websocket:
+    sys.exit(0)
 websocket.start_listener(seperate_thread = True)
 
 # DCA Deal Cluster
