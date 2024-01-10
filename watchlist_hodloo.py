@@ -16,7 +16,7 @@ from helpers.threecommas import (
     load_blacklist,
     prefetch_marketcodes
 )
-from watchlist import process_botlist
+from helpers.watchlist import process_botlist
 
 
 def load_config():
