@@ -15,7 +15,7 @@ from helpers.datasources import (
     get_botassist_data,
     get_coingecko_data,
     get_coinmarketcap_data,
-    get_lunarcrush_data
+    #get_lunarcrush_data
 )
 from helpers.logging import (
     Logger,
@@ -639,43 +639,43 @@ def process_cg_section(section_id):
     return True, 0
 
 
-def process_lunarcrush_section(section_id, listtype):
-    """Process the Altrank or GalaxyScore section from the configuration"""
+#def process_lunarcrush_section(section_id, listtype):
+ #   """Process the Altrank or GalaxyScore section from the configuration"""
 
     # Reset existing data
-    shareddb.execute(
-        f"UPDATE rankings SET {listtype.lower()} = {0.0}"
-    )
+  #  shareddb.execute(
+   #     f"UPDATE rankings SET {listtype.lower()} = {0.0}"
+   # )
 
     # Download LunarCrush data
     # Volume is not used, so the price is set to 1.0 instead of the real dynamic value
-    lunarcrushdata = get_lunarcrush_data(logger, listtype.lower(), config, section_id, 1.0)
+    #lunarcrushdata = get_lunarcrush_data(logger, listtype.lower(), config, section_id, 1.0)
 
-    if not lunarcrushdata:
+    #if not lunarcrushdata:
         # Commit clearing of database
-        shareddb.commit()
+    #    shareddb.commit()
 
         # Retry in 15 minutes
-        return False, (60 * 15)
+    #    return False, (60 * 15)
 
     # Parse LunaCrush data
-    updatedcoins = 0
-    for entry in lunarcrushdata:
-        coin = entry["s"]
+    #updatedcoins = 0
+    #for entry in lunarcrushdata:
+    #    coin = entry["s"]
 
-        if not has_pair("*", coin):
+    #    if not has_pair("*", coin):
             # Coin does not exist, skip this one
-            if config.getboolean("settings", "debug-coin-data"):
-                logger.debug(
-                    f"Coin {coin} not in database, cannot update {listtype} data for this coin."
+    #        if config.getboolean("settings", "debug-coin-data"):
+    #            logger.debug(
+    #                f"Coin {coin} not in database, cannot update {listtype} data for this coin."
                 )
 
-            continue
+    #       continue
 
         # Update rankings data (both Altrank and GalaxyScore are available in the data)
         rankdata = {}
-        rankdata["altrank"] = float(entry["acr"])
-        rankdata["galaxyscore"] = float(entry["gs"])
+        #rankdata["altrank"] = float(entry["acr"])
+        #rankdata["galaxyscore"] = float(entry["gs"])
         update_values("rankings", "*", coin, rankdata)
 
         updatedcoins += 1
@@ -996,10 +996,10 @@ while True:
                     sectionresult = process_cmc_section(section)
                 elif iscgsection:
                     sectionresult = process_cg_section(section)
-                elif isaltranksection:
-                    sectionresult = process_lunarcrush_section(section, "Altrank")
-                elif isgalaxyscoresection:
-                    sectionresult = process_lunarcrush_section(section, "GalaxyScore")
+                #elif isaltranksection:
+                #    sectionresult = process_lunarcrush_section(section, "Altrank")
+                #elif isgalaxyscoresection:
+                #    sectionresult = process_lunarcrush_section(section, "GalaxyScore")
                 elif isvolatilitysection:
                     sectionresult = process_volatility_section(section)
 
